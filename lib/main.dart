@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:myapp/routes.dart'; // Importa a configuração de rotas
+import 'package:flutter_localizations/flutter_localizations.dart'; // Import para localização
+import 'package:intl/date_symbol_data_local.dart'; // Import para inicialização de data
 
-void main() {
+void main() async { // Transforma o main em assíncrono
+  WidgetsFlutterBinding.ensureInitialized(); // Garante a inicialização dos widgets
+  await initializeDateFormatting('pt_BR', null); // Inicializa a formatação para pt_BR
   runApp(const MyApp());
 }
 
@@ -11,7 +15,7 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const Color primarySeedColor = Color(0xFFD4A35D);
+    const Color primarySeedColor = Color.fromRGBO(224, 159, 62, 1);
     const Color backgroundColor = Color(0xFFFFF9F0);
 
     final TextTheme appTextTheme = TextTheme(
@@ -20,9 +24,9 @@ class MyApp extends StatelessWidget {
         fontWeight: FontWeight.bold,
         color: primarySeedColor,
       ),
-      titleMedium: GoogleFonts.roboto(fontSize: 16, color: Colors.black87),
-      labelLarge: GoogleFonts.roboto(fontSize: 16, fontWeight: FontWeight.bold),
-      bodyMedium: GoogleFonts.roboto(fontSize: 14),
+      titleMedium: GoogleFonts.lato(fontSize: 16, color: Colors.black87),
+      labelLarge: GoogleFonts.lato(fontSize: 16, fontWeight: FontWeight.bold),
+      bodyMedium: GoogleFonts.lato(fontSize: 14),
     );
 
     final ThemeData theme = ThemeData(
@@ -83,9 +87,19 @@ class MyApp extends StatelessWidget {
     );
 
     return MaterialApp.router(
-      title: 'Tela de Login',
+      title: 'Sabedoria Diária',
       theme: theme,
       routerConfig: router, // Usa o GoRouter para navegação
+      // Configuração de Localização
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('pt', 'BR'), // Português do Brasil
+      ],
+      locale: const Locale('pt', 'BR'), // Define o locale padrão
     );
   }
 }
