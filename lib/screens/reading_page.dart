@@ -48,9 +48,14 @@ class _ReadingPageState extends State<ReadingPage> {
   Future<List<String>> _loadChapterContent(int chapter) async {
     try {
       final jsonString = await rootBundle.loadString('assets/proverbios.json');
-      final jsonData = json.decode(jsonString);
-      final chapterData = jsonData['chapters'][chapter - 1] as List;
-      return chapterData.map((verse) => verse.toString()).toList();
+      final List<dynamic> jsonData = json.decode(jsonString);
+      final Map<String, dynamic> chapterObject = jsonData[chapter - 1];
+      final Map<String, dynamic> versesMap = chapterObject[chapter.toString()];
+      final List<String> verses = [];
+      versesMap.forEach((verseNumber, verseText) {
+        verses.add('$verseNumber $verseText');
+      });
+      return verses;
     } catch (e) {
       return ['Capítulo não encontrado.'];
     }
