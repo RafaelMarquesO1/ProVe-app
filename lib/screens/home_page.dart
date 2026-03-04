@@ -34,9 +34,6 @@ class HomePage extends StatelessWidget {
             _buildVerseOfTheDayCard(context, textTheme, colorScheme),
             const SizedBox(height: 24),
 
-            _buildContinueReadingCard(context, textTheme, colorScheme, chapter),
-            const SizedBox(height: 24),
-
             _buildRemindersCard(context, textTheme, colorScheme),
             const SizedBox(height: 24),
 
@@ -81,40 +78,6 @@ class HomePage extends StatelessWidget {
             style: textTheme.bodyMedium?.copyWith(color: Colors.black54),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildContinueReadingCard(BuildContext context, TextTheme textTheme, ColorScheme colorScheme, int chapter) {
-    return InkWell(
-      onTap: () => context.go('/reading'),
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: colorScheme.secondary.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.book_outlined, size: 40, color: Color(0xFFD98F2B)),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'CONTINUAR LEITURA',
-                    style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: colorScheme.secondary),
-                  ),
-                  const SizedBox(height: 4),
-                  Text('Provérbios, capítulo $chapter', style: textTheme.bodyLarge),
-                ],
-              ),
-            ),
-            const Icon(Icons.arrow_forward_ios, color: Colors.grey),
-          ],
-        ),
       ),
     );
   }
