@@ -57,6 +57,7 @@ O aplicativo segue uma arquitetura simples e organizada, com uma clara separaç�
 - **`lib/screens/history_page.dart`**: Um calendário que exibe o histórico de leitura do usuário.
 - **`lib/screens/reading_plan_page.dart`**: Uma tela que exibe as metas de leitura e as conquistas do usuário.
 - **`lib/screens/menu_page.dart`**: Uma tela de menu com opções de navegação.
+- **`lib/screens/edit_profile_page.dart`**: Tela que permite ao usuário editar seu nome, foto e senha.
 
 ---
 

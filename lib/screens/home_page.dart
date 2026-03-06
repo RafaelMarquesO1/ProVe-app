@@ -1,14 +1,48 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
+import 'package:myapp/models/user_model.dart';
+import 'package:table_calendar/table_calendar.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
   @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  final User? _currentUser = FirebaseAuth.instance.currentUser;
+
+  @override
   Widget build(BuildContext context) {
+    if (_currentUser == null) {
+      return const Scaffold(
+        body: Center(child: Text('Faça login para começar.')),
+      );
+    }
+
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance.collection('users').doc(_currentUser!.uid).snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        }
+        if (!snapshot.hasData || !snapshot.data!.exists) {
+          return _buildContent(context, UserModel.empty()); 
+        }
+
+        final user = UserModel.fromFirestore(snapshot.data!);
+        return _buildContent(context, user);
+      },
+    );
+  }
+
+  Widget _buildContent(BuildContext context, UserModel user) {
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
-    final chapter = DateTime.now().day; // Capítulo do dia
 
     return Scaffold(
       body: SingleChildScrollView(
@@ -30,16 +64,11 @@ class HomePage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 32),
-            
             _buildVerseOfTheDayCard(context, textTheme, colorScheme),
             const SizedBox(height: 24),
-
-            _buildRemindersCard(context, textTheme, colorScheme),
-            const SizedBox(height: 24),
-
-            _buildStreakCard(context, textTheme, colorScheme),
+            // O NOVO CARD DE CALENDÁRIO
+            _buildCalendarCard(context, textTheme, colorScheme, user.readingStreak, user.completedDays),
             const SizedBox(height: 40),
-            
             ElevatedButton(
               onPressed: () => context.go('/reading'),
               style: ElevatedButton.styleFrom(
@@ -82,84 +111,108 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  Widget _buildRemindersCard(BuildContext context, TextTheme textTheme, ColorScheme colorScheme) {
-    return InkWell(
-      onTap: () => context.go('/settings/reminders'),
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade200,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'LEMBRETE DIÁRIO',
-                  style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                ),
-                Text('Toque para configurar', style: textTheme.bodyMedium),
-              ],
-            ),
-            const Icon(Icons.arrow_forward_ios, color: Colors.grey),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStreakCard(BuildContext context, TextTheme textTheme, ColorScheme colorScheme) {
-    // Dados de exemplo para a sequência
-    final List<bool> streakDays = [true, true, false, true, true, true, false];
-    final List<String> weekDays = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
+  // NOVO WIDGET PARA O CALENDÁRIO
+  Widget _buildCalendarCard(BuildContext context, TextTheme textTheme, ColorScheme colorScheme, int streak, List<DateTime> completedDays) {
+    final today = DateTime.now();
+    final completedDaysSet = completedDays.map((d) => DateTime.utc(d.year, d.month, d.day)).toSet();
+    const highlightColor = Color(0xFFD98F2B); // Laranja para dias completos
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFE8F5E9), // Fundo verde claro
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.2),
+            spreadRadius: 2,
+            blurRadius: 8,
+            offset: const Offset(0, 4), 
+          ),
+        ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'SEQUÊNCIA DE LEITURA',
-            style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: Colors.green.shade800),
-          ),
-          const SizedBox(height: 16),
           Row(
             children: [
-              const Icon(Icons.local_fire_department, color: Colors.orange, size: 36),
+              Icon(Icons.local_fire_department, color: highlightColor, size: 32),
               const SizedBox(width: 12),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('5 dias', style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
-                  Text('Mantenha o ritmo!', style: textTheme.bodyMedium),
+                  Text('$streak dias de ofensiva', style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+                  Text('Seu progresso de leitura:', style: textTheme.bodyMedium),
                 ],
               ),
             ],
           ),
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: List.generate(7, (index) {
-              return Column(
-                children: [
-                  Text(weekDays[index], style: textTheme.bodySmall?.copyWith(color: Colors.grey.shade600)),
-                  const SizedBox(height: 4),
-                  Icon(
-                    streakDays[index] ? Icons.check_circle : Icons.circle_outlined,
-                    color: streakDays[index] ? Colors.green : Colors.grey[300],
-                    size: 28,
+          const SizedBox(height: 12),
+          TableCalendar(
+            locale: 'pt_BR',
+            firstDay: DateTime.utc(today.year - 1, today.month, 1),
+            lastDay: DateTime.utc(today.year + 1, today.month, 31),
+            focusedDay: today,
+            headerStyle: HeaderStyle(
+              titleCentered: true,
+              formatButtonVisible: false,
+              titleTextStyle: textTheme.titleMedium!.copyWith(fontWeight: FontWeight.bold),
+            ),
+            calendarFormat: CalendarFormat.month,
+            startingDayOfWeek: StartingDayOfWeek.monday,
+            daysOfWeekStyle: DaysOfWeekStyle(
+              weekdayStyle: TextStyle(fontWeight: FontWeight.bold, color: colorScheme.primary),
+              weekendStyle: TextStyle(fontWeight: FontWeight.bold, color: highlightColor),
+            ),
+            calendarBuilders: CalendarBuilders(
+              // ESTILIZA OS MARCADORES DE DIAS COMPLETOS
+              markerBuilder: (context, day, events) {
+                final isCompleted = completedDaysSet.contains(DateTime.utc(day.year, day.month, day.day));
+                if (isCompleted) {
+                  return Positioned(
+                    bottom: 4,
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: const BoxDecoration(
+                        color: highlightColor,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: Text(
+                          '${day.day}',
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  );
+                }
+                return null;
+              },
+              // ESTILIZA O DIA DE HOJE
+              todayBuilder: (context, day, focusedDay) {
+                return Center(
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: colorScheme.primary, width: 2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text(
+                        '${day.day}',
+                        style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold),
+                      ),
+                    ),
                   ),
-                ],
-              );
-            }),
+                );
+              },
+              // ESTILIZA OS DIAS NORMAIS
+              defaultBuilder: (context, day, focusedDay) {
+                  final isCompleted = completedDaysSet.contains(DateTime.utc(day.year, day.month, day.day));
+                  return isCompleted ? const SizedBox.shrink() : null; // Esconde o número padrão se estiver completo
+              },
+            ),
           ),
         ],
       ),

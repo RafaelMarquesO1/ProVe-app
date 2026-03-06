@@ -1,9 +1,11 @@
 import 'dart:convert';
-
+import 'dart:developer' as developer;
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:go_router/go_router.dart';
+import 'package:myapp/models/user_model.dart';
 
 class ReadingPage extends StatefulWidget {
   const ReadingPage({super.key});
@@ -14,35 +16,77 @@ class ReadingPage extends StatefulWidget {
 
 class _ReadingPageState extends State<ReadingPage> {
   late Future<Map<String, dynamic>> _chapterData;
+  final User? _currentUser = FirebaseAuth.instance.currentUser;
 
   @override
   void initState() {
     super.initState();
-    _chapterData = _loadChapterData();
+    if (_currentUser != null) {
+      _chapterData = _prepareChapterForReading();
+    } else {
+      _chapterData = Future.value({'error': 'Usuário não autenticado'});
+    }
   }
 
-  Future<Map<String, dynamic>> _loadChapterData() async {
-    final prefs = await SharedPreferences.getInstance();
-    int chapterToShow = prefs.getInt('lastChapter') ?? 1;
-    final lastReadDateString = prefs.getString('lastReadDate');
+  Future<Map<String, dynamic>> _prepareChapterForReading() async {
+    final userDocRef = FirebaseFirestore.instance.collection('users').doc(_currentUser!.uid);
+    final userSnapshot = await userDocRef.get();
 
-    if (lastReadDateString != null) {
-      final lastReadDate = DateTime.parse(lastReadDateString);
-      final today = DateTime.now();
-      if (today.day > lastReadDate.day || today.month > lastReadDate.month || today.year > lastReadDate.year) {
-        if (chapterToShow < 31) {
-          chapterToShow++;
-        }
-      }
-    } else {
-      chapterToShow = 1;
+    if (!userSnapshot.exists) {
+      developer.log('DEBUG: Usuário não encontrado no Firestore', name: 'reading_page');
+      throw Exception("Usuário não encontrado no Firestore");
     }
 
-    await prefs.setInt('lastChapter', chapterToShow);
-    await prefs.setString('lastReadDate', DateTime.now().toIso8601String());
+    final user = UserModel.fromFirestore(userSnapshot);
+    final today = DateTime.now();
+    final todayUtc = DateTime.utc(today.year, today.month, today.day);
+
+    developer.log('--- INÍCIO DA DEPURAÇÃO ---', name: 'reading_page');
+    developer.log('Horário de Agora (UTC): $todayUtc', name: 'reading_page');
+    developer.log('Dias completos no DB: ${user.completedDays}', name: 'reading_page');
+
+    final bool hasReadToday = user.completedDays.any((d) => isSameDay(d, todayUtc));
+
+    developer.log('O usuário já leu hoje? $hasReadToday', name: 'reading_page');
+    developer.log('Capítulo atual salvo no DB: ${user.currentChapter}', name: 'reading_page');
+
+    int chapterToShow;
+
+    if (hasReadToday) {
+      developer.log('LÓGICA: Usuário JÁ LEU hoje.', name: 'reading_page');
+      chapterToShow = (user.currentChapter == 1) ? 31 : user.currentChapter - 1;
+      developer.log('DECISÃO: Mostrar capítulo (já lido) número $chapterToShow', name: 'reading_page');
+    } else {
+      developer.log('LÓGICA: Usuário AINDA NÃO LEU hoje.', name: 'reading_page');
+      chapterToShow = user.currentChapter;
+      developer.log('DECISÃO: Mostrar capítulo número $chapterToShow e salvar progresso.', name: 'reading_page');
+      await _commitDailyReading(userDocRef, user, todayUtc, chapterToShow);
+    }
+    developer.log('--- FIM DA DEPURAÇÃO ---', name: 'reading_page');
 
     final content = await _loadChapterContent(chapterToShow);
     return {'chapter': chapterToShow, 'content': content};
+  }
+
+  Future<void> _commitDailyReading(DocumentReference userDocRef, UserModel user, DateTime todayUtc, int chapterRead) async {
+    int newStreak = 1;
+    if (user.lastReadDate != null) {
+      final lastReadUtc = DateTime.utc(user.lastReadDate!.year, user.lastReadDate!.month, user.lastReadDate!.day);
+      final difference = todayUtc.difference(lastReadUtc).inDays;
+      if (difference == 1) {
+        newStreak = user.readingStreak + 1;
+      }
+    }
+    int nextChapter = (chapterRead % 31) + 1;
+    
+    developer.log('AÇÃO: Salvando no DB. Próximo capítulo será: $nextChapter', name: 'reading_page');
+
+    await userDocRef.update({
+      'lastReadDate': Timestamp.fromDate(todayUtc),
+      'readingStreak': newStreak,
+      'completedDays': FieldValue.arrayUnion([Timestamp.fromDate(todayUtc)]),
+      'currentChapter': nextChapter,
+    });
   }
 
   Future<List<String>> _loadChapterContent(int chapter) async {
@@ -61,6 +105,10 @@ class _ReadingPageState extends State<ReadingPage> {
     }
   }
 
+  bool isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -75,12 +123,13 @@ class _ReadingPageState extends State<ReadingPage> {
               return const Center(child: CircularProgressIndicator());
             }
 
-            if (snapshot.hasError) {
-              return Center(child: Text('Erro ao carregar capítulo.'));
+            if (snapshot.hasError || !snapshot.hasData || snapshot.data!.containsKey('error')) {
+              String error = snapshot.error?.toString() ?? snapshot.data?['error'] ?? 'Erro desconhecido';
+              return Center(child: Text('Erro ao carregar capítulo: $error'));
             }
 
             final chapter = snapshot.data!['chapter'];
-            final verses = snapshot.data!['content'];
+            final verses = snapshot.data!['content'] as List<String>;
 
             return CustomScrollView(
               slivers: [

@@ -1,12 +1,18 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:myapp/routes.dart'; // Importa a configuração de rotas
 import 'package:flutter_localizations/flutter_localizations.dart'; // Import para localização
 import 'package:intl/date_symbol_data_local.dart'; // Import para inicialização de data
 
+import 'firebase_options.dart';
+
 void main() async { // Transforma o main em assíncrono
   WidgetsFlutterBinding.ensureInitialized(); // Garante a inicialização dos widgets
   await initializeDateFormatting('pt_BR', null); // Inicializa a formatação para pt_BR
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(const MyApp());
 }
 

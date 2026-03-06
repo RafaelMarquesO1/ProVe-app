@@ -1,6 +1,7 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:myapp/models/note.dart'; // Importa o modelo Note
+import 'package:myapp/models/note.dart';
 import 'package:myapp/screens/login_page.dart';
 import 'package:myapp/screens/signup_page.dart';
 import 'package:myapp/screens/main_scaffold.dart';
@@ -12,10 +13,24 @@ import 'package:myapp/screens/notes_list_page.dart';
 import 'package:myapp/screens/note_editor_page.dart';
 import 'package:myapp/screens/widgets_page.dart';
 import 'package:myapp/screens/notifications_page.dart';
-import 'package:myapp/screens/profile_page.dart';
+import 'package:myapp/screens/edit_profile_page.dart';
 
 final GoRouter router = GoRouter(
   initialLocation: '/',
+  redirect: (BuildContext context, GoRouterState state) {
+    final bool loggedIn = FirebaseAuth.instance.currentUser != null;
+    final bool loggingIn = state.matchedLocation == '/' || state.matchedLocation == '/signup';
+
+    if (!loggedIn) {
+      return loggingIn ? null : '/';
+    }
+
+    if (loggingIn) {
+      return '/home';
+    }
+
+    return null;
+  },
   routes: [
     GoRoute(
       path: '/',
@@ -57,7 +72,6 @@ final GoRouter router = GoRouter(
           GoRoute(
             path: 'editor',
             builder: (context, state) {
-              // Agora a rota conhece o tipo 'Note'
               final note = state.extra as Note?;
               return NoteEditorPage(note: note);
             },
@@ -72,8 +86,8 @@ final GoRouter router = GoRouter(
       builder: (context, state) => const NotificationsPage(),
     ),
     GoRoute(
-      path: '/profile',
-      builder: (context, state) => const ProfilePage(),
+      path: '/profile/edit',
+      builder: (context, state) => const EditProfilePage(),
     ),
   ],
 );

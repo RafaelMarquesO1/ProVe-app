@@ -1,8 +1,36 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-class MenuPage extends StatelessWidget {
+class MenuPage extends StatefulWidget {
   const MenuPage({super.key});
+
+  @override
+  State<MenuPage> createState() => _MenuPageState();
+}
+
+class _MenuPageState extends State<MenuPage> {
+  User? _user;
+
+  @override
+  void initState() {
+    super.initState();
+    // Garante que o estado seja atualizado quando o usuário muda
+    FirebaseAuth.instance.userChanges().listen((user) {
+      if (mounted) {
+        setState(() {
+          _user = user;
+        });
+      }
+    });
+  }
+
+  Future<void> _signOut() async {
+    await FirebaseAuth.instance.signOut();
+    if (mounted) {
+      context.go('/');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,7 +53,6 @@ class MenuPage extends StatelessWidget {
             _buildProfileCard(context, textTheme, colorScheme),
             const SizedBox(height: 24),
 
-            // Container não-flutuante para as opções de menu
             Container(
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -41,7 +68,7 @@ class MenuPage extends StatelessWidget {
                     onTap: () => context.go('/favorites'),
                   ),
                   const Divider(height: 1, indent: 16, endIndent: 16),
-                   _buildMenuItem(
+                  _buildMenuItem(
                     context,
                     icon: Icons.note_alt_outlined,
                     title: 'Anotações',
@@ -61,7 +88,7 @@ class MenuPage extends StatelessWidget {
                     title: 'Notificações',
                     onTap: () => context.go('/notifications'),
                   ),
-                   const Divider(height: 1, indent: 16, endIndent: 16),
+                  const Divider(height: 1, indent: 16, endIndent: 16),
                   _buildMenuItem(
                     context,
                     icon: Icons.widgets_outlined,
@@ -73,7 +100,6 @@ class MenuPage extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
-            // Container não-flutuante para o botão de sair
             Container(
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -84,7 +110,7 @@ class MenuPage extends StatelessWidget {
                 context,
                 icon: Icons.logout,
                 title: 'Sair',
-                onTap: () => context.go('/'),
+                onTap: _signOut,
                 isLogout: true,
               ),
             ),
@@ -95,30 +121,42 @@ class MenuPage extends StatelessWidget {
   }
 
   Widget _buildProfileCard(BuildContext context, TextTheme textTheme, ColorScheme colorScheme) {
+    final photoURL = _user?.photoURL;
+    final displayName = _user?.displayName ?? 'Nome do Usuário';
+
     return Card(
-      elevation: 2, // Mantém a elevação aqui para destacar o perfil
+      elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => context.go('/profile'),
+        // Alterado: Navega para a tela de edição de perfil
+        onTap: () => context.go('/profile/edit'),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Row(
             children: [
-              const CircleAvatar(
+              CircleAvatar(
                 radius: 30,
-                backgroundColor: Colors.grey,
-                child: Icon(Icons.person, size: 30, color: Colors.white),
+                backgroundImage: photoURL != null ? NetworkImage(photoURL) : null,
+                backgroundColor: photoURL == null ? colorScheme.primary.withOpacity(0.1) : Colors.transparent,
+                child: photoURL == null
+                    ? Text(
+                        displayName.isNotEmpty ? displayName.substring(0, 1).toUpperCase() : 'U',
+                        style: TextStyle(fontSize: 24, color: colorScheme.primary, fontWeight: FontWeight.bold),
+                      )
+                    : null,
               ),
               const SizedBox(width: 16),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Nome do Usuário', style: textTheme.titleLarge),
-                  Text('Ver Perfil', style: textTheme.bodyMedium?.copyWith(color: colorScheme.primary)),
-                ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(displayName, style: textTheme.titleLarge, overflow: TextOverflow.ellipsis),
+                    // Alterado: O texto agora indica a ação de edição
+                    Text('Editar Perfil', style: textTheme.bodyMedium?.copyWith(color: colorScheme.primary)),
+                  ],
+                ),
               ),
-              const Spacer(),
               const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
             ],
           ),
@@ -129,7 +167,7 @@ class MenuPage extends StatelessWidget {
 
   Widget _buildMenuItem(BuildContext context, {required IconData icon, required String title, VoidCallback? onTap, bool isLogout = false}) {
     final color = isLogout ? Colors.red.shade700 : Theme.of(context).colorScheme.primary;
-    final textStyle = isLogout 
+    final textStyle = isLogout
         ? TextStyle(fontSize: 16, color: color, fontWeight: FontWeight.bold)
         : const TextStyle(fontSize: 16);
 

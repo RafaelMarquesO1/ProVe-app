@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:myapp/screens/home_page.dart';
 import 'package:myapp/screens/menu_page.dart';
@@ -30,9 +29,7 @@ class _MainScaffoldState extends State<MainScaffold> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: _widgetOptions.elementAt(_selectedIndex),
-      ),
+      body: Center(child: _widgetOptions.elementAt(_selectedIndex)),
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
@@ -43,7 +40,7 @@ class _MainScaffoldState extends State<MainScaffold> {
           BottomNavigationBarItem(
             icon: Icon(Icons.calendar_today_outlined),
             activeIcon: Icon(Icons.calendar_today),
-            label: 'Plano',
+            label: 'Ofensiva',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.menu_outlined),
@@ -55,7 +52,8 @@ class _MainScaffoldState extends State<MainScaffold> {
         selectedItemColor: Theme.of(context).colorScheme.primary,
         unselectedItemColor: Colors.grey[600],
         backgroundColor: Theme.of(context).cardColor,
-        type: BottomNavigationBarType.fixed, // Garante que todos os itens apareçam
+        type: BottomNavigationBarType
+            .fixed, // Garante que todos os itens apareçam
         onTap: _onItemTapped,
       ),
     );

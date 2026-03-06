@@ -1,7 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:table_calendar/table_calendar.dart';
-import '../services/progress_service.dart'; // Importe o serviço
+import '../models/user_model.dart';
 
 class ReadingPlanPage extends StatefulWidget {
   const ReadingPlanPage({super.key});
@@ -11,102 +12,85 @@ class ReadingPlanPage extends StatefulWidget {
 }
 
 class _ReadingPlanPageState extends State<ReadingPlanPage> {
-  final ProgressService _progressService = ProgressService();
+  final User? _currentUser = FirebaseAuth.instance.currentUser;
+  late final DocumentReference<Map<String, dynamic>> _userDocRef;
+
   CalendarFormat _calendarFormat = CalendarFormat.month;
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
-  Set<DateTime> _completedDays = {};
-  int _lastReadChapter = 0;
-  int _streak = 0;
 
   @override
   void initState() {
     super.initState();
-    _loadProgress();
-  }
-
-  Future<void> _loadProgress() async {
-    final lastReadDate = await _progressService.getLastReadDate();
-    final lastReadChapter = await _progressService.getLastReadChapter();
-    final streak = await _progressService.getStreak();
-    final completedDays = await _getCompletedDays();
-
-    if (mounted) {
-      setState(() {
-        _selectedDay = lastReadDate;
-        _lastReadChapter = lastReadChapter;
-        _streak = streak;
-        _completedDays = completedDays;
-      });
+    if (_currentUser != null) {
+      _userDocRef = FirebaseFirestore.instance.collection('users').doc(_currentUser!.uid);
     }
-  }
-
-  Future<Set<DateTime>> _getCompletedDays() async {
-    final prefs = await SharedPreferences.getInstance();
-    final keys = prefs.getKeys();
-    final completedDays = <DateTime>{};
-    for (String key in keys) {
-      if (key.startsWith('read_')) {
-        final dateString = key.substring(5);
-        completedDays.add(DateTime.parse(dateString));
-      }
-    }
-    return completedDays;
-  }
-
-  Future<void> _markTodayAsRead() async {
-    final today = DateTime.now();
-    final nextChapter = _lastReadChapter + 1;
-
-    await _progressService.markAsRead(today, nextChapter);
-
-    // Salvar o dia concluído para o calendário
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('read_${today.toIso8601String()}', true);
-
-    _loadProgress();
+    _selectedDay = _focusedDay;
   }
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    final colorScheme = Theme.of(context).colorScheme;
+    if (_currentUser == null) {
+      return const Center(child: Text('Faça login para ver seu plano.'));
+    }
 
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: _userDocRef.snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (!snapshot.hasData || !snapshot.data!.exists) {
+          // Exibe um estado "vazio" mas funcional se o usuário ainda não tiver dados
+          return _buildEmptyState();
+        }
+
+        final user = UserModel.fromFirestore(snapshot.data!);
+
+        return Scaffold(
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 48, 16, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('PLANO DE LEITURA', textAlign: TextAlign.center, style: Theme.of(context).textTheme.displayLarge),
+                const SizedBox(height: 8),
+                Text('Acompanhe seu progresso e mantenha o hábito.', textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.black54)),
+                const SizedBox(height: 24),
+                _buildCalendar(context, user.completedDays.toSet()),
+                const SizedBox(height: 24),
+                // Passa o total de dias lidos para o card de progresso
+                _buildProgressCards(context, user.readingStreak, user.completedDays.length),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+  
+  // Widget para o estado vazio
+  Widget _buildEmptyState() {
     return Scaffold(
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 48, 16, 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              'PLANO DE LEITURA',
-              textAlign: TextAlign.center,
-              style: textTheme.displayLarge,
-            ),
+            Text('PLANO DE LEITURA', textAlign: TextAlign.center, style: Theme.of(context).textTheme.displayLarge),
             const SizedBox(height: 8),
-            Text(
-              'Acompanhe seu progresso e mantenha o hábito.',
-              textAlign: TextAlign.center,
-              style: textTheme.titleMedium?.copyWith(
-                color: Colors.black54,
-              ),
-            ),
+            Text('Acompanhe seu progresso e mantenha o hábito.', textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.black54)),
             const SizedBox(height: 24),
-            _buildCalendar(context),
+            _buildCalendar(context, {}), // Calendário vazio
             const SizedBox(height: 24),
-            _buildProgressCards(context, textTheme, colorScheme),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: _markTodayAsRead,
-              child: const Text('Marcar Leitura de Hoje'),
-            ),
+            _buildProgressCards(context, 0, 0), // Cards com valores zerados
           ],
         ),
       ),
     );
   }
 
-  Widget _buildCalendar(BuildContext context) {
+  Widget _buildCalendar(BuildContext context, Set<DateTime> completedDays) {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Card(
@@ -120,16 +104,13 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
           lastDay: DateTime.utc(2030, 12, 31),
           focusedDay: _focusedDay,
           calendarFormat: _calendarFormat,
-          selectedDayPredicate: (day) {
-            return isSameDay(_selectedDay, day);
-          },
+          selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+          eventLoader: (day) => completedDays.where((d) => isSameDay(d, day)).toList(),
           onDaySelected: (selectedDay, focusedDay) {
-            if (!isSameDay(_selectedDay, selectedDay)) {
-              setState(() {
-                _selectedDay = selectedDay;
-                _focusedDay = focusedDay;
-              });
-            }
+            setState(() {
+              _selectedDay = selectedDay;
+              _focusedDay = focusedDay;
+            });
           },
           onFormatChanged: (format) {
             if (_calendarFormat != format) {
@@ -141,30 +122,22 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
           onPageChanged: (focusedDay) {
             _focusedDay = focusedDay;
           },
-          calendarBuilders: CalendarBuilders(
+           calendarBuilders: CalendarBuilders(
             markerBuilder: (context, date, events) {
-              if (_completedDays.any((d) => isSameDay(d, date))) {
+              if (events.isNotEmpty) {
                 return Positioned(
+                  right: 1,
                   bottom: 1,
-                  child: Icon(Icons.check_circle, color: Colors.green, size: 16),
+                  child: _buildEventsMarker(),
                 );
               }
               return null;
             },
           ),
-          headerStyle: const HeaderStyle(
-            titleCentered: true,
-            formatButtonVisible: false,
-          ),
+          headerStyle: const HeaderStyle(titleCentered: true, formatButtonVisible: false),
           calendarStyle: CalendarStyle(
-            todayDecoration: BoxDecoration(
-              color: colorScheme.primary.withOpacity(0.3),
-              shape: BoxShape.circle,
-            ),
-            selectedDecoration: BoxDecoration(
-              color: colorScheme.primary,
-              shape: BoxShape.circle,
-            ),
+            todayDecoration: BoxDecoration(color: colorScheme.primary.withOpacity(0.3), shape: BoxShape.circle),
+            selectedDecoration: BoxDecoration(color: colorScheme.primary, shape: BoxShape.circle),
             weekendTextStyle: TextStyle(color: colorScheme.primary),
           ),
         ),
@@ -172,44 +145,28 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
     );
   }
 
-  Widget _buildProgressCards(
-      BuildContext context, TextTheme textTheme, ColorScheme colorScheme) {
+  Widget _buildEventsMarker() {
+    return Container(
+      decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.green),
+      width: 8.0,
+      height: 8.0,
+    );
+  }
+
+  // Atualiza a assinatura da função para receber o total de dias lidos
+  Widget _buildProgressCards(BuildContext context, int streak, int totalDaysRead) {
     return Column(
       children: [
-        _buildInfoCard(
-          context,
-          icon: Icons.local_fire_department,
-          iconColor: Colors.orange,
-          title: 'SEQUÊNCIA ATUAL',
-          value: '$_streak dias',
-          subtitle: 'Continue assim!',
-          color: const Color(0xFFFFF3E0),
-        ),
+        _buildInfoCard(context, icon: Icons.local_fire_department, iconColor: Colors.orange, title: 'SEQUÊNCIA ATUAL', value: '$streak dias', subtitle: 'Continue assim!', color: const Color(0xFFFFF3E0)),
         const SizedBox(height: 16),
-        _buildInfoCard(
-          context,
-          icon: Icons.library_books,
-          iconColor: Colors.blue.shade800,
-          title: 'CAPÍTULO ATUAL',
-          value: '${_lastReadChapter + 1}',
-          subtitle: 'Próximo capítulo para ler',
-          color: Colors.blue.shade50,
-        ),
+        // O card agora exibe o total de dias lidos
+        _buildInfoCard(context, icon: Icons.check_circle, iconColor: Colors.green.shade800, title: 'DIAS LIDOS', value: '$totalDaysRead', subtitle: 'Total de dias de leitura', color: Colors.green.shade50),
       ],
     );
   }
 
-  Widget _buildInfoCard(
-    BuildContext context, {
-    required IconData icon,
-    required Color iconColor,
-    required String title,
-    required String value,
-    required String subtitle,
-    required Color color,
-  }) {
+  Widget _buildInfoCard(BuildContext context, {required IconData icon, required Color iconColor, required String title, required String value, required String subtitle, required Color color}) {
     final textTheme = Theme.of(context).textTheme;
-
     return Card(
       elevation: 2,
       color: color,
@@ -223,10 +180,7 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: iconColor),
-                ),
+                Text(title, style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: iconColor)),
                 const SizedBox(height: 4),
                 Text(value, style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
                 Text(subtitle, style: textTheme.bodyMedium),

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "360938100804",
+    "project_id": "prove-app-46125466",
+    "storage_bucket": "prove-app-46125466.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:360938100804:android:aa33990f35b2d97e030411",
+        "android_client_info": {
+          "package_name": "com.example.myapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAQ6JYd-mAiqfhfm8xODu9A2fojkb40XRQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
