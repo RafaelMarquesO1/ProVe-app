@@ -4,61 +4,70 @@ class UserModel {
   final String uid;
   final String name;
   final String email;
-  final int readingStreak;
   final DateTime? lastReadDate;
+  final int readingStreak;
   final List<DateTime> completedDays;
-  final int currentChapter; // CAMPO ADICIONADO
+  final int currentChapter;
 
   UserModel({
     required this.uid,
     required this.name,
     required this.email,
-    required this.readingStreak,
     this.lastReadDate,
-    required this.completedDays,
-    required this.currentChapter, // CAMPO ADICIONADO
+    this.readingStreak = 0,
+    this.completedDays = const [],
+    this.currentChapter = 1,
   });
+
+  factory UserModel.fromFirestore(DocumentSnapshot doc) {
+    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    
+    // Lógica de conversão segura para Timestamps
+    DateTime? parseLastReadDate(dynamic date) {
+      if (date is Timestamp) {
+        return date.toDate();
+      }
+      return null;
+    }
+
+    List<DateTime> parseCompletedDays(dynamic list) {
+      if (list is List) {
+        return list.whereType<Timestamp>().map((ts) => ts.toDate()).toList();
+      }
+      return [];
+    }
+
+    return UserModel(
+      uid: doc.id,
+      name: data['name'] ?? '',
+      email: data['email'] ?? '',
+      lastReadDate: parseLastReadDate(data['lastReadDate']),
+      readingStreak: data['readingStreak'] ?? 0,
+      completedDays: parseCompletedDays(data['completedDays']),
+      currentChapter: data['currentChapter'] ?? 1,
+    );
+  }
 
   factory UserModel.empty() {
     return UserModel(
       uid: '',
-      name: 'Usuário',
+      name: 'Convidado',
       email: '',
-      readingStreak: 0,
       lastReadDate: null,
+      readingStreak: 0,
       completedDays: [],
-      currentChapter: 1, // VALOR PADRÃO
+      currentChapter: 1,
     );
   }
 
-  factory UserModel.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
-    final data = doc.data() ?? {};
-
-    final List<dynamic> completedTimestamps = data['completedDays'] ?? [];
-    final List<DateTime> completedDates = completedTimestamps
-        .map((ts) => (ts as Timestamp).toDate())
-        .toList();
-
-    return UserModel(
-      uid: doc.id,
-      name: data['name'] ?? 'Usuário',
-      email: data['email'] ?? '',
-      readingStreak: data['readingStreak'] ?? 0,
-      lastReadDate: (data['lastReadDate'] as Timestamp?)?.toDate(),
-      completedDays: completedDates,
-      currentChapter: data['currentChapter'] ?? 1, // VALOR PADRÃO
-    );
-  }
-
-  Map<String, dynamic> toMap() {
+  Map<String, dynamic> toFirestore() {
     return {
-      'uid': uid,
       'name': name,
       'email': email,
-      'readingStreak': readingStreak,
       'lastReadDate': lastReadDate != null ? Timestamp.fromDate(lastReadDate!) : null,
+      'readingStreak': readingStreak,
       'completedDays': completedDays.map((date) => Timestamp.fromDate(date)).toList(),
-      'currentChapter': currentChapter, // CAMPO ADICIONADO
+      'currentChapter': currentChapter,
     };
   }
 }

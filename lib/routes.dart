@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -15,8 +16,29 @@ import 'package:myapp/screens/widgets_page.dart';
 import 'package:myapp/screens/notifications_page.dart';
 import 'package:myapp/screens/edit_profile_page.dart';
 
+// Adicionado para notificar o GoRouter sobre mudanças de autenticação
+class GoRouterRefreshStream extends ChangeNotifier {
+  late final StreamSubscription<User?> _subscription;
+
+  GoRouterRefreshStream() {
+    _subscription = FirebaseAuth.instance.authStateChanges().listen(
+      (User? user) {
+        notifyListeners();
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _subscription.cancel();
+    super.dispose();
+  }
+}
+
+
 final GoRouter router = GoRouter(
   initialLocation: '/',
+  refreshListenable: GoRouterRefreshStream(), // Adicionado para ouvir mudanças de auth
   redirect: (BuildContext context, GoRouterState state) {
     final bool loggedIn = FirebaseAuth.instance.currentUser != null;
     final bool loggingIn = state.matchedLocation == '/' || state.matchedLocation == '/signup';

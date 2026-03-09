@@ -1,85 +1,98 @@
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:myapp/models/user_model.dart';
+import 'dart:developer' as developer;
 
 class ProgressService {
-  static const _lastReadDateKey = 'lastReadDate';
-  static const _lastChapterKey = 'lastChapter';
-  static const _streakKey = 'streak';
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final User? _currentUser = FirebaseAuth.instance.currentUser;
 
-  // Helper para normalizar uma data para meia-noite, crucial para comparações baseadas em dias.
-  DateTime _normalizeDate(DateTime dateTime) {
-    return DateTime(dateTime.year, dateTime.month, dateTime.day);
-  }
-
-  Future<void> markAsRead(DateTime date, int chapter) async {
-    final prefs = await SharedPreferences.getInstance();
-    // Primeiro, obtenha a data da última leitura ANTES de sobrescrevê-la.
-    final previousReadDate = await getLastReadDate();
-
-    // Agora, atualize a sequência com base na nova leitura.
-    await _updateStreak(date, previousReadDate);
-
-    // Finalmente, salve as informações da nova leitura.
-    await prefs.setString(_lastReadDateKey, date.toIso8601String());
-    await prefs.setInt(_lastChapterKey, chapter);
-  }
-
-  Future<DateTime?> getLastReadDate() async {
-    final prefs = await SharedPreferences.getInstance();
-    final dateString = prefs.getString(_lastReadDateKey);
-    return dateString != null ? DateTime.parse(dateString) : null;
-  }
-
-  Future<int> getLastReadChapter() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt(_lastChapterKey) ?? 0;
-  }
-
-  Future<int> getStreak() async {
-    final prefs = await SharedPreferences.getInstance();
-    final lastReadDate = await getLastReadDate();
-
-    if (lastReadDate == null) {
-      return 0; // Nenhuma leitura ainda, sem sequência.
+  Future<Map<String, dynamic>> getChapterForToday() async {
+    if (_currentUser == null) {
+      throw Exception("Usuário não autenticado.");
     }
 
-    final normalizedToday = _normalizeDate(DateTime.now());
-    final normalizedLastRead = _normalizeDate(lastReadDate);
+    final userDocRef = _firestore.collection('users').doc(_currentUser!.uid);
+    final userSnapshot = await userDocRef.get();
 
-    final difference = normalizedToday.difference(normalizedLastRead).inDays;
-
-    if (difference > 1) {
-      // Já se passou mais de um dia desde a última leitura, então a sequência foi quebrada.
-      await prefs.setInt(_streakKey, 0);
-      return 0;
-    } else {
-      // A sequência ainda está ativa (leitura hoje ou ontem).
-      return prefs.getInt(_streakKey) ?? 0;
+    if (!userSnapshot.exists) {
+      throw Exception("Usuário não encontrado no Firestore.");
     }
-  }
 
-  Future<void> _updateStreak(DateTime newReadDate, DateTime? previousReadDate) async {
-    final prefs = await SharedPreferences.getInstance();
-    int streak = prefs.getInt(_streakKey) ?? 0;
+    final user = UserModel.fromFirestore(userSnapshot);
+    final now = DateTime.now();
+    // Início do dia de HOJE, no fuso horário local.
+    final startOfToday = DateTime(now.year, now.month, now.day);
 
-    final normalizedNewRead = _normalizeDate(newReadDate);
+    final bool hasReadToday = user.lastReadDate != null &&
+        !user.lastReadDate!.isBefore(startOfToday);
 
-    if (previousReadDate != null) {
-      final normalizedPreviousRead = _normalizeDate(previousReadDate);
-      final difference = normalizedNewRead.difference(normalizedPreviousRead).inDays;
+    developer.log("Verificando leitura: hasReadToday = $hasReadToday", name: 'ProgressService');
 
-      if (difference == 1) {
-        // Continuou a sequência
-        streak++;
-      } else if (difference > 1) {
-        // A sequência foi quebrada e está sendo reiniciada
-        streak = 1;
+    if (hasReadToday) {
+      int chapterReadToday;
+      if (user.currentChapter == 1) {
+        chapterReadToday = 31;
+      } else {
+        chapterReadToday = user.currentChapter - 1;
       }
-      // Se a diferença for 0, o usuário leu duas vezes no mesmo dia. A sequência não muda.
+      developer.log("Já leu hoje. Mostrando capítulo lido: $chapterReadToday", name: 'ProgressService');
+      return {'chapter': chapterReadToday, 'canRead': false};
     } else {
-      // Esta é a primeira leitura.
-      streak = 1;
+      developer.log("Ainda não leu hoje. Mostrando capítulo para ler: ${user.currentChapter}", name: 'ProgressService');
+      return {'chapter': user.currentChapter, 'canRead': true};
+    }
+  }
+
+  Future<void> markChapterAsRead() async {
+    if (_currentUser == null) {
+      throw Exception("Usuário não autenticado.");
     }
 
-    await prefs.setInt(_streakKey, streak);
+    final userDocRef = _firestore.collection('users').doc(_currentUser!.uid);
+    final userSnapshot = await userDocRef.get();
+
+    if (!userSnapshot.exists) {
+      throw Exception("Usuário não encontrado no Firestore.");
+    }
+
+    final user = UserModel.fromFirestore(userSnapshot);
+    final now = DateTime.now();
+    final startOfToday = DateTime(now.year, now.month, now.day);
+
+    // Validação para impedir chamadas duplicadas
+    if (user.lastReadDate != null && !user.lastReadDate!.isBefore(startOfToday)) {
+      developer.log("Bloqueando chamada duplicada para markChapterAsRead.", name: 'ProgressService');
+      return; // Já marcou como lido hoje, não faz nada.
+    }
+    
+    int newStreak = 1;
+    if (user.lastReadDate != null) {
+      final lastRead = user.lastReadDate!;
+      final startOfLastReadDay = DateTime(lastRead.year, lastRead.month, lastRead.day);
+      
+      // Calcula a diferença em dias corridos, ignorando a hora.
+      final difference = startOfToday.difference(startOfLastReadDay).inDays;
+      
+      if (difference == 1) {
+        newStreak = user.readingStreak + 1;
+      } else if (difference == 0) {
+        newStreak = user.readingStreak; // Segurança, não deve acontecer devido à validação acima
+      }
+    }
+
+    final chapterJustRead = user.currentChapter;
+    int nextChapter = (chapterJustRead % 31) + 1;
+
+    // Salva o timestamp local exato
+    final Timestamp readTimestamp = Timestamp.fromDate(now);
+
+    await userDocRef.update({
+      'lastReadDate': readTimestamp,
+      'readingStreak': newStreak,
+      'completedDays': FieldValue.arrayUnion([readTimestamp]),
+      'currentChapter': nextChapter,
+    });
+    developer.log("Capítulo $chapterJustRead marcado como lido. Próximo capítulo: $nextChapter", name: 'ProgressService');
   }
 }

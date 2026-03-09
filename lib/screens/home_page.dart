@@ -66,7 +66,6 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(height: 32),
             _buildVerseOfTheDayCard(context, textTheme, colorScheme),
             const SizedBox(height: 24),
-            // O NOVO CARD DE CALENDÁRIO
             _buildCalendarCard(context, textTheme, colorScheme, user.readingStreak, user.completedDays),
             const SizedBox(height: 40),
             ElevatedButton(
@@ -111,10 +110,9 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // NOVO WIDGET PARA O CALENDÁRIO
   Widget _buildCalendarCard(BuildContext context, TextTheme textTheme, ColorScheme colorScheme, int streak, List<DateTime> completedDays) {
     final today = DateTime.now();
-    final completedDaysSet = completedDays.map((d) => DateTime.utc(d.year, d.month, d.day)).toSet();
+    final completedDaysSet = completedDays.map((d) => DateTime(d.year, d.month, d.day)).toSet();
     const highlightColor = Color(0xFFD98F2B); // Laranja para dias completos
 
     return Container(
@@ -149,8 +147,8 @@ class _HomePageState extends State<HomePage> {
           const SizedBox(height: 12),
           TableCalendar(
             locale: 'pt_BR',
-            firstDay: DateTime.utc(today.year - 1, today.month, 1),
-            lastDay: DateTime.utc(today.year + 1, today.month, 31),
+            firstDay: DateTime.utc(today.year, 1, 1),
+            lastDay: DateTime.utc(today.year, 12, 31),
             focusedDay: today,
             headerStyle: HeaderStyle(
               titleCentered: true,
@@ -164,12 +162,15 @@ class _HomePageState extends State<HomePage> {
               weekendStyle: TextStyle(fontWeight: FontWeight.bold, color: highlightColor),
             ),
             calendarBuilders: CalendarBuilders(
-              // ESTILIZA OS MARCADORES DE DIAS COMPLETOS
-              markerBuilder: (context, day, events) {
-                final isCompleted = completedDaysSet.contains(DateTime.utc(day.year, day.month, day.day));
+              prioritizedBuilder: (context, day, focusedDay) {
+                // Normaliza o dia para ignorar a hora na comparação
+                final dayOnly = DateTime(day.year, day.month, day.day);
+                final isCompleted = completedDaysSet.contains(dayOnly);
+                final isToday = isSameDay(day, today);
+
+                // 1. Dia completo e lido
                 if (isCompleted) {
-                  return Positioned(
-                    bottom: 4,
+                  return Center(
                     child: Container(
                       width: 32,
                       height: 32,
@@ -186,31 +187,29 @@ class _HomePageState extends State<HomePage> {
                     ),
                   );
                 }
-                return null;
-              },
-              // ESTILIZA O DIA DE HOJE
-              todayBuilder: (context, day, focusedDay) {
-                return Center(
-                  child: Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: colorScheme.primary, width: 2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: Text(
-                        '${day.day}',
-                        style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold),
+
+                // 2. Dia de hoje (ainda não lido)
+                if (isToday) {
+                  return Center(
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: colorScheme.primary, width: 2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: Text(
+                          '${day.day}',
+                          style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold),
+                        ),
                       ),
                     ),
-                  ),
-                );
-              },
-              // ESTILIZA OS DIAS NORMAIS
-              defaultBuilder: (context, day, focusedDay) {
-                  final isCompleted = completedDaysSet.contains(DateTime.utc(day.year, day.month, day.day));
-                  return isCompleted ? const SizedBox.shrink() : null; // Esconde o número padrão se estiver completo
+                  );
+                }
+
+                // 3. Outros dias (retorna null para usar o builder padrão)
+                return null;
               },
             ),
           ),
