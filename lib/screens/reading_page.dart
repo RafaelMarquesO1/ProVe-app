@@ -18,11 +18,9 @@ class _ReadingPageState extends State<ReadingPage> {
   @override
   void initState() {
     super.initState();
-    // Inicia a busca pelos dados da leitura
     _readingData = _loadInitialData();
   }
 
-  // Carrega os dados iniciais
   Future<Map<String, dynamic>> _loadInitialData() async {
     final chapterData = await _progressService.getChapterForToday();
     final content = await _loadChapterContent(chapterData['chapter']);
@@ -32,7 +30,6 @@ class _ReadingPageState extends State<ReadingPage> {
     };
   }
 
-  // Recarrega os dados após marcar como lido
   void _reloadData() {
     setState(() {
       _readingData = _loadInitialData();
@@ -40,7 +37,7 @@ class _ReadingPageState extends State<ReadingPage> {
   }
 
   Future<List<String>> _loadChapterContent(int chapter) async {
-    final jsonString = await rootBundle.loadString('assets/proverbios.json');
+    final jsonString = await rootBundle.loadString('proverbios.json');
     final jsonData = json.decode(jsonString) as List<dynamic>;
     final chapterObject = jsonData[chapter - 1] as Map<String, dynamic>;
     final versesMap = chapterObject[chapter.toString()] as Map<String, dynamic>;
@@ -53,7 +50,6 @@ class _ReadingPageState extends State<ReadingPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Leitura de hoje concluída! Parabéns!')),
       );
-      // Após o sucesso, recarrega os dados para atualizar a UI
       _reloadData();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
