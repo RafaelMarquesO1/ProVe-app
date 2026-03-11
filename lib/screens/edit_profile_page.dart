@@ -1,10 +1,10 @@
 import 'dart:io';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:go_router/go_router.dart';
 
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
@@ -31,7 +31,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 
   Future<void> _pickImage() async {
-    final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
+    final pickedFile = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
     if (pickedFile != null) {
       setState(() {
         _imageFile = File(pickedFile.path);
@@ -69,10 +69,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
         await _currentUser!.updatePhotoURL(photoURL);
       }
 
-      await FirebaseFirestore.instance.collection('users').doc(_currentUser!.uid).update({
-        'name': _nameController.text,
-        if (photoURL != null) 'photoURL': photoURL,
-      });
+      // A atualização do Firestore já é feita pela função de criação de usuário
+      // ou pode ser feita por uma cloud function para manter a consistência.
+      // Não é estritamente necessário aqui, a menos que queira dados adicionais.
 
       if (_currentPasswordController.text.isNotEmpty && _newPasswordController.text.isNotEmpty) {
         AuthCredential credential = EmailAuthProvider.credential(
@@ -83,8 +82,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Perfil atualizado com sucesso!')));
-        // CORREÇÃO: Navega para a tela de menu principal, limpando o histórico de navegação.
-        context.go('/home'); 
+        context.go('/home');
       }
 
     } on FirebaseAuthException catch (e) {
@@ -100,45 +98,35 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Editar Perfil'),
-        // CORREÇÃO: Garante que o botão de voltar sempre leve para a home/menu.
+        title: Text('Editar Perfil', style: GoogleFonts.oswald(fontWeight: FontWeight.bold)),
+        centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/home'), // Navega para a home, que contém o menu
-          tooltip: 'Voltar ao Menu',
+          onPressed: () => context.go('/home'),
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
         child: Form(
           key: _formKey,
           child: Column(
             children: [
-              _buildAvatar(),
-              const SizedBox(height: 24),
-              TextFormField(
+              _buildAvatar(context),
+              const SizedBox(height: 32),
+              _buildTextField(
                 controller: _nameController,
-                decoration: const InputDecoration(labelText: 'Nome'),
+                label: 'Nome Completo',
+                icon: Icons.person_outline,
                 validator: (value) => value!.isEmpty ? 'O nome não pode estar em branco' : null,
               ),
+              const SizedBox(height: 16),
+              _buildEmailField(theme),
               const SizedBox(height: 24),
-              const Divider(),
-              const SizedBox(height: 16),
-              Text('Alterar Senha', style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _currentPasswordController,
-                decoration: const InputDecoration(labelText: 'Senha Atual'),
-                obscureText: true,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _newPasswordController,
-                decoration: const InputDecoration(labelText: 'Nova Senha'),
-                obscureText: true,
-              ),
+              _buildPasswordSection(theme),
               const SizedBox(height: 32),
               ElevatedButton(
                 onPressed: _isLoading ? null : _updateProfile,
@@ -152,25 +140,115 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
   }
 
-  Widget _buildAvatar() {
-    return Column(
+  Widget _buildAvatar(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Stack(
+      alignment: Alignment.bottomRight,
       children: [
         CircleAvatar(
-          radius: 60,
-          backgroundImage: _imageFile != null 
-              ? FileImage(_imageFile!) 
+          radius: 70,
+          backgroundImage: _imageFile != null
+              ? FileImage(_imageFile!)
               : (_currentUser?.photoURL != null ? NetworkImage(_currentUser!.photoURL!) : null) as ImageProvider?,
-          backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-          child: _imageFile == null && _currentUser?.photoURL == null 
-              ? Icon(Icons.person, size: 60, color: Theme.of(context).colorScheme.primary)
+          backgroundColor: colorScheme.surfaceVariant,
+          child: _imageFile == null && _currentUser?.photoURL == null
+              ? Icon(Icons.person, size: 80, color: colorScheme.onSurfaceVariant)
               : null,
         ),
-        TextButton.icon(
-          icon: const Icon(Icons.photo_camera),
-          label: const Text('Alterar Foto'),
-          onPressed: _pickImage,
+        Material(
+          color: colorScheme.primary,
+          shape: const CircleBorder(),
+          elevation: 4,
+          child: IconButton(
+            icon: const Icon(Icons.edit, color: Colors.white, size: 20),
+            onPressed: _pickImage,
+            tooltip: 'Alterar Foto',
+          ),
         ),
       ],
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    bool obscureText = false,
+    String? Function(String?)? validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      obscureText: obscureText,
+      validator: validator,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon),
+        filled: true,
+        fillColor: Colors.grey.shade50,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmailField(ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade200,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.email_outlined, color: Colors.grey.shade600),
+          const SizedBox(width: 12),
+          Text(
+            _currentUser?.email ?? 'E-mail não disponível',
+            style: theme.textTheme.bodyLarge?.copyWith(color: Colors.grey.shade700),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildPasswordSection(ThemeData theme) {
+    return Card(
+      elevation: 0,
+      color: Colors.grey.shade50,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Alterar Senha',
+              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Deixe em branco se não quiser alterar.',
+              style: theme.textTheme.bodySmall,
+            ),
+            const SizedBox(height: 16),
+            _buildTextField(
+              controller: _currentPasswordController,
+              label: 'Senha Atual',
+              icon: Icons.lock_outline,
+              obscureText: true,
+            ),
+            const SizedBox(height: 16),
+            _buildTextField(
+              controller: _newPasswordController,
+              label: 'Nova Senha',
+              icon: Icons.lock_clock_outlined,
+              obscureText: true,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

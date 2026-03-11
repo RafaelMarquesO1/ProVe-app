@@ -13,17 +13,19 @@ dependencies:
 
   cupertino_icons: any
   google_fonts: any
-  go_router: any
+  go_router: ^17.1.0
   table_calendar: ^3.2.0
   share_plus: any
   flutter_localization: any
-  intl: any
+  intl: ^0.20.2
   flutter_staggered_grid_view: any
   firebase_core: any
   firebase_auth: any
   cloud_firestore: any
   image_picker: any
   firebase_storage: any
+  provider: ^6.1.5+1
+  shared_preferences: ^2.5.4
 
 dev_dependencies:
   flutter_test:

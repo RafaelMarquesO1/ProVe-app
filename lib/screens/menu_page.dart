@@ -61,18 +61,11 @@ class _MenuPageState extends State<MenuPage> {
               ),
               child: Column(
                 children: [
-                  _buildMenuItem(
+                   _buildMenuItem(
                     context,
-                    icon: Icons.favorite_border,
-                    title: 'Favoritos',
-                    onTap: () => context.go('/favorites'),
-                  ),
-                  const Divider(height: 1, indent: 16, endIndent: 16),
-                  _buildMenuItem(
-                    context,
-                    icon: Icons.note_alt_outlined,
-                    title: 'Anotações',
-                    onTap: () => context.go('/notes'),
+                    icon: Icons.text_fields,
+                    title: 'Configurações de Leitura',
+                    onTap: () => context.go('/settings/reading'),
                   ),
                   const Divider(height: 1, indent: 16, endIndent: 16),
                   _buildMenuItem(
@@ -80,20 +73,6 @@ class _MenuPageState extends State<MenuPage> {
                     icon: Icons.alarm_outlined,
                     title: 'Lembretes',
                     onTap: () => context.go('/settings/reminders'),
-                  ),
-                  const Divider(height: 1, indent: 16, endIndent: 16),
-                  _buildMenuItem(
-                    context,
-                    icon: Icons.notifications_outlined,
-                    title: 'Notificações',
-                    onTap: () => context.go('/notifications'),
-                  ),
-                  const Divider(height: 1, indent: 16, endIndent: 16),
-                  _buildMenuItem(
-                    context,
-                    icon: Icons.widgets_outlined,
-                    title: 'Widgets',
-                    onTap: () => context.go('/widgets'),
                   ),
                 ],
               ),
@@ -129,7 +108,6 @@ class _MenuPageState extends State<MenuPage> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        // Alterado: Navega para a tela de edição de perfil
         onTap: () => context.go('/profile/edit'),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -152,7 +130,6 @@ class _MenuPageState extends State<MenuPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(displayName, style: textTheme.titleLarge, overflow: TextOverflow.ellipsis),
-                    // Alterado: O texto agora indica a ação de edição
                     Text('Editar Perfil', style: textTheme.bodyMedium?.copyWith(color: colorScheme.primary)),
                   ],
                 ),

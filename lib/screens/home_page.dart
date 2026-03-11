@@ -1,6 +1,10 @@
+import 'dart:convert';
+import 'dart:math';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:myapp/models/user_model.dart';
@@ -15,6 +19,34 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final User? _currentUser = FirebaseAuth.instance.currentUser;
+  Map<String, String> _verseOfTheDay = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVerseOfTheDay();
+  }
+
+  Future<void> _loadVerseOfTheDay() async {
+    final now = DateTime.now();
+    final dayOfYear = now.difference(DateTime(now.year, 1, 1)).inDays + 1;
+    final jsonString = await rootBundle.loadString('assets/proverbios.json');
+    final proverbs = jsonDecode(jsonString) as List;
+
+    final chapterIndex = (dayOfYear - 1) % proverbs.length;
+    final chapter = proverbs[chapterIndex]['${chapterIndex + 1}'] as Map<String, dynamic>;
+    
+    final verseIndex = Random().nextInt(chapter.length);
+    final verseNumber = chapter.keys.elementAt(verseIndex);
+    final verseText = chapter[verseNumber];
+
+    setState(() {
+      _verseOfTheDay = {
+        'text': verseText,
+        'reference': 'Provérbios ${chapterIndex + 1}:$verseNumber',
+      };
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -97,12 +129,12 @@ class _HomePageState extends State<HomePage> {
           ),
           const SizedBox(height: 12),
           Text(
-            '"O que adquire sabedoria ama a sua alma; o que conserva o entendimento acha o bem."',
+            _verseOfTheDay['text'] ?? 'Carregando versículo...',
             style: textTheme.bodyLarge?.copyWith(fontStyle: FontStyle.italic, height: 1.5),
           ),
           const SizedBox(height: 4),
           Text(
-            'Provérbios 19:8',
+            _verseOfTheDay['reference'] ?? '',
             style: textTheme.bodyMedium?.copyWith(color: Colors.black54),
           ),
         ],

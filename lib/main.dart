@@ -1,18 +1,22 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:myapp/routes.dart'; // Importa a configuração de rotas
-import 'package:flutter_localizations/flutter_localizations.dart'; // Import para localização
-import 'package:intl/date_symbol_data_local.dart'; // Import para inicialização de data
+import 'package:myapp/routes.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:intl/date_symbol_data_local.dart';
+// import 'package:myapp/services/notification_service.dart'; // Temporariamente desativado
 
 import 'firebase_options.dart';
 
-void main() async { // Transforma o main em assíncrono
-  WidgetsFlutterBinding.ensureInitialized(); // Garante a inicialização dos widgets
-  await initializeDateFormatting('pt_BR', null); // Inicializa a formatação para pt_BR
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('pt_BR', null);
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  // Inicializa o serviço de notificação - Temporariamente desativado
+  // await NotificationService().init(); 
+  
   runApp(const MyApp());
 }
 
@@ -96,16 +100,15 @@ class MyApp extends StatelessWidget {
       title: 'Sabedoria Diária',
       theme: theme,
       routerConfig: router, // Usa o GoRouter para navegação
-      // Configuração de Localização
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
       supportedLocales: const [
-        Locale('pt', 'BR'), // Português do Brasil
+        Locale('pt', 'BR'),
       ],
-      locale: const Locale('pt', 'BR'), // Define o locale padrão
+      locale: const Locale('pt', 'BR'),
     );
   }
 }

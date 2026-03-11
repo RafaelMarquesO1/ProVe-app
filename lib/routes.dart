@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:myapp/models/note.dart';
 import 'package:myapp/screens/login_page.dart';
 import 'package:myapp/screens/signup_page.dart';
 import 'package:myapp/screens/main_scaffold.dart';
@@ -10,13 +9,11 @@ import 'package:myapp/screens/reading_page.dart';
 import 'package:myapp/screens/note_page.dart';
 import 'package:myapp/screens/reminders_settings_page.dart';
 import 'package:myapp/screens/favorites_page.dart';
-import 'package:myapp/screens/notes_list_page.dart';
-import 'package:myapp/screens/note_editor_page.dart';
 import 'package:myapp/screens/widgets_page.dart';
 import 'package:myapp/screens/notifications_page.dart';
 import 'package:myapp/screens/edit_profile_page.dart';
+import 'package:myapp/screens/reading_settings_page.dart';
 
-// Adicionado para notificar o GoRouter sobre mudanças de autenticação
 class GoRouterRefreshStream extends ChangeNotifier {
   late final StreamSubscription<User?> _subscription;
 
@@ -35,10 +32,13 @@ class GoRouterRefreshStream extends ChangeNotifier {
   }
 }
 
+final _rootNavigatorKey = GlobalKey<NavigatorState>();
+final _shellNavigatorKey = GlobalKey<NavigatorState>();
 
 final GoRouter router = GoRouter(
+  navigatorKey: _rootNavigatorKey,
   initialLocation: '/',
-  refreshListenable: GoRouterRefreshStream(), // Adicionado para ouvir mudanças de auth
+  refreshListenable: GoRouterRefreshStream(),
   redirect: (BuildContext context, GoRouterState state) {
     final bool loggedIn = FirebaseAuth.instance.currentUser != null;
     final bool loggingIn = state.matchedLocation == '/' || state.matchedLocation == '/signup';
@@ -62,54 +62,55 @@ final GoRouter router = GoRouter(
       path: '/signup',
       builder: (context, state) => const SignUpPage(),
     ),
-    GoRoute(
-      path: '/home',
-      builder: (context, state) => const MainScaffold(),
-    ),
-    GoRoute(
-      path: '/reading',
-      builder: (context, state) => const ReadingPage(),
+    ShellRoute(
+      navigatorKey: _shellNavigatorKey,
+      // O builder agora simplesmente retorna o filho (a tela da rota correspondente)
+      builder: (context, state, child) {
+        return child;
+      },
       routes: [
         GoRoute(
-          path: 'new-note',
-          builder: (context, state) {
-            final selectedText = state.extra as String? ?? '';
-            return NotePage(selectedText: selectedText);
-          },
+          path: '/home',
+          builder: (context, state) => const MainScaffold(),
+        ),
+        GoRoute(
+          path: '/reading',
+          builder: (context, state) => const ReadingPage(),
+          routes: [
+            GoRoute(
+              path: 'nova-nota',
+              builder: (context, state) {
+                final selectedText = state.extra as String? ?? '';
+                return NotePage(selectedText: selectedText);
+              },
+            ),
+          ],
+        ),
+        GoRoute(
+          path: '/settings/reminders',
+          builder: (context, state) => const RemindersSettingsPage(),
+        ),
+        GoRoute(
+          path: '/settings/reading',
+          builder: (context, state) => const ReadingSettingsPage(),
+        ),
+        GoRoute(
+          path: '/favorites',
+          builder: (context, state) => const FavoritesPage(),
+        ),
+        GoRoute(
+          path: '/widgets',
+          builder: (context, state) => const WidgetsPage(),
+        ),
+        GoRoute(
+          path: '/notifications',
+          builder: (context, state) => const NotificationsPage(),
+        ),
+        GoRoute(
+          path: '/profile/edit',
+          builder: (context, state) => const EditProfilePage(),
         ),
       ],
-    ),
-    GoRoute(
-      path: '/settings/reminders',
-      builder: (context, state) => const RemindersSettingsPage(),
-    ),
-    GoRoute(
-      path: '/favorites',
-      builder: (context, state) => const FavoritesPage(),
-    ),
-    GoRoute(
-        path: '/notes',
-        builder: (context, state) => const NotesListPage(),
-        routes: [
-          GoRoute(
-            path: 'editor',
-            builder: (context, state) {
-              final note = state.extra as Note?;
-              return NoteEditorPage(note: note);
-            },
-          )
-        ]),
-    GoRoute(
-      path: '/widgets',
-      builder: (context, state) => const WidgetsPage(),
-    ),
-    GoRoute(
-      path: '/notifications',
-      builder: (context, state) => const NotificationsPage(),
-    ),
-    GoRoute(
-      path: '/profile/edit',
-      builder: (context, state) => const EditProfilePage(),
     ),
   ],
 );
