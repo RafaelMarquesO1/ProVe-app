@@ -28,22 +28,24 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _loadVerseOfTheDay() async {
-    final now = DateTime.now();
-    final dayOfYear = now.difference(DateTime(now.year, 1, 1)).inDays + 1;
     final jsonString = await rootBundle.loadString('assets/proverbios.json');
     final proverbs = jsonDecode(jsonString) as List;
 
-    final chapterIndex = (dayOfYear - 1) % proverbs.length;
-    final chapter = proverbs[chapterIndex]['${chapterIndex + 1}'] as Map<String, dynamic>;
-    
-    final verseIndex = Random().nextInt(chapter.length);
-    final verseNumber = chapter.keys.elementAt(verseIndex);
-    final verseText = chapter[verseNumber];
+    // Seleciona um capítulo aleatório
+    final randomChapterIndex = Random().nextInt(proverbs.length);
+    final chapterData = proverbs[randomChapterIndex];
+    final chapterNumberString = chapterData.keys.first;
+    final chapterContent = chapterData[chapterNumberString] as Map<String, dynamic>;
+
+    // Seleciona um versículo aleatório do capítulo
+    final verseKeys = chapterContent.keys.toList();
+    final randomVerseKey = verseKeys[Random().nextInt(verseKeys.length)];
+    final verseText = chapterContent[randomVerseKey];
 
     setState(() {
       _verseOfTheDay = {
         'text': verseText,
-        'reference': 'Provérbios ${chapterIndex + 1}:$verseNumber',
+        'reference': 'Provérbios $chapterNumberString:$randomVerseKey',
       };
     });
   }
