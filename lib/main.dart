@@ -97,6 +97,7 @@ class MyApp extends StatelessWidget {
     );
 
     return MaterialApp.router(
+      debugShowCheckedModeBanner: false,
       title: 'Sabedoria Diária',
       theme: theme,
       routerConfig: router, // Usa o GoRouter para navegação

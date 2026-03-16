@@ -16,7 +16,7 @@ O design do aplicativo é limpo, moderno e inspirador, com o objetivo de criar u
   - **Fundo:** Um bege claro (`#F5F5DC`) para a tela de leitura, proporcionando conforto visual.
 - **Tipografia:**
   - **`GoogleFonts.lato`**: Usado para o texto do corpo, garantindo legibilidade.
-  - **`GoogleFonts.oswald`**: Usado para títulos, conferindo um estilo clássico e forte.
+  - **`GoogleFonts.oswald`**: Usado para títulos, conferindo um estilo cláss-ico e forte.
 - **Tema:**
   - O tema da aplicação é configurado em `lib/main.dart` e utiliza a paleta de cores e a tipografia definidas.
 
@@ -84,3 +84,23 @@ Nesta sessão, o aplicativo foi totalmente reorientado para focar exclusivamente
 
 5.  **Atualização do `blueprint.md`:**
     - Este documento foi completamente reescrito para refletir a nova direção do aplicativo.
+
+---
+
+## Plano Atual: Melhorias na Experiência de Leitura
+
+Nesta sessão, o foco é aprimorar a experiência de leitura, adicionando novos recursos à tela de leitura.
+
+### Plano de Ação:
+
+1.  **Leitor de Voz (`reading_page.dart`):**
+    - Integração do pacote `flutter_tts` para fornecer funcionalidade de conversão de texto em fala.
+    - Adição de um botão à barra de aplicativos para iniciar e parar a leitura do capítulo.
+    - O botão mudará seu ícone para refletir o estado atual (reproduzindo/parado).
+
+2.  **Botão "Voltar ao Topo" (`reading_page.dart`):**
+    - Adição de um `FloatingActionButton` à tela de leitura.
+    - Quando pressionado, o botão rolará suavemente o usuário para o topo do capítulo.
+
+3.  **Atualização do `blueprint.md`:**
+    - Este documento será atualizado para refletir os novos recursos e mudanças.

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:go_router/go_router.dart';
 import 'package:myapp/providers/reading_settings_provider.dart';
 import 'package:myapp/services/progress_service.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 
 class ReadingPage extends StatefulWidget {
   const ReadingPage({super.key});
@@ -15,11 +16,20 @@ class ReadingPage extends StatefulWidget {
 class _ReadingPageState extends State<ReadingPage> {
   final ProgressService _progressService = ProgressService();
   late Future<Map<String, dynamic>> _readingData;
+  final ScrollController _scrollController = ScrollController();
+  final FlutterTts _flutterTts = FlutterTts();
+  bool _isReading = false;
 
   @override
   void initState() {
     super.initState();
     _readingData = _loadInitialData();
+    _initTts();
+  }
+
+  void _initTts() {
+    _flutterTts.setLanguage("pt-BR");
+    _flutterTts.setSpeechRate(1.0);
   }
 
   Future<Map<String, dynamic>> _loadInitialData() async {
@@ -59,17 +69,51 @@ class _ReadingPageState extends State<ReadingPage> {
     }
   }
 
+  void _scrollToTop() {
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(seconds: 1),
+      curve: Curves.linear,
+    );
+  }
+
+  Future<void> _toggleReading(List<String> content) async {
+    if (_isReading) {
+      await _flutterTts.stop();
+      setState(() {
+        _isReading = false;
+      });
+    } else {
+      setState(() {
+        _isReading = true;
+      });
+      final fullText = content.join(' ');
+      await _flutterTts.speak(fullText);
+      _flutterTts.setCompletionHandler(() {
+        setState(() {
+          _isReading = false;
+        });
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    _flutterTts.stop();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final settings = ReadingSettingsProvider.instance; // Acessa o Singleton
+    final settings = ReadingSettingsProvider.instance;
 
-    // AnimatedBuilder ouve as mudanças no Singleton e reconstrói a UI
     return AnimatedBuilder(
       animation: settings,
       builder: (context, child) {
         return Scaffold(
-          backgroundColor: settings.backgroundColor, // Aplica a cor de fundo
+          backgroundColor: settings.backgroundColor,
           body: SafeArea(
             child: FutureBuilder<Map<String, dynamic>>(
               future: _readingData,
@@ -95,6 +139,7 @@ class _ReadingPageState extends State<ReadingPage> {
                   children: [
                     Expanded(
                       child: CustomScrollView(
+                        controller: _scrollController,
                         slivers: [
                           SliverAppBar(
                             backgroundColor: Colors.transparent,
@@ -103,6 +148,15 @@ class _ReadingPageState extends State<ReadingPage> {
                               icon: Icon(Icons.arrow_back, color: theme.colorScheme.primary),
                               onPressed: () => context.go('/home'),
                             ),
+                            actions: [
+                              IconButton(
+                                icon: Icon(
+                                  _isReading ? Icons.stop_circle_outlined : Icons.play_circle_outline,
+                                  color: theme.colorScheme.primary,
+                                ),
+                                onPressed: () => _toggleReading(content),
+                              ),
+                            ],
                           ),
                           SliverToBoxAdapter(
                             child: Padding(
@@ -129,7 +183,7 @@ class _ReadingPageState extends State<ReadingPage> {
                                     textAlign: TextAlign.justify,
                                     text: TextSpan(
                                       style: theme.textTheme.bodyLarge?.copyWith(
-                                        fontSize: settings.fontSize, // Aplica o tamanho da fonte
+                                        fontSize: settings.fontSize,
                                         height: 1.5,
                                         color: settings.backgroundColor.computeLuminance() > 0.5 ? Colors.black87 : Colors.white70,
                                       ),
@@ -165,6 +219,11 @@ class _ReadingPageState extends State<ReadingPage> {
                 );
               },
             ),
+          ),
+          floatingActionButton: FloatingActionButton(
+            onPressed: _scrollToTop,
+            child: const Icon(Icons.arrow_upward),
+            backgroundColor: const Color(0xFFD98F2B),
           ),
         );
       },
