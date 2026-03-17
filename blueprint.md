@@ -34,7 +34,7 @@ O aplicativo segue uma arquitetura simples e organizada, com uma clara separaç�
 - **Roteamento:**
   - **`go_router`**: Utilizado para gerenciar a navegação, permitindo rotas aninhadas e uma configuração centralizada.
 - **Gerenciamento de Estado:**
-  - O estado é gerenciado localmente em cada tela (`StatefulWidget`) devido à simplicidade da aplicação.
+  - **`ReadingSettingsProvider`**: Um Singleton para gerenciar as configurações de leitura em toda a aplicação.
 
 ---
 
@@ -61,46 +61,19 @@ O aplicativo segue uma arquitetura simples e organizada, com uma clara separaç�
 
 ---
 
-## Plano Atual: Foco em Provérbios
+## Plano Atual: Melhorias na Experiência de Áudio e Leitura
 
-Nesta sessão, o aplicativo foi totalmente reorientado para focar exclusivamente no livro de Provérbios.
+Nesta sessão, o foco foi aprimorar a experiência de leitura e áudio, adicionando personalização e feedback visual.
 
 ### Plano de Ação Concluído:
 
-1.  **Tela de Leitura (`reading_page.dart`):**
-    - O conteúdo foi alterado para exibir um capítulo de Provérbios com base no dia do mês.
-    - O texto de exemplo foi substituído por versículos reais de Provérbios.
+1.  **Configurações de Voz (`reading_settings_page.dart`):**
+    - Adicionados controles para o usuário selecionar o **gênero da voz** (feminina/masculina) e ajustar a **velocidade da fala**.
+    - O `ReadingSettingsProvider` foi estendido para armazenar e notificar essas novas configurações.
 
-2.  **Tela de Metas (`reading_plan_page.dart`):**
-    - A meta "Concluir o livro de Gênesis" foi alterada para "Concluir o livro de Provérbios".
-    - A conquista "Gênesis Completo" foi alterada para "Provérbios Completo".
-
-3.  **Tela Inicial (`home_page.dart`):**
-    - A mensagem de boas-vindas foi alterada para "Sabedoria Diária".
-    - Os cards foram implementados com conteúdo relevante sobre Provérbios.
-
-4.  **Tela de Histórico (`history_page.dart`):**
-    - O histórico de leitura foi atualizado para exibir o progresso em Provérbios.
-
-5.  **Atualização do `blueprint.md`:**
-    - Este documento foi completamente reescrito para refletir a nova direção do aplicativo.
-
----
-
-## Plano Atual: Melhorias na Experiência de Leitura
-
-Nesta sessão, o foco é aprimorar a experiência de leitura, adicionando novos recursos à tela de leitura.
-
-### Plano de Ação:
-
-1.  **Leitor de Voz (`reading_page.dart`):**
-    - Integração do pacote `flutter_tts` para fornecer funcionalidade de conversão de texto em fala.
-    - Adição de um botão à barra de aplicativos para iniciar e parar a leitura do capítulo.
-    - O botão mudará seu ícone para refletir o estado atual (reproduzindo/parado).
-
-2.  **Botão "Voltar ao Topo" (`reading_page.dart`):**
-    - Adição de um `FloatingActionButton` à tela de leitura.
-    - Quando pressionado, o botão rolará suavemente o usuário para o topo do capítulo.
+2.  **Experiência de Leitura Aprimorada (`reading_page.dart`):**
+    - O motor de Text-to-Speech (`flutter_tts`) agora utiliza as configurações de gênero e velocidade definidas pelo usuário.
+    - Implementado o **destaque de texto em tempo real**, onde o versículo sendo lido é visualmente destacado. Isso é feito através do rastreamento do progresso da leitura e da atualização da interface do usuário de acordo.
 
 3.  **Atualização do `blueprint.md`:**
-    - Este documento será atualizado para refletir os novos recursos e mudanças.
+    - Este documento foi atualizado para refletir as novas funcionalidades e aprimoramentos na experiência do usuário.

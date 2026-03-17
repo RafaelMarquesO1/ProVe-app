@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
@@ -18,7 +19,11 @@ class _ReadingPageState extends State<ReadingPage> {
   late Future<Map<String, dynamic>> _readingData;
   final ScrollController _scrollController = ScrollController();
   final FlutterTts _flutterTts = FlutterTts();
+  final ReadingSettingsProvider _settings = ReadingSettingsProvider.instance;
+
   bool _isReading = false;
+  int _currentlySpeakingVerse = -1;
+  Completer<void>? _speechCompleter;
 
   @override
   void initState() {
@@ -27,10 +32,57 @@ class _ReadingPageState extends State<ReadingPage> {
     _initTts();
   }
 
-  void _initTts() {
-    _flutterTts.setLanguage("pt-BR");
-    _flutterTts.setSpeechRate(1.0);
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    _flutterTts.stop();
+    super.dispose();
   }
+
+  Future<void> _initTts() async {
+    await _flutterTts.setLanguage("pt-BR");
+    
+    _flutterTts.setCompletionHandler(() {
+      if (_speechCompleter != null && !_speechCompleter!.isCompleted) {
+        _speechCompleter!.complete();
+      }
+    });
+  }
+
+  Future<void> _applyTtsSettings() async {
+    if (!mounted) return;
+
+    await _flutterTts.setSpeechRate(_settings.speechRate);
+
+    try {
+      final dynamic voicesResult = await _flutterTts.getVoices;
+      if (voicesResult is List) {
+        final voices = voicesResult.map((v) => Map<String, String>.from(v as Map)).toList();
+        
+        final preferredVoices = voices.where((v) => 
+            v['locale'] == 'pt-BR' && 
+            v['gender'] == _settings.voiceGender
+        ).toList();
+
+        Map<String, String>? voiceToSet;
+        if (preferredVoices.isNotEmpty) {
+          voiceToSet = preferredVoices.first;
+        } else {
+          final fallbackVoices = voices.where((v) => v['locale'] == 'pt-BR').toList();
+          if (fallbackVoices.isNotEmpty) {
+            voiceToSet = fallbackVoices.first;
+          }
+        }
+
+        if (voiceToSet != null) {
+          await _flutterTts.setVoice({'name': voiceToSet['name']!, 'locale': voiceToSet['locale']!});
+        }
+      }
+    } catch (e) {
+      print("Error setting voice: $e");
+    }
+  }
+
 
   Future<Map<String, dynamic>> _loadInitialData() async {
     final chapterData = await _progressService.getChapterForToday();
@@ -82,38 +134,44 @@ class _ReadingPageState extends State<ReadingPage> {
       await _flutterTts.stop();
       setState(() {
         _isReading = false;
+        _currentlySpeakingVerse = -1;
       });
     } else {
       setState(() {
         _isReading = true;
       });
-      final fullText = content.join(' ');
-      await _flutterTts.speak(fullText);
-      _flutterTts.setCompletionHandler(() {
+
+      await _applyTtsSettings();
+
+      for (int i = 0; i < content.length; i++) {
+        if (!_isReading || !mounted) break;
+        setState(() {
+          _currentlySpeakingVerse = i;
+        });
+
+        _speechCompleter = Completer<void>();
+        await _flutterTts.speak(content[i]);
+        await _speechCompleter!.future; // Wait for the verse to finish
+      }
+
+      if (mounted) {
         setState(() {
           _isReading = false;
+          _currentlySpeakingVerse = -1;
         });
-      });
+      }
     }
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    _flutterTts.stop();
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final settings = ReadingSettingsProvider.instance;
 
     return AnimatedBuilder(
-      animation: settings,
+      animation: _settings,
       builder: (context, child) {
         return Scaffold(
-          backgroundColor: settings.backgroundColor,
+          backgroundColor: _settings.backgroundColor,
           body: SafeArea(
             child: FutureBuilder<Map<String, dynamic>>(
               future: _readingData,
@@ -176,6 +234,7 @@ class _ReadingPageState extends State<ReadingPage> {
                                 final parts = line.split(' ');
                                 final verseNumber = parts.first;
                                 final verseText = parts.sublist(1).join(' ');
+                                final isSpeaking = index == _currentlySpeakingVerse;
 
                                 return Padding(
                                   padding: const EdgeInsets.fromLTRB(24.0, 0, 24.0, 16.0),
@@ -183,9 +242,10 @@ class _ReadingPageState extends State<ReadingPage> {
                                     textAlign: TextAlign.justify,
                                     text: TextSpan(
                                       style: theme.textTheme.bodyLarge?.copyWith(
-                                        fontSize: settings.fontSize,
+                                        fontSize: _settings.fontSize,
                                         height: 1.5,
-                                        color: settings.backgroundColor.computeLuminance() > 0.5 ? Colors.black87 : Colors.white70,
+                                        color: _settings.backgroundColor.computeLuminance() > 0.5 ? Colors.black87 : Colors.white70,
+                                        backgroundColor: isSpeaking ? theme.colorScheme.primary.withOpacity(0.3) : Colors.transparent,
                                       ),
                                       children: [
                                         TextSpan(
