@@ -49,7 +49,7 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
 
         return Scaffold(
           body: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 48, 16, 24),
+            padding: const EdgeInsets.fromLTRB(16, 72, 16, 24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -73,7 +73,7 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
   Widget _buildEmptyState() {
     return Scaffold(
       body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 48, 16, 24),
+        padding: const EdgeInsets.fromLTRB(16, 72, 16, 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
