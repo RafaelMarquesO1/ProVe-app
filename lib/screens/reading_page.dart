@@ -54,7 +54,7 @@ class _ReadingPageState extends State<ReadingPage> {
   Future<void> _applyTtsSettings() async {
     if (!mounted) return;
 
-    // Normalize speech rate for Android
+    // Aqui eu normalizei a velocidade da voz no Android (Testar no iOS)
     double rate = _settings.speechRate;
     if (!kIsWeb && Platform.isAndroid) {
       rate = rate / 2.0;
@@ -65,35 +65,17 @@ class _ReadingPageState extends State<ReadingPage> {
       final dynamic voicesResult = await _flutterTts.getVoices;
       if (voicesResult is List) {
         final voices = voicesResult.map((v) => Map<String, String>.from(v as Map)).toList();
-        final desiredGender = _settings.voiceGender;
-
+        
         var ptVoices = voices.where((v) => v['locale']?.toLowerCase() == 'pt-br').toList();
-        if (ptVoices.isEmpty) return; // No pt-BR voices
+        if (ptVoices.isEmpty) return; // Se não tiver vozes em pt-BR
 
-        Map<String, String>? selectedVoice;
-        final keywords = desiredGender == 'male'
-            ? ['male', 'masc', 'homem', 'antonio', 'daniel']
-            : ['female', 'fem', 'mulher', 'luciana', 'maria', 'helena'];
-
-        // Prioritize voices with gender keywords in the name
-        for (final voice in ptVoices) {
-          final name = voice['name']?.toLowerCase() ?? '';
-          if (keywords.any((kw) => name.contains(kw))) {
-            selectedVoice = voice;
-            break;
-          }
-        }
-
-        // Fallback to voices with the correct gender property if keyword search fails
-        selectedVoice ??= ptVoices.firstWhere(
-          (v) => v['gender'] == desiredGender,
-          orElse: () => ptVoices.first, // Last resort: first pt-BR voice
-        );
+        // Select the first available pt-BR voice
+        final selectedVoice = ptVoices.first;
 
         await _flutterTts.setVoice({'name': selectedVoice['name']!, 'locale': selectedVoice['locale']!});
       }
     } catch (e) {
-      print("Error setting voice: $e");
+      print("Erro ao encontrar configurações de voz: $e");
     }
   }
 

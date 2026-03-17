@@ -15,7 +15,9 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   // Inicializa o serviço de notificação - Temporariamente desativado
-  // await NotificationService().init(); 
+  // await NotificationService().init();
+  //
+  // Em breve irei colocar as notificações para a alteração da funcionalidade do app 
   
   runApp(const MyApp());
 }

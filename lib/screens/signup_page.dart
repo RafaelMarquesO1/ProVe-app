@@ -40,10 +40,11 @@ class _SignUpPageState extends State<SignUpPage> {
           'name': _nameController.text.trim(),
           'email': _emailController.text.trim(),
           'readingStreak': 0,
+          'longestStreak': 0, // INICIALIZA A MAIOR OFENSIVA
           'lastReadDate': null,
           'createdAt': FieldValue.serverTimestamp(),
-          'completedDays': [], // INICIALIZA A LISTA
-          'currentChapter': 1, // INICIALIZA O CAPÍTULO ATUAL
+          'completedDays': [],
+          'currentChapter': 1,
         });
 
         if (mounted) {

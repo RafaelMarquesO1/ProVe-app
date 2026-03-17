@@ -9,12 +9,10 @@ class ReadingSettingsProvider with ChangeNotifier {
 
   double _fontSize = 16.0;
   Color _backgroundColor = const Color(0xFFF5F5DC); // Bege claro
-  String _voiceGender = 'female'; // Valor padrão
-  double _speechRate = 1.0; // Valor padrão
+  double _speechRate = 0.8; // um valor padrão razoável
 
   double get fontSize => _fontSize;
   Color get backgroundColor => _backgroundColor;
-  String get voiceGender => _voiceGender;
   double get speechRate => _speechRate;
 
   void setFontSize(double size) {
@@ -27,13 +25,9 @@ class ReadingSettingsProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  void setVoiceGender(String gender) {
-    _voiceGender = gender;
-    notifyListeners();
-  }
-
   void setSpeechRate(double rate) {
-    _speechRate = rate;
+    // Garante que a velocidade permaneça dentro de um intervalo seguro
+    _speechRate = rate.clamp(0.5, 1.0);
     notifyListeners();
   }
 }
