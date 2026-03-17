@@ -80,7 +80,7 @@ class _HomePageState extends State<HomePage> {
 
     return Scaffold(
       body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 48, 16, 24),
+        padding: const EdgeInsets.fromLTRB(16, 72, 16, 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

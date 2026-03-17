@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:go_router/go_router.dart';
@@ -41,7 +43,7 @@ class _ReadingPageState extends State<ReadingPage> {
 
   Future<void> _initTts() async {
     await _flutterTts.setLanguage("pt-BR");
-    
+
     _flutterTts.setCompletionHandler(() {
       if (_speechCompleter != null && !_speechCompleter!.isCompleted) {
         _speechCompleter!.complete();
@@ -52,37 +54,48 @@ class _ReadingPageState extends State<ReadingPage> {
   Future<void> _applyTtsSettings() async {
     if (!mounted) return;
 
-    await _flutterTts.setSpeechRate(_settings.speechRate);
+    // Normalize speech rate for Android
+    double rate = _settings.speechRate;
+    if (!kIsWeb && Platform.isAndroid) {
+      rate = rate / 2.0;
+    }
+    await _flutterTts.setSpeechRate(rate);
 
     try {
       final dynamic voicesResult = await _flutterTts.getVoices;
       if (voicesResult is List) {
         final voices = voicesResult.map((v) => Map<String, String>.from(v as Map)).toList();
-        
-        final preferredVoices = voices.where((v) => 
-            v['locale'] == 'pt-BR' && 
-            v['gender'] == _settings.voiceGender
-        ).toList();
+        final desiredGender = _settings.voiceGender;
 
-        Map<String, String>? voiceToSet;
-        if (preferredVoices.isNotEmpty) {
-          voiceToSet = preferredVoices.first;
-        } else {
-          final fallbackVoices = voices.where((v) => v['locale'] == 'pt-BR').toList();
-          if (fallbackVoices.isNotEmpty) {
-            voiceToSet = fallbackVoices.first;
+        var ptVoices = voices.where((v) => v['locale']?.toLowerCase() == 'pt-br').toList();
+        if (ptVoices.isEmpty) return; // No pt-BR voices
+
+        Map<String, String>? selectedVoice;
+        final keywords = desiredGender == 'male'
+            ? ['male', 'masc', 'homem', 'antonio', 'daniel']
+            : ['female', 'fem', 'mulher', 'luciana', 'maria', 'helena'];
+
+        // Prioritize voices with gender keywords in the name
+        for (final voice in ptVoices) {
+          final name = voice['name']?.toLowerCase() ?? '';
+          if (keywords.any((kw) => name.contains(kw))) {
+            selectedVoice = voice;
+            break;
           }
         }
 
-        if (voiceToSet != null) {
-          await _flutterTts.setVoice({'name': voiceToSet['name']!, 'locale': voiceToSet['locale']!});
-        }
+        // Fallback to voices with the correct gender property if keyword search fails
+        selectedVoice ??= ptVoices.firstWhere(
+          (v) => v['gender'] == desiredGender,
+          orElse: () => ptVoices.first, // Last resort: first pt-BR voice
+        );
+
+        await _flutterTts.setVoice({'name': selectedVoice['name']!, 'locale': selectedVoice['locale']!});
       }
     } catch (e) {
       print("Error setting voice: $e");
     }
   }
-
 
   Future<Map<String, dynamic>> _loadInitialData() async {
     final chapterData = await _progressService.getChapterForToday();
