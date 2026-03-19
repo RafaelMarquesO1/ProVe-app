@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -25,13 +27,14 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
           .doc(_currentUser!.uid)
           .snapshots(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
+        if (!snapshot.hasData || !snapshot.data!.exists) {
+          return const Center(child: Text("Nenhum dado de usuário encontrado."));
+        }
 
-        final user = snapshot.data!.exists
-            ? UserModel.fromFirestore(snapshot.data!)
-            : UserModel.empty();
+        final user = UserModel.fromFirestore(snapshot.data!);
 
         return Scaffold(
           body: _buildBody(context, user),
@@ -61,6 +64,8 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
           ),
           const SizedBox(height: 32),
           _buildStatsGrid(context, user),
+          const SizedBox(height: 32),
+          _buildWeeklyProgress(context, user.completedDays),
         ],
       ),
     );
@@ -99,44 +104,152 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 200,
-        childAspectRatio: 1.1, // Aumenta a altura relativa
+        childAspectRatio: 1.1,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
       ),
       itemCount: stats.length,
       itemBuilder: (context, index) {
         final stat = stats[index];
-        return _buildStatCard(
-          context,
-          stat['title'] as String,
-          stat['value'] as String,
-          stat['icon'] as IconData,
-          stat['color'] as Color,
+        return AnimatedStatCard(
+          title: stat['title'] as String,
+          value: stat['value'] as String,
+          icon: stat['icon'] as IconData,
+          color: stat['color'] as Color,
+          isAnimated: stat['title'] == "Ofensiva Atual",
         );
       },
     );
   }
 
-  Widget _buildStatCard(
-      BuildContext context, String title, String value, IconData icon, Color color) {
+  Widget _buildWeeklyProgress(BuildContext context, List<DateTime> completedDays) {
+    final textTheme = Theme.of(context).textTheme;
+    final today = DateTime.now();
+    final weekStart = today.subtract(Duration(days: today.weekday - 1));
+    final weekDays = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
+
+    return Column(
+      children: [
+        Text('Leituras na Semana', style: textTheme.headlineSmall),
+        const SizedBox(height: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: List.generate(7, (index) {
+            final day = weekStart.add(Duration(days: index));
+            final isCompleted = completedDays.any((completedDay) =>
+                completedDay.year == day.year &&
+                completedDay.month == day.month &&
+                completedDay.day == day.day);
+
+            return Column(
+              children: [
+                Text(weekDays[index]),
+                const SizedBox(height: 8),
+                CircleAvatar(
+                  radius: 16,
+                  backgroundColor: isCompleted ? Colors.green : Colors.grey[300],
+                  child: isCompleted ? const Icon(Icons.check, color: Colors.white) : null,
+                ),
+              ],
+            );
+          }),
+        ),
+      ],
+    );
+  }
+}
+
+class AnimatedStatCard extends StatefulWidget {
+  final String title;
+  final String value;
+  final IconData icon;
+  final Color color;
+  final bool isAnimated;
+
+  const AnimatedStatCard({
+    super.key,
+    required this.title,
+    required this.value,
+    required this.icon,
+    required this.color,
+    this.isAnimated = false,
+  });
+
+  @override
+  State<AnimatedStatCard> createState() => _AnimatedStatCardState();
+}
+
+class _AnimatedStatCardState extends State<AnimatedStatCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    );
+
+    if (widget.isAnimated) {
+      _controller.repeat();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
     return Container(
-      padding: const EdgeInsets.all(16), // Reduz o padding vertical
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: widget.color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: widget.color.withOpacity(0.2)),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(icon, size: 36, color: color),
-          const SizedBox(height: 8), // Reduz o espaçamento
+          if (widget.isAnimated)
+            AnimatedBuilder(
+              animation: _controller,
+              builder: (context, child) {
+                final breathingValue = sin(_controller.value * 2 * pi);
+                final scale = 1.0 + (breathingValue * 0.05);
+                final glowOpacity = (breathingValue + 1) / 2;
+
+                return Transform.scale(
+                  scale: scale,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: widget.color.withOpacity(0.5 * glowOpacity),
+                          blurRadius: 15 * glowOpacity,
+                          spreadRadius: 5 * glowOpacity,
+                        ),
+                      ],
+                    ),
+                    child: child,
+                  ),
+                );
+              },
+              child: Icon(widget.icon, size: 36, color: widget.color),
+            )
+          else
+            Icon(widget.icon, size: 36, color: widget.color),
+          const SizedBox(height: 8),
           Expanded(
             child: Text(
-              title,
+              widget.title,
               style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
               maxLines: 2,
@@ -147,10 +260,13 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
           FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
-              value,
+              widget.value,
               style: textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
-                color: HSLColor.fromColor(color).withLightness((HSLColor.fromColor(color).lightness - 0.2).clamp(0.0, 1.0)).toColor(),
+                color: HSLColor.fromColor(widget.color)
+                    .withLightness((HSLColor.fromColor(widget.color).lightness - 0.2)
+                        .clamp(0.0, 1.0))
+                    .toColor(),
               ),
               textAlign: TextAlign.center,
             ),
