@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:myapp/providers/reading_settings_provider.dart';
+
+// Enum para representar a seleção de voz
+enum VoiceType { masculina, feminina }
 
 class ReadingSettingsPage extends StatelessWidget {
   const ReadingSettingsPage({super.key});
@@ -9,77 +11,165 @@ class ReadingSettingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final settings = ReadingSettingsProvider.instance;
+    final theme = Theme.of(context);
 
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Configurações de Leitura',
-          style: GoogleFonts.oswald(fontWeight: FontWeight.bold),
+          'Ajustes de Leitura',
+          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/home'),
+          icon: const Icon(Icons.arrow_back_ios_new),
+          onPressed: () => context.go('/home'), // Navegação consistente
         ),
+        backgroundColor: theme.scaffoldBackgroundColor,
+        elevation: 1,
       ),
       body: AnimatedBuilder(
         animation: settings,
         builder: (context, child) {
+          // Estado para o SegmentedButton
+          final Set<VoiceType> voiceSelection = {settings.voiceType};
+
           return SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Tamanho da Fonte', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  Slider(
-                    value: settings.fontSize,
-                    min: 12.0,
-                    max: 32.0,
-                    divisions: 20,
-                    label: settings.fontSize.round().toString(),
-                    onChanged: (value) {
-                      settings.setFontSize(value);
-                    },
+            padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildSectionTitle(context, 'APARÊNCIA DO TEXTO'),
+                Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: Colors.grey.shade300, width: 1),
                   ),
-                  const SizedBox(height: 32),
-                  const Text('Cor de Fundo', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 16),
-                  Wrap(
-                    spacing: 12.0,
-                    runSpacing: 12.0,
+                  clipBehavior: Clip.antiAlias,
+                  child: Column(
                     children: [
-                      _buildColorChip(context, const Color(0xFFFFF9F0), 'Padrão'),
-                      _buildColorChip(context, Colors.white, 'Branco'),
-                      _buildColorChip(context, const Color(0xFF212121), 'Noturno'),
+                      _buildFontSizeSlider(context, settings),
+                      const Divider(height: 1, indent: 24, endIndent: 24),
+                      _buildBackgroundColorSelector(context, settings),
                     ],
                   ),
-                  const SizedBox(height: 32),
-                  const Text('Velocidade da Fala', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  Slider(
-                    value: settings.speechRate,
-                    min: 0.5, // Mínimo
-                    max: 1.0, // Máximo
-                    divisions: 5, // 5 divisões entre 0.5 e 1.0
-                    label: settings.speechRate.toStringAsFixed(1),
-                    onChanged: (value) {
-                      settings.setSpeechRate(value);
-                    },
+                ),
+                const SizedBox(height: 24),
+                _buildSectionTitle(context, 'PREFERÊNCIAS DE ÁUDIO'),
+                Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: Colors.grey.shade300, width: 1),
                   ),
-                  const SizedBox(height: 50),
-                  ElevatedButton(
-                    onPressed: () => context.go('/home'),
-                    child: const Text('Concluído'),
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 50),
-                    ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Column(
+                    children: [
+                      _buildSpeechRateSlider(context, settings),
+                      const Divider(height: 1, indent: 24, endIndent: 24),
+                      _buildVoiceSelector(context, settings, voiceSelection),
+                    ],
                   ),
-                  const SizedBox(height: 16),
-                ],
-              ),
+                ),
+              ],
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildFontSizeSlider(BuildContext context, ReadingSettingsProvider settings) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Tamanho da Fonte', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+          Slider(
+            value: settings.fontSize,
+            min: 12.0,
+            max: 32.0,
+            divisions: 10,
+            label: settings.fontSize.round().toString(),
+            onChanged: (value) => settings.setFontSize(value),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBackgroundColorSelector(BuildContext context, ReadingSettingsProvider settings) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Cor de Fundo', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildColorChip(context, const Color(0xFFFFF9F0), 'Padrão'),
+              _buildColorChip(context, Colors.white, 'Branco'),
+              _buildColorChip(context, const Color(0xFF212121), 'Noturno'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSpeechRateSlider(BuildContext context, ReadingSettingsProvider settings) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Velocidade da Leitura', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+          Slider(
+            value: settings.speechRate,
+            min: 0.5,
+            max: 1.5, 
+            divisions: 10,
+            label: '${(settings.speechRate * 100).toInt()}%',
+            onChanged: (value) => settings.setSpeechRate(value),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVoiceSelector(BuildContext context, ReadingSettingsProvider settings, Set<VoiceType> selection) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Voz', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: SegmentedButton<VoiceType>(
+              segments: const <ButtonSegment<VoiceType>>[
+                ButtonSegment(value: VoiceType.masculina, label: Text('Masculina'), icon: Icon(Icons.male)),
+                ButtonSegment(value: VoiceType.feminina, label: Text('Feminina'), icon: Icon(Icons.female)),
+              ],
+              selected: selection,
+              onSelectionChanged: (newSelection) {
+                settings.setVoiceType(newSelection.first);
+              },
+              style: SegmentedButton.styleFrom(
+                selectedBackgroundColor: theme.colorScheme.primary.withOpacity(0.2),
+                selectedForegroundColor: theme.colorScheme.primary,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -88,22 +178,42 @@ class ReadingSettingsPage extends StatelessWidget {
     final settings = ReadingSettingsProvider.instance;
     final bool isSelected = settings.backgroundColor == color;
     final bool isDark = color.computeLuminance() < 0.4;
+    final theme = Theme.of(context);
 
     return GestureDetector(
-      onTap: () {
-        settings.setBackgroundColor(color);
-      },
-      child: Chip(
-        backgroundColor: color,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        label: Text(
-          label,
-          style: TextStyle(color: isDark ? Colors.white70 : Colors.black87),
+      onTap: () => settings.setBackgroundColor(color),
+      child: Column(
+        children: [
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isSelected ? theme.colorScheme.primary : (isDark ? Colors.white54 : Colors.black26),
+                width: isSelected ? 3.0 : 1.5,
+              ),
+            ),
+            child: isSelected ? Icon(Icons.check, color: isDark ? Colors.white : Colors.black) : null,
+          ),
+          const SizedBox(height: 8),
+          Text(label, style: theme.textTheme.bodyMedium?.copyWith(color: isSelected ? theme.colorScheme.primary : theme.textTheme.bodySmall?.color)),
+        ],
+      ),
+    );
+  }
+
+  Padding _buildSectionTitle(BuildContext context, String title) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(left: 8.0, bottom: 8.0, top: 8.0),
+      child: Text(
+        title,
+        style: theme.textTheme.labelLarge?.copyWith(
+          color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
+          fontWeight: FontWeight.bold,
         ),
-        side: isSelected
-            ? BorderSide(color: Theme.of(context).colorScheme.primary, width: 2.5)
-            : BorderSide(color: Colors.grey.shade300, width: 1),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
     );
   }

@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -54,30 +53,29 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 
   Future<void> _updateProfile() async {
-    if (!_formKey.currentState!.validate() || _currentUser == null) return;
+    if (!(_formKey.currentState?.validate() ?? false) || _currentUser == null) return;
 
     setState(() => _isLoading = true);
 
     try {
-      String? photoURL = _currentUser!.photoURL;
+      String? photoURL = _currentUser?.photoURL;
       if (_imageFile != null) {
         photoURL = await _uploadProfilePicture(_currentUser!.uid);
       }
 
-      await _currentUser!.updateDisplayName(_nameController.text);
+      await _currentUser?.updateDisplayName(_nameController.text);
       if (photoURL != null) {
-        await _currentUser!.updatePhotoURL(photoURL);
+        await _currentUser?.updatePhotoURL(photoURL);
       }
 
-      // A atualização do Firestore já é feita pela função de criação de usuário
-      // ou pode ser feita por uma cloud function para manter a consistência.
-      // Não é estritamente necessário aqui, a menos que queira dados adicionais.
-
       if (_currentPasswordController.text.isNotEmpty && _newPasswordController.text.isNotEmpty) {
-        AuthCredential credential = EmailAuthProvider.credential(
-            email: _currentUser!.email!, password: _currentPasswordController.text);
-        await _currentUser!.reauthenticateWithCredential(credential);
-        await _currentUser!.updatePassword(_newPasswordController.text);
+        final email = _currentUser?.email;
+        if (email != null) {
+          AuthCredential credential = EmailAuthProvider.credential(
+              email: email, password: _currentPasswordController.text);
+          await _currentUser?.reauthenticateWithCredential(credential);
+          await _currentUser?.updatePassword(_newPasswordController.text);
+        }
       }
 
       if (mounted) {
@@ -102,35 +100,35 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Editar Perfil', style: GoogleFonts.oswald(fontWeight: FontWeight.bold)),
+        title: Text('Editar Perfil', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back_ios_new),
           onPressed: () => context.go('/home'),
         ),
+        backgroundColor: theme.scaffoldBackgroundColor,
+        elevation: 1,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+        padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
         child: Form(
           key: _formKey,
           child: Column(
             children: [
               _buildAvatar(context),
               const SizedBox(height: 32),
-              _buildTextField(
-                controller: _nameController,
-                label: 'Nome Completo',
-                icon: Icons.person_outline,
-                validator: (value) => value!.isEmpty ? 'O nome não pode estar em branco' : null,
-              ),
-              const SizedBox(height: 16),
-              _buildEmailField(theme),
+              _buildSectionTitle(context, 'INFORMAÇÕES PESSOAIS'),
+              _buildUserInfoCard(theme),
               const SizedBox(height: 24),
-              _buildPasswordSection(theme),
+              _buildSectionTitle(context, 'SEGURANÇA'),
+              _buildPasswordCard(theme),
               const SizedBox(height: 32),
               ElevatedButton(
                 onPressed: _isLoading ? null : _updateProfile,
-                style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
                 child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text('Salvar Alterações'),
               ),
             ],
@@ -142,50 +140,62 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   Widget _buildAvatar(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Stack(
-      alignment: Alignment.bottomRight,
-      children: [
-        CircleAvatar(
-          radius: 70,
-          backgroundImage: _imageFile != null
-              ? FileImage(_imageFile!)
-              : (_currentUser?.photoURL != null ? NetworkImage(_currentUser!.photoURL!) : null) as ImageProvider?,
-          backgroundColor: colorScheme.surfaceVariant,
-          child: _imageFile == null && _currentUser?.photoURL == null
-              ? Icon(Icons.person, size: 80, color: colorScheme.onSurfaceVariant)
-              : null,
-        ),
-        Material(
-          color: colorScheme.primary,
-          shape: const CircleBorder(),
-          elevation: 4,
-          child: IconButton(
-            icon: const Icon(Icons.edit, color: Colors.white, size: 20),
-            onPressed: _pickImage,
-            tooltip: 'Alterar Foto',
+    return Center(
+      child: Stack(
+        alignment: Alignment.bottomRight,
+        children: [
+          CircleAvatar(
+            radius: 70,
+            backgroundImage: _imageFile != null
+                ? FileImage(_imageFile!)
+                : (_currentUser?.photoURL != null ? NetworkImage(_currentUser!.photoURL!) : null) as ImageProvider?,
+            backgroundColor: colorScheme.surfaceContainerHighest,
+            child: _imageFile == null && _currentUser?.photoURL == null
+                ? Icon(Icons.person, size: 80, color: colorScheme.onSurface)
+                : null,
           ),
-        ),
-      ],
+          Positioned(
+            right: 4,
+            bottom: 4,
+            child: Material(
+              color: colorScheme.primary,
+              shape: const CircleBorder(),
+              elevation: 4,
+              child: IconButton(
+                icon: const Icon(Icons.edit, color: Colors.white, size: 20),
+                onPressed: _pickImage,
+                tooltip: 'Alterar Foto',
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildTextField({
     required TextEditingController controller,
     required String label,
-    required IconData icon,
+    IconData? icon,
     bool obscureText = false,
     String? Function(String?)? validator,
+    bool enabled = true,
   }) {
     return TextFormField(
       controller: controller,
       obscureText: obscureText,
       validator: validator,
+      enabled: enabled,
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: Icon(icon),
+        prefixIcon: icon != null ? Icon(icon) : null,
         filled: true,
-        fillColor: Colors.grey.shade50,
+        fillColor: Colors.grey.shade100,
         border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        disabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
         ),
@@ -193,45 +203,56 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
   }
 
-  Widget _buildEmailField(ThemeData theme) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade200,
+  Widget _buildUserInfoCard(ThemeData theme) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.shade300, width: 1),
       ),
-      child: Row(
+      clipBehavior: Clip.antiAlias,
+      child: Column(
         children: [
-          Icon(Icons.email_outlined, color: Colors.grey.shade600),
-          const SizedBox(width: 12),
-          Text(
-            _currentUser?.email ?? 'E-mail não disponível',
-            style: theme.textTheme.bodyLarge?.copyWith(color: Colors.grey.shade700),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: _buildTextField(
+              controller: _nameController,
+              label: 'Nome Completo',
+              icon: Icons.person_outline,
+              validator: (value) => (value?.isEmpty ?? true) ? 'O nome não pode estar em branco' : null,
+            ),
+          ),
+          const Divider(height: 1, indent: 16, endIndent: 16),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: _buildTextField(
+              controller: TextEditingController(text: _currentUser?.email ?? 'E-mail não disponível'),
+              label: 'E-mail',
+              icon: Icons.email_outlined,
+              enabled: false,
+            ),
           ),
         ],
       ),
     );
   }
-  
-  Widget _buildPasswordSection(ThemeData theme) {
+
+  Widget _buildPasswordCard(ThemeData theme) {
     return Card(
       elevation: 0,
-      color: Colors.grey.shade50,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.shade300, width: 1),
+      ),
+      clipBehavior: Clip.antiAlias,
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Alterar Senha',
-              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Deixe em branco se não quiser alterar.',
-              style: theme.textTheme.bodySmall,
-            ),
+            Text('Alterar Senha', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
+            Text('Deixe os campos em branco se não desejar alterar a senha.', style: theme.textTheme.bodySmall),
             const SizedBox(height: 16),
             _buildTextField(
               controller: _currentPasswordController,
@@ -247,6 +268,20 @@ class _EditProfilePageState extends State<EditProfilePage> {
               obscureText: true,
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Padding _buildSectionTitle(BuildContext context, String title) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(left: 8.0, bottom: 8.0, top: 8.0),
+      child: Text(
+        title,
+        style: theme.textTheme.labelLarge?.copyWith(
+          color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
+          fontWeight: FontWeight.bold,
         ),
       ),
     );

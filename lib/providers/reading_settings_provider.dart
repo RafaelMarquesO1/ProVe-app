@@ -1,19 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:myapp/screens/reading_settings_page.dart';
 
 class ReadingSettingsProvider with ChangeNotifier {
-  // Etapa 1: Construtor privado
+  // Construtor privado
   ReadingSettingsProvider._privateConstructor();
 
-  // Etapa 2: Instância estática (Singleton)
+  // Instância estática (Singleton)
   static final ReadingSettingsProvider instance = ReadingSettingsProvider._privateConstructor();
 
-  double _fontSize = 16.0;
-  Color _backgroundColor = const Color(0xFFF5F5DC); // Bege claro
-  double _speechRate = 0.8; // um valor padrão razoável
+  double _fontSize = 18.0;
+  Color _backgroundColor = const Color(0xFFFFF9F0);
+  double _speechRate = 1.0; // Velocidade normal
+  VoiceType _voiceType = VoiceType.feminina; // Padrão para voz feminina
 
   double get fontSize => _fontSize;
   Color get backgroundColor => _backgroundColor;
   double get speechRate => _speechRate;
+  VoiceType get voiceType => _voiceType;
 
   void setFontSize(double size) {
     _fontSize = size;
@@ -26,8 +29,12 @@ class ReadingSettingsProvider with ChangeNotifier {
   }
 
   void setSpeechRate(double rate) {
-    // Garante que a velocidade permaneça dentro de um intervalo seguro
-    _speechRate = rate.clamp(0.5, 1.0);
+    _speechRate = rate.clamp(0.5, 1.5);
+    notifyListeners();
+  }
+
+  void setVoiceType(VoiceType type) {
+    _voiceType = type;
     notifyListeners();
   }
 }
