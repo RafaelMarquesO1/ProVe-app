@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:myapp/routes.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
-// import 'package:myapp/services/notification_service.dart'; // Temporariamente desativado
+import 'package:myapp/services/notification_service.dart';
 
 import 'firebase_options.dart';
 
@@ -14,10 +14,8 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  // Inicializa o serviço de notificação - Temporariamente desativado
-  // await NotificationService().init();
-  //
-  // Em breve irei colocar as notificações para a alteração da funcionalidade do app 
+  // Inicializa o serviço de notificações
+  await NotificationService().init();
   
   runApp(const MyApp());
 }
@@ -47,7 +45,7 @@ class MyApp extends StatelessWidget {
       colorScheme: ColorScheme.fromSeed(
         seedColor: primarySeedColor,
         brightness: Brightness.light,
-        background: backgroundColor,
+        surface: backgroundColor,
       ),
       textTheme: appTextTheme,
       appBarTheme: AppBarTheme(
@@ -100,7 +98,7 @@ class MyApp extends StatelessWidget {
 
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
-      title: 'Sabedoria Diária',
+      title: 'ProVê',
       theme: theme,
       routerConfig: router, // Usa o GoRouter para navegação
       localizationsDelegates: const [

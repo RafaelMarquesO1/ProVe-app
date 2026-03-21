@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -70,6 +71,19 @@ class _EditProfilePageState extends State<EditProfilePage> {
       if (photoURL != null) {
         await user.updatePhotoURL(photoURL);
       }
+      
+      // Atualizar também na coleção 'users' do Firestore
+      final Map<String, dynamic> updateData = {
+        'name': _nameController.text,
+      };
+      if (photoURL != null) {
+        updateData['photoURL'] = photoURL;
+      }
+      
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .set(updateData, SetOptions(merge: true));
 
       if (_currentPasswordController.text.isNotEmpty && _newPasswordController.text.isNotEmpty) {
         final email = user.email;
@@ -110,14 +124,25 @@ class _EditProfilePageState extends State<EditProfilePage> {
           onPressed: () => context.go('/home'),
         ),
         backgroundColor: theme.scaffoldBackgroundColor,
-        elevation: 1,
+        elevation: 0,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+        padding: const EdgeInsets.fromLTRB(16, 32, 16, 24),
         child: Form(
           key: _formKey,
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              Text(
+                'PERFIL',
+                style: theme.textTheme.displayLarge,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Atualize suas informações pessoais',
+                style: theme.textTheme.titleMedium,
+              ),
+              const SizedBox(height: 32),
               _buildAvatar(context),
               const SizedBox(height: 32),
               _buildSectionTitle(context, 'INFORMAÇÕES PESSOAIS'),
@@ -209,11 +234,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
   Widget _buildUserInfoCard(ThemeData theme) {
     return Card(
       elevation: 0,
+      color: Colors.white,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade300, width: 1),
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey.shade200),
       ),
-      clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
           Padding(
@@ -243,11 +268,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
   Widget _buildPasswordCard(ThemeData theme) {
     return Card(
       elevation: 0,
+      color: Colors.white,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade300, width: 1),
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey.shade200),
       ),
-      clipBehavior: Clip.antiAlias,
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -283,7 +308,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       child: Text(
         title,
         style: theme.textTheme.labelLarge?.copyWith(
-          color: theme.hintColor,
+          color: theme.textTheme.bodySmall?.color,
           fontWeight: FontWeight.bold,
         ),
       ),

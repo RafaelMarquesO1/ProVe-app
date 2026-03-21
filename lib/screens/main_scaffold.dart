@@ -4,21 +4,41 @@ import 'package:myapp/screens/menu_page.dart';
 import 'package:myapp/screens/reading_plan_page.dart';
 
 class MainScaffold extends StatefulWidget {
-  const MainScaffold({super.key});
+  final int initialIndex;
+  final bool showConfetti;
+  
+  const MainScaffold({
+    super.key, 
+    this.initialIndex = 0,
+    this.showConfetti = false,
+  });
 
   @override
   State<MainScaffold> createState() => _MainScaffoldState();
 }
 
 class _MainScaffoldState extends State<MainScaffold> {
-  int _selectedIndex = 0; // O índice inicial agora é 0 (Início)
+  int _selectedIndex = 0;
 
-  // Lista de telas disponíveis na navegação (sem a HistoryPage)
-  static const List<Widget> _widgetOptions = <Widget>[
-    HomePage(),
-    ReadingPlanPage(),
-    MenuPage(),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _selectedIndex = widget.initialIndex;
+  }
+
+  @override
+  void didUpdateWidget(MainScaffold oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialIndex != oldWidget.initialIndex) {
+      _selectedIndex = widget.initialIndex;
+    }
+  }
+
+  List<Widget> get _widgetOptions => [
+        const HomePage(),
+        ReadingPlanPage(showConfetti: widget.showConfetti),
+        const MenuPage(),
+      ];
 
   void _onItemTapped(int index) {
     setState(() {

@@ -41,13 +41,14 @@ class _MenuPageState extends State<MenuPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                'CONFIGURAÇÕES',
-                textAlign: TextAlign.center,
-                style: textTheme.displayLarge,
-              ),
+            Text(
+              'CONFIGURAÇÕES',
+              style: textTheme.displayLarge,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Gerencie sua conta e preferências',
+              style: textTheme.titleMedium,
             ),
             const SizedBox(height: 32),
 
@@ -58,9 +59,10 @@ class _MenuPageState extends State<MenuPage> {
             _buildSectionTitle(context, 'GERAL'),
             Card(
               elevation: 0,
+              color: Colors.white,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(color: Colors.grey.shade300, width: 1),
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: Colors.grey.shade200),
               ),
               clipBehavior: Clip.antiAlias,
               child: Column(
@@ -86,9 +88,10 @@ class _MenuPageState extends State<MenuPage> {
             _buildSectionTitle(context, 'SAIR'),
             Card(
               elevation: 0,
+              color: Colors.white,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(color: Colors.red.shade200, width: 1),
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: Colors.red.shade200),
               ),
               clipBehavior: Clip.antiAlias,
               child: _buildMenuItem(
@@ -108,13 +111,13 @@ class _MenuPageState extends State<MenuPage> {
   Padding _buildSectionTitle(BuildContext context, String title) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.only(left: 8.0, bottom: 8.0),
+      padding: const EdgeInsets.only(left: 8.0, bottom: 8.0, top: 8.0),
       child: Text(
         title,
         style: theme.textTheme.labelLarge?.copyWith(
-              color: theme.textTheme.bodySmall?.color,
-              fontWeight: FontWeight.bold,
-            ),
+          color: theme.textTheme.bodySmall?.color,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }
@@ -126,9 +129,12 @@ class _MenuPageState extends State<MenuPage> {
     final displayName = _user?.displayName ?? 'Nome do Usuário';
 
     return Card(
-      elevation: 2,
-      shadowColor: colorScheme.primary.withAlpha(51),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => context.go('/profile/edit'),

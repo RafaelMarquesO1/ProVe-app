@@ -24,12 +24,20 @@ class _ReadingPageState extends State<ReadingPage> {
   final ReadingSettingsProvider _settings = ReadingSettingsProvider.instance;
 
   bool _isReading = false;
+  bool _showFab = false;
   int _currentlySpeakingVerse = -1;
   Completer<void>? _speechCompleter;
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(() {
+      if (_scrollController.offset > 200 && !_showFab) {
+        setState(() => _showFab = true);
+      } else if (_scrollController.offset <= 200 && _showFab) {
+        setState(() => _showFab = false);
+      }
+    });
     _readingData = _loadInitialData();
     _initTts();
   }
@@ -49,12 +57,25 @@ class _ReadingPageState extends State<ReadingPage> {
         _speechCompleter!.complete();
       }
     });
+
+    // Caso o áudio pare ou sofra interrupção externa
+    _flutterTts.setCancelHandler(() {
+      if (_speechCompleter != null && !_speechCompleter!.isCompleted) {
+        _speechCompleter!.complete();
+      }
+      if (mounted) {
+        setState(() {
+          _isReading = false;
+          _currentlySpeakingVerse = -1;
+        });
+      }
+    });
   }
 
   Future<void> _applyTtsSettings() async {
     if (!mounted) return;
 
-    // Aqui eu normalizei a velocidade da voz no Android (Testar no iOS)
+    // Normalização no Android
     double rate = _settings.speechRate;
     if (!kIsWeb && Platform.isAndroid) {
       rate = rate / 2.0;
@@ -67,15 +88,13 @@ class _ReadingPageState extends State<ReadingPage> {
         final voices = voicesResult.map((v) => Map<String, String>.from(v as Map)).toList();
         
         var ptVoices = voices.where((v) => v['locale']?.toLowerCase() == 'pt-br').toList();
-        if (ptVoices.isEmpty) return; // Se não tiver vozes em pt-BR
+        if (ptVoices.isEmpty) return;
 
-        // Select the first available pt-BR voice
         final selectedVoice = ptVoices.first;
-
         await _flutterTts.setVoice({'name': selectedVoice['name']!, 'locale': selectedVoice['locale']!});
       }
     } catch (e) {
-      print("Erro ao encontrar configurações de voz: $e");
+      debugPrint("Erro ao encontrar configurações de voz: $e");
     }
   }
 
@@ -86,12 +105,6 @@ class _ReadingPageState extends State<ReadingPage> {
       ...chapterData,
       'content': content,
     };
-  }
-
-  void _reloadData() {
-    setState(() {
-      _readingData = _loadInitialData();
-    });
   }
 
   Future<List<String>> _loadChapterContent(int chapter) async {
@@ -105,10 +118,86 @@ class _ReadingPageState extends State<ReadingPage> {
   Future<void> _markAsRead() async {
     try {
       await _progressService.markChapterAsRead();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Leitura de hoje concluída! Parabéns!')),
+
+      if (!mounted) return;
+
+      // Mostra a Animação de Parabéns por Concluir a Leitura!
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        barrierColor: Colors.black87, // Fundo escuro para foco total
+        builder: (dialogContext) {
+          return Center(
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.0, end: 1.0),
+              duration: const Duration(milliseconds: 600),
+              curve: Curves.elasticOut,
+              builder: (context, value, child) {
+                return Transform.scale(
+                  scale: value,
+                  child: Container(
+                    padding: const EdgeInsets.all(32),
+                    margin: const EdgeInsets.symmetric(horizontal: 32),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF81C784), Color(0xFF388E3C)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(32),
+                      boxShadow: [
+                        BoxShadow(color: const Color(0xFF388E3C).withOpacity(0.5), blurRadius: 30, spreadRadius: 10),
+                      ]
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.check_rounded, color: Colors.white, size: 72),
+                        ),
+                        const SizedBox(height: 24),
+                        const Text(
+                          'Leitura Concluída!',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.white, decoration: TextDecoration.none),
+                        ),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Sua ofensiva aumentou. A sabedoria divina te fortaleceu hoje!',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.white, decoration: TextDecoration.none),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+            ),
+          );
+        },
       );
-      _reloadData();
+
+      // Aguarda a animação
+      await Future.delayed(const Duration(milliseconds: 2800));
+      
+      if (mounted) {
+        // Fecha o dialog de parabéns usando rootNavigator para evitar conflitos com GoRouter
+        Navigator.of(context, rootNavigator: true).pop(); 
+      }
+
+      // Aguarda um pequeno momento para o Navigator destravar
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      if (mounted) {
+        // Redireciona pra Aba do Meio (Ofensiva) com Confetes
+        context.go('/home', extra: {'index': 1, 'showConfetti': true});
+      }
+
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erro ao salvar a leitura: $e')),
@@ -116,22 +205,16 @@ class _ReadingPageState extends State<ReadingPage> {
     }
   }
 
-  void _scrollToTop() {
-    _scrollController.animateTo(
-      0,
-      duration: const Duration(seconds: 1),
-      curve: Curves.linear,
-    );
-  }
-
   Future<void> _toggleReading(List<String> content) async {
     if (_isReading) {
       await _flutterTts.stop();
+      if (!mounted) return;
       setState(() {
         _isReading = false;
         _currentlySpeakingVerse = -1;
       });
     } else {
+      if (!mounted) return;
       setState(() {
         _isReading = true;
       });
@@ -140,13 +223,24 @@ class _ReadingPageState extends State<ReadingPage> {
 
       for (int i = 0; i < content.length; i++) {
         if (!_isReading || !mounted) break;
+        
         setState(() {
           _currentlySpeakingVerse = i;
         });
 
+        // Tenta rolar suavemente para o versículo atual para acompanhar a leitura
+        final double scrollTarget = i * (_settings.fontSize * 3);
+        if (_scrollController.hasClients && i > 2) {
+          _scrollController.animateTo(
+            scrollTarget, 
+            duration: const Duration(milliseconds: 500), 
+            curve: Curves.ease
+          );
+        }
+
         _speechCompleter = Completer<void>();
         await _flutterTts.speak(content[i]);
-        await _speechCompleter!.future; // Wait for the verse to finish
+        await _speechCompleter!.future;
       }
 
       if (mounted) {
@@ -165,6 +259,10 @@ class _ReadingPageState extends State<ReadingPage> {
     return AnimatedBuilder(
       animation: _settings,
       builder: (context, child) {
+        final bool isDarkBackground = _settings.backgroundColor.computeLuminance() < 0.5;
+        final textColor = isDarkBackground ? Colors.white.withOpacity(0.9) : Colors.black87;
+        final subtleTextColor = isDarkBackground ? Colors.white54 : Colors.grey.shade600;
+
         return Scaffold(
           backgroundColor: _settings.backgroundColor,
           body: SafeArea(
@@ -176,11 +274,11 @@ class _ReadingPageState extends State<ReadingPage> {
                 }
 
                 if (snapshot.hasError) {
-                  return Center(child: Text('Erro: ${snapshot.error}'));
+                  return Center(child: Text('Erro: ${snapshot.error}', style: TextStyle(color: textColor)));
                 }
 
                 if (!snapshot.hasData) {
-                  return const Center(child: Text('Nenhum dado disponível.'));
+                  return Center(child: Text('Nenhum dado disponível.', style: TextStyle(color: textColor)));
                 }
 
                 final data = snapshot.data!;
@@ -193,35 +291,79 @@ class _ReadingPageState extends State<ReadingPage> {
                     Expanded(
                       child: CustomScrollView(
                         controller: _scrollController,
+                        physics: const BouncingScrollPhysics(),
                         slivers: [
                           SliverAppBar(
-                            backgroundColor: Colors.transparent,
+                            backgroundColor: _settings.backgroundColor.withOpacity(0.95),
+                            pinned: true,
                             elevation: 0,
                             leading: IconButton(
-                              icon: Icon(Icons.arrow_back, color: theme.colorScheme.primary),
-                              onPressed: () => context.go('/home'),
+                              icon: Icon(Icons.arrow_back_ios_new_rounded, color: theme.colorScheme.primary),
+                              onPressed: () {
+                                if (context.canPop()) {
+                                  context.pop();
+                                } else {
+                                  context.go('/home');
+                                }
+                              },
                             ),
                             actions: [
                               IconButton(
+                                icon: Icon(Icons.tune_rounded, color: theme.colorScheme.primary),
+                                tooltip: 'Ajustes de Leitura',
+                                onPressed: () => context.push('/settings/reading'),
+                              ),
+                              IconButton(
                                 icon: Icon(
-                                  _isReading ? Icons.stop_circle_outlined : Icons.play_circle_outline,
+                                  _isReading ? Icons.pause_circle_filled_rounded : Icons.play_circle_fill_rounded,
                                   color: theme.colorScheme.primary,
+                                  size: 32,
                                 ),
+                                tooltip: 'Ouvir Capítulo',
                                 onPressed: () => _toggleReading(content),
                               ),
+                              const SizedBox(width: 8),
                             ],
                           ),
                           SliverToBoxAdapter(
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                              child: Text(
-                                'PROVÉRBIOS $chapter',
-                                textAlign: TextAlign.center,
-                                style: theme.textTheme.displayLarge?.copyWith(color: const Color(0xFFD98F2B)),
+                              padding: const EdgeInsets.fromLTRB(24, 24, 24, 48),
+                              child: Column(
+                                children: [
+                                  Text(
+                                    'PROVÉRBIOS',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 16, 
+                                      letterSpacing: 4, 
+                                      fontWeight: FontWeight.bold, 
+                                      color: subtleTextColor
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    '$chapter',
+                                    textAlign: TextAlign.center,
+                                    style: theme.textTheme.displayLarge?.copyWith(
+                                      fontSize: 64,
+                                      fontWeight: FontWeight.w900,
+                                      color: textColor,
+                                      height: 1.0,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Container(
+                                    width: 60,
+                                    height: 4,
+                                    decoration: BoxDecoration(
+                                      color: theme.colorScheme.primary,
+                                      borderRadius: BorderRadius.circular(2),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
-                          const SliverToBoxAdapter(child: SizedBox(height: 32)),
                           SliverList(
                             delegate: SliverChildBuilderDelegate(
                               (context, index) {
@@ -231,21 +373,39 @@ class _ReadingPageState extends State<ReadingPage> {
                                 final verseText = parts.sublist(1).join(' ');
                                 final isSpeaking = index == _currentlySpeakingVerse;
 
-                                return Padding(
-                                  padding: const EdgeInsets.fromLTRB(24.0, 0, 24.0, 16.0),
+                                return AnimatedContainer(
+                                  duration: const Duration(milliseconds: 300),
+                                  padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
+                                  margin: const EdgeInsets.only(bottom: 8.0),
+                                  decoration: BoxDecoration(
+                                    color: isSpeaking ? theme.colorScheme.primary.withOpacity(0.15) : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
                                   child: RichText(
                                     textAlign: TextAlign.justify,
                                     text: TextSpan(
                                       style: theme.textTheme.bodyLarge?.copyWith(
                                         fontSize: _settings.fontSize,
-                                        height: 1.5,
-                                        color: _settings.backgroundColor.computeLuminance() > 0.5 ? Colors.black87 : Colors.white70,
-                                        backgroundColor: isSpeaking ? theme.colorScheme.primary.withOpacity(0.3) : Colors.transparent,
+                                        height: 1.6,
+                                        color: textColor,
                                       ),
                                       children: [
-                                        TextSpan(
-                                          text: '$verseNumber ',
-                                          style: const TextStyle(fontWeight: FontWeight.bold),
+                                        WidgetSpan(
+                                          alignment: PlaceholderAlignment.top,
+                                          child: Transform.translate(
+                                            offset: const Offset(0, 2),
+                                            child: Padding(
+                                              padding: const EdgeInsets.only(right: 6.0),
+                                              child: Text(
+                                                verseNumber,
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.w900, 
+                                                  fontSize: _settings.fontSize * 0.6,
+                                                  color: theme.colorScheme.primary,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
                                         ),
                                         TextSpan(text: verseText),
                                       ],
@@ -256,32 +416,131 @@ class _ReadingPageState extends State<ReadingPage> {
                               childCount: content.length,
                             ),
                           ),
+                          const SliverToBoxAdapter(child: SizedBox(height: 32)),
+                          if (canRead)
+                            SliverToBoxAdapter(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
+                                child: BounceButton(
+                                  onTap: _markAsRead,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(vertical: 20),
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [theme.colorScheme.primary, const Color(0xFFD65108)],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                      borderRadius: BorderRadius.circular(20),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(0xFFD65108).withOpacity(0.4),
+                                          blurRadius: 15,
+                                          offset: const Offset(0, 8),
+                                        )
+                                      ],
+                                    ),
+                                    child: const Center(
+                                      child: Text(
+                                        'Concluir Leitura',
+                                        style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          const SliverToBoxAdapter(child: SizedBox(height: 48)),
                         ],
                       ),
                     ),
-                    if (canRead)
-                      Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: ElevatedButton(
-                          onPressed: _markAsRead,
-                          child: const Text('Marcar como Lido'),
-                          style: ElevatedButton.styleFrom(
-                            minimumSize: const Size(double.infinity, 50),
-                          ),
-                        ),
-                      ),
                   ],
                 );
               },
             ),
           ),
-          floatingActionButton: FloatingActionButton(
-            onPressed: _scrollToTop,
-            child: const Icon(Icons.arrow_upward),
-            backgroundColor: const Color(0xFFD98F2B),
+          floatingActionButton: AnimatedOpacity(
+            opacity: _showFab ? 1.0 : 0.0,
+            duration: const Duration(milliseconds: 300),
+            child: FloatingActionButton(
+              onPressed: () {
+                if (_showFab && _scrollController.hasClients) {
+                  _scrollController.animateTo(
+                    0,
+                    duration: const Duration(seconds: 1),
+                    curve: Curves.easeInOut,
+                  );
+                }
+              },
+              backgroundColor: theme.colorScheme.primary,
+              elevation: 4,
+              child: const Icon(Icons.arrow_upward_rounded, color: Colors.white),
+            ),
           ),
         );
       },
+    );
+  }
+}
+
+class BounceButton extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onTap;
+
+  const BounceButton({super.key, required this.child, required this.onTap});
+
+  @override
+  State<BounceButton> createState() => _BounceButtonState();
+}
+
+class _BounceButtonState extends State<BounceButton> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onTapDown(TapDownDetails details) {
+    if (mounted) _controller.forward();
+  }
+
+  void _onTapUp(TapUpDetails details) {
+    if (mounted) {
+      _controller.reverse();
+      widget.onTap();
+    }
+  }
+
+  void _onTapCancel() {
+    if (mounted) _controller.reverse();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: _onTapDown,
+      onTapUp: _onTapUp,
+      onTapCancel: _onTapCancel,
+      child: ScaleTransition(
+        scale: _scaleAnimation,
+        child: widget.child,
+      ),
     );
   }
 }

@@ -54,7 +54,7 @@ class _HomePageState extends State<HomePage> {
     if (_verseOfTheDay.isNotEmpty) {
       final text = _verseOfTheDay['text']!;
       final reference = _verseOfTheDay['reference']!;
-      Share.share('"$text" - $reference\n\nCompartilhado pelo app Sabedoria Diária.');
+      SharePlus.instance.share(ShareParams(text: '"$text" - $reference\n\nCompartilhado pelo app ProVê.'));
     }
   }
 
@@ -86,37 +86,108 @@ class _HomePageState extends State<HomePage> {
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
 
+    String firstName = user.name.isNotEmpty ? user.name.split(' ')[0] : 'Leitor';
+
     return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 72, 16, 24),
+        padding: const EdgeInsets.fromLTRB(20, 64, 20, 32),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // 1. Saudação Personalizada
             Text(
-              'SABEDORIA DIÁRIA',
-              textAlign: TextAlign.center,
-              style: textTheme.displayLarge,
+              'Olá, $firstName!',
+              style: textTheme.displayLarge?.copyWith(fontSize: 32),
+              textAlign: TextAlign.left,
             ),
             const SizedBox(height: 8),
             Text(
-              'Um provérbio por dia para um ano de sabedoria.',
-              textAlign: TextAlign.center,
-              style: textTheme.titleMedium?.copyWith(
-                color: Colors.black54,
-              ),
+              'O que a sabedoria tem para você hoje?',
+              style: textTheme.titleMedium?.copyWith(color: Colors.grey.shade600),
+              textAlign: TextAlign.left,
             ),
             const SizedBox(height: 32),
+
+            // 2. Ação Principal (Ler Agora)
+            _buildMainActionCard(context, user),
+            const SizedBox(height: 24),
+
+            // 3. Versículo de Inspiração
             _buildVerseOfTheDayCard(context, textTheme, colorScheme),
             const SizedBox(height: 24),
-            _buildCalendarCard(context, textTheme, colorScheme, user.readingStreak, user.completedDays),
-            const SizedBox(height: 40),
-            ElevatedButton(
-              onPressed: () => context.go('/reading'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 16),
+
+            // 4. Calendário
+            _buildCalendarCard(context, textTheme, colorScheme, user.completedDays),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMainActionCard(BuildContext context, UserModel user) {
+    // Verifica se o usuário já leu hoje
+    final today = DateTime.now();
+    final isCompletedToday = user.completedDays.any((d) =>
+        d.year == today.year && d.month == today.month && d.day == today.day);
+
+    final gradientColors = isCompletedToday
+        ? [const Color(0xFF81C784), const Color(0xFF388E3C)] // Verde sucesso
+        : [Theme.of(context).colorScheme.primary, const Color(0xFFD65108)]; // Laranja vibrante
+
+    final shadowColor = isCompletedToday ? const Color(0xFF388E3C) : const Color(0xFFD65108);
+
+    return BounceButton(
+      onTap: () => context.go('/reading'),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: gradientColors,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: shadowColor.withOpacity(0.4),
+              blurRadius: 15,
+              offset: const Offset(0, 8),
+            )
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                shape: BoxShape.circle,
               ),
-              child: const Text('LER O PROVÉRBIO DE HOJE'),
+              child: Icon(
+                isCompletedToday ? Icons.check_circle_rounded : Icons.menu_book_rounded,
+                color: Colors.white,
+                size: 32,
+              ),
             ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                   Text(
+                    isCompletedToday ? 'Leitura Concluída!' : 'Ler Provérbio de Hoje',
+                    style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    isCompletedToday ? 'Você já fortaleceu sua mente hoje. Toque para rever.' : 'Toque aqui para fazer sua leitura diária.',
+                    style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 20),
           ],
         ),
       ),
@@ -125,79 +196,88 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildVerseOfTheDayCard(BuildContext context, TextTheme textTheme, ColorScheme colorScheme) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: colorScheme.primary.withAlpha(25),
-        borderRadius: BorderRadius.circular(16),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      child: Stack(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'VERSÍCULO DO DIA',
-                style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: colorScheme.primary),
+              Row(
+                children: [
+                  Icon(Icons.format_quote_rounded, color: colorScheme.primary, size: 28),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Inspiração do Dia',
+                    style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: colorScheme.primary),
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
-              Text(
-                _verseOfTheDay['text'] ?? 'Carregando versículo...',
-                style: textTheme.bodyLarge?.copyWith(fontStyle: FontStyle.italic, height: 1.5),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                _verseOfTheDay['reference'] ?? '',
-                style: textTheme.bodyMedium?.copyWith(color: Colors.black54),
+              IconButton(
+                icon: Icon(Icons.share_rounded, color: Colors.grey.shade500, size: 22),
+                onPressed: _shareVerse,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
               ),
             ],
           ),
-          Positioned(
-            top: -8,
-            right: -8,
-            child: IconButton(
-              icon: Icon(Icons.share_outlined, color: colorScheme.primary),
-              onPressed: _shareVerse,
-              tooltip: 'Compartilhar versículo',
+          const SizedBox(height: 16),
+          Text(
+            _verseOfTheDay['text'] ?? 'Buscando sabedoria...',
+            style: textTheme.bodyLarge?.copyWith(
+              fontStyle: FontStyle.italic, 
+              height: 1.6, 
+              fontSize: 16, 
+              color: Colors.black87
             ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            _verseOfTheDay['reference'] ?? '',
+            style: textTheme.bodyMedium?.copyWith(color: Colors.grey.shade500, fontWeight: FontWeight.bold),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildCalendarCard(BuildContext context, TextTheme textTheme, ColorScheme colorScheme, int streak, List<DateTime> completedDays) {
+  Widget _buildCalendarCard(BuildContext context, TextTheme textTheme, ColorScheme colorScheme, List<DateTime> completedDays) {
     final today = DateTime.now();
     final completedDaysSet = completedDays.map((d) => DateTime(d.year, d.month, d.day)).toSet();
-    const highlightColor = Color(0xFFD98F2B); // Laranja para dias completos
+    final highlightColor = colorScheme.primary;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withAlpha(51),
-            spreadRadius: 2,
-            blurRadius: 8,
-            offset: const Offset(0, 4), 
-          ),
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
         ],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(Icons.local_fire_department, color: highlightColor, size: 32),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('$streak dias de ofensiva', style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
-                  Text('Seu progresso de leitura:', style: textTheme.bodyMedium),
-                ],
-              ),
-            ],
+          Text(
+            'Calendário do Mês',
+            style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: Colors.black87),
           ),
           const SizedBox(height: 12),
           TableCalendar(
@@ -213,25 +293,30 @@ class _HomePageState extends State<HomePage> {
             calendarFormat: CalendarFormat.month,
             startingDayOfWeek: StartingDayOfWeek.monday,
             daysOfWeekStyle: DaysOfWeekStyle(
-              weekdayStyle: TextStyle(fontWeight: FontWeight.bold, color: colorScheme.primary),
-              weekendStyle: TextStyle(fontWeight: FontWeight.bold, color: highlightColor),
+              weekdayStyle: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey.shade600),
+              weekendStyle: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey.shade400),
             ),
             calendarBuilders: CalendarBuilders(
               prioritizedBuilder: (context, day, focusedDay) {
-                // Normaliza o dia para ignorar a hora na comparação
                 final dayOnly = DateTime(day.year, day.month, day.day);
                 final isCompleted = completedDaysSet.contains(dayOnly);
                 final isToday = isSameDay(day, today);
 
-                // 1. Dia completo e lido
                 if (isCompleted) {
                   return Center(
                     child: Container(
-                      width: 32,
-                      height: 32,
-                      decoration: const BoxDecoration(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
                         color: highlightColor,
                         shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: highlightColor.withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          )
+                        ]
                       ),
                       child: Center(
                         child: Text(
@@ -243,32 +328,93 @@ class _HomePageState extends State<HomePage> {
                   );
                 }
 
-                // 2. Dia de hoje (ainda não lido)
                 if (isToday) {
                   return Center(
                     child: Container(
-                      width: 32,
-                      height: 32,
+                      width: 36,
+                      height: 36,
                       decoration: BoxDecoration(
-                        border: Border.all(color: colorScheme.primary, width: 2),
+                        border: Border.all(color: highlightColor, width: 2),
                         shape: BoxShape.circle,
                       ),
                       child: Center(
                         child: Text(
                           '${day.day}',
-                          style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold),
+                          style: TextStyle(color: highlightColor, fontWeight: FontWeight.bold),
                         ),
                       ),
                     ),
                   );
                 }
 
-                // 3. Outros dias (retorna null para usar o builder padrão)
                 return null;
               },
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// Reutilizando o mesmo botão com o efeito de contração/mola criado na tela de Ofensiva.
+class BounceButton extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onTap;
+
+  const BounceButton({super.key, required this.child, required this.onTap});
+
+  @override
+  State<BounceButton> createState() => _BounceButtonState();
+}
+
+class _BounceButtonState extends State<BounceButton> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onTapDown(TapDownDetails details) {
+    if (mounted) _controller.forward();
+  }
+
+  void _onTapUp(TapUpDetails details) {
+    if (mounted) {
+      _controller.reverse();
+      widget.onTap();
+    }
+  }
+
+  void _onTapCancel() {
+    if (mounted) _controller.reverse();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: _onTapDown,
+      onTapUp: _onTapUp,
+      onTapCancel: _onTapCancel,
+      child: ScaleTransition(
+        scale: _scaleAnimation,
+        child: widget.child,
       ),
     );
   }

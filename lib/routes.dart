@@ -71,7 +71,12 @@ final GoRouter router = GoRouter(
       routes: [
         GoRoute(
           path: '/home',
-          builder: (context, state) => const MainScaffold(),
+          builder: (context, state) {
+            final Map<String, dynamic> extra = (state.extra as Map<String, dynamic>?) ?? {};
+            final int initialIndex = extra['index'] as int? ?? 0;
+            final bool showConfetti = extra['showConfetti'] as bool? ?? false;
+            return MainScaffold(initialIndex: initialIndex, showConfetti: showConfetti);
+          },
         ),
         GoRoute(
           path: '/reading',

@@ -11,7 +11,7 @@ class ProgressService {
   Future<Map<String, dynamic>> getChapterForToday() async {
     if (_currentUser == null) throw Exception("Usuário não autenticado.");
 
-    final userDocRef = _firestore.collection('users').doc(_currentUser!.uid);
+    final userDocRef = _firestore.collection('users').doc(_currentUser.uid);
     final userSnapshot = await userDocRef.get();
 
     // Se o documento do usuário não existe no Firestore, cria um.
@@ -19,7 +19,7 @@ class ProgressService {
       // Usa a data de criação da conta de autenticação.
       final creationDate = _currentUser!.metadata.creationTime ?? DateTime.now();
       final newUser = UserModel(
-        uid: _currentUser!.uid,
+        uid: _currentUser.uid,
         name: _currentUser!.displayName ?? 'Usuário',
         email: _currentUser!.email ?? '',
         createdAt: creationDate, // Data de criação real
@@ -58,7 +58,7 @@ class ProgressService {
   Future<void> markChapterAsRead() async {
     if (_currentUser == null) throw Exception("Usuário não autenticado.");
 
-    final userDocRef = _firestore.collection('users').doc(_currentUser!.uid);
+    final userDocRef = _firestore.collection('users').doc(_currentUser.uid);
     final userSnapshot = await userDocRef.get();
 
     if (!userSnapshot.exists) throw Exception("Usuário não encontrado.");

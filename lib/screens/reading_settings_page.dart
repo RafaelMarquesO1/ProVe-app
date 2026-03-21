@@ -22,10 +22,16 @@ class ReadingSettingsPage extends StatelessWidget {
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new),
-          onPressed: () => context.go('/home'), // Navegação consistente
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/home');
+            }
+          },
         ),
         backgroundColor: theme.scaffoldBackgroundColor,
-        elevation: 1,
+        elevation: 0,
       ),
       body: AnimatedBuilder(
         animation: settings,
@@ -34,16 +40,28 @@ class ReadingSettingsPage extends StatelessWidget {
           final Set<VoiceType> voiceSelection = {settings.voiceType};
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+            padding: const EdgeInsets.fromLTRB(16, 32, 16, 24),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                Text(
+                  'AJUSTES',
+                  style: theme.textTheme.displayLarge,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Personalize sua experiência de leitura',
+                  style: theme.textTheme.titleMedium,
+                ),
+                const SizedBox(height: 32),
+                
                 _buildSectionTitle(context, 'APARÊNCIA DO TEXTO'),
                 Card(
                   elevation: 0,
+                  color: Colors.white,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(color: Colors.grey.shade300, width: 1),
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(color: Colors.grey.shade200),
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: Column(
@@ -58,9 +76,10 @@ class ReadingSettingsPage extends StatelessWidget {
                 _buildSectionTitle(context, 'PREFERÊNCIAS DE ÁUDIO'),
                 Card(
                   elevation: 0,
+                  color: Colors.white,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(color: Colors.grey.shade300, width: 1),
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(color: Colors.grey.shade200),
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: Column(
@@ -211,7 +230,7 @@ class ReadingSettingsPage extends StatelessWidget {
       child: Text(
         title,
         style: theme.textTheme.labelLarge?.copyWith(
-          color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
+          color: theme.textTheme.bodySmall?.color,
           fontWeight: FontWeight.bold,
         ),
       ),
