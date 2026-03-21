@@ -42,7 +42,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     if (_imageFile == null) return null;
     try {
       final storageRef = FirebaseStorage.instance.ref().child('profile_pictures').child('$userId.jpg');
-      await storageRef.putFile(_imageFile!);
+      await storageRef.putFile(_imageFile!); // The '!' is safe here because of the null check above.
       return await storageRef.getDownloadURL();
     } catch (e) {
       if (mounted) {
@@ -53,28 +53,31 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 
   Future<void> _updateProfile() async {
-    if (!(_formKey.currentState?.validate() ?? false) || _currentUser == null) return;
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    final user = _currentUser;
+    if (user == null) return;
 
     setState(() => _isLoading = true);
 
     try {
-      String? photoURL = _currentUser?.photoURL;
+      String? photoURL = user.photoURL;
       if (_imageFile != null) {
-        photoURL = await _uploadProfilePicture(_currentUser!.uid);
+        photoURL = await _uploadProfilePicture(user.uid);
       }
 
-      await _currentUser?.updateDisplayName(_nameController.text);
+      await user.updateDisplayName(_nameController.text);
       if (photoURL != null) {
-        await _currentUser?.updatePhotoURL(photoURL);
+        await user.updatePhotoURL(photoURL);
       }
 
       if (_currentPasswordController.text.isNotEmpty && _newPasswordController.text.isNotEmpty) {
-        final email = _currentUser?.email;
+        final email = user.email;
         if (email != null) {
           AuthCredential credential = EmailAuthProvider.credential(
               email: email, password: _currentPasswordController.text);
-          await _currentUser?.reauthenticateWithCredential(credential);
-          await _currentUser?.updatePassword(_newPasswordController.text);
+          await user.reauthenticateWithCredential(credential);
+          await user.updatePassword(_newPasswordController.text);
         }
       }
 
@@ -280,7 +283,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       child: Text(
         title,
         style: theme.textTheme.labelLarge?.copyWith(
-          color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
+          color: theme.hintColor,
           fontWeight: FontWeight.bold,
         ),
       ),

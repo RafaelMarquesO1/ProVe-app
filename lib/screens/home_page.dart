@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:myapp/models/user_model.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 class HomePage extends StatefulWidget {
@@ -47,6 +48,14 @@ class _HomePageState extends State<HomePage> {
         'reference': 'Provérbios $chapterNumberString:$randomVerseKey',
       };
     });
+  }
+
+  void _shareVerse() {
+    if (_verseOfTheDay.isNotEmpty) {
+      final text = _verseOfTheDay['text']!;
+      final reference = _verseOfTheDay['reference']!;
+      Share.share('"$text" - $reference\n\nCompartilhado pelo app Sabedoria Diária.');
+    }
   }
 
   @override
@@ -121,22 +130,35 @@ class _HomePageState extends State<HomePage> {
         color: colorScheme.primary.withAlpha(25),
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
-          Text(
-            'VERSÍCULO DO DIA',
-            style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: colorScheme.primary),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'VERSÍCULO DO DIA',
+                style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: colorScheme.primary),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                _verseOfTheDay['text'] ?? 'Carregando versículo...',
+                style: textTheme.bodyLarge?.copyWith(fontStyle: FontStyle.italic, height: 1.5),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                _verseOfTheDay['reference'] ?? '',
+                style: textTheme.bodyMedium?.copyWith(color: Colors.black54),
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
-          Text(
-            _verseOfTheDay['text'] ?? 'Carregando versículo...',
-            style: textTheme.bodyLarge?.copyWith(fontStyle: FontStyle.italic, height: 1.5),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            _verseOfTheDay['reference'] ?? '',
-            style: textTheme.bodyMedium?.copyWith(color: Colors.black54),
+          Positioned(
+            top: -8,
+            right: -8,
+            child: IconButton(
+              icon: Icon(Icons.share_outlined, color: colorScheme.primary),
+              onPressed: _shareVerse,
+              tooltip: 'Compartilhar versículo',
+            ),
           ),
         ],
       ),
