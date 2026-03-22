@@ -387,10 +387,15 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
     final longestStreak = user.longestStreak;
     
     final achievements = [
-      {'title': 'Semente', 'desc': '1 Dia', 'threshold': 1, 'icon': Icons.eco_rounded, 'color': const Color(0xFF81C784)},
-      {'title': 'Constante', 'desc': '7 Dias', 'threshold': 7, 'icon': Icons.trending_up_rounded, 'color': const Color(0xFF64B5F6)},
-      {'title': 'Dedicação', 'desc': '30 Dias', 'threshold': 30, 'icon': Icons.workspace_premium_rounded, 'color': const Color(0xFFFFB74D)},
-      {'title': 'Sábio', 'desc': '100 Dias', 'threshold': 100, 'icon': Icons.diamond_rounded, 'color': const Color(0xFFBA68C8)},
+      {'title': 'Formiga', 'desc': '1 Dia', 'threshold': 1, 'icon': Icons.emoji_nature_rounded, 'color': const Color(0xFF8D6E63)},
+      {'title': 'Caminho Reto', 'desc': '3 Dias', 'threshold': 3, 'icon': Icons.alt_route_rounded, 'color': const Color(0xFF66BB6A)},
+      {'title': 'Ferro Afiado', 'desc': '7 Dias', 'threshold': 7, 'icon': Icons.handyman_rounded, 'color': const Color(0xFF78909C)},
+      {'title': 'Fonte de Vida', 'desc': '15 Dias', 'threshold': 15, 'icon': Icons.waves_rounded, 'color': const Color(0xFF42A5F5)},
+      {'title': 'Favo de Mel', 'desc': '30 Dias', 'threshold': 30, 'icon': Icons.filter_vintage_rounded, 'color': const Color(0xFFFFB300)},
+      {'title': 'Torre Forte', 'desc': '60 Dias', 'threshold': 60, 'icon': Icons.castle_rounded, 'color': const Color(0xFFBDBDBD)},
+      {'title': 'Coroa de Sábio', 'desc': '100 Dias', 'threshold': 100, 'icon': Icons.military_tech_rounded, 'color': const Color(0xFFFBC02D)},
+      {'title': 'Rubi Precioso', 'desc': '200 Dias', 'threshold': 200, 'icon': Icons.diamond_rounded, 'color': const Color(0xFFD81B60)},
+      {'title': 'Árvore da Vida', 'desc': '365 Dias', 'threshold': 365, 'icon': Icons.eco_rounded, 'color': const Color(0xFF2E7D32)},
     ];
 
     return SingleChildScrollView(
