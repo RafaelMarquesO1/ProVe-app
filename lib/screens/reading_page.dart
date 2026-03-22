@@ -30,6 +30,8 @@ class _ReadingPageState extends State<ReadingPage> {
   
   // Guardamos os offsets de caractere para cada versículo na string completa
   List<int> _verseStartOffsets = [];
+  // Chaves para identificar a posição de cada versículo na tela
+  final List<GlobalKey> _verseKeys = [];
 
   @override
   void initState() {
@@ -88,18 +90,23 @@ class _ReadingPageState extends State<ReadingPage> {
       }
 
       if (verseIndex != -1 && verseIndex != _currentlySpeakingVerse) {
-        setState(() {
-          _currentlySpeakingVerse = verseIndex;
-        });
+        if (mounted) {
+          setState(() {
+            _currentlySpeakingVerse = verseIndex;
+          });
+        }
 
-        // Tenta rolar suavemente para o versículo se necessário
-        if (_scrollController.hasClients && verseIndex > 2) {
-          final double scrollTarget = verseIndex * (_settings.fontSize * 3);
-          _scrollController.animateTo(
-            scrollTarget, 
-            duration: const Duration(milliseconds: 300), 
-            curve: Curves.ease
-          );
+        // Rola automaticamente para o versículo atual com precisão usando a chave do widget
+        if (_scrollController.hasClients && verseIndex < _verseKeys.length) {
+          final keyContext = _verseKeys[verseIndex].currentContext;
+          if (keyContext != null) {
+            Scrollable.ensureVisible(
+              keyContext,
+              duration: const Duration(milliseconds: 600),
+              curve: Curves.easeInOut,
+              alignment: 0.2, // Mantém o versículo um pouco abaixo do topo
+            );
+          }
         }
       }
     });
@@ -243,7 +250,15 @@ class _ReadingPageState extends State<ReadingPage> {
     final jsonData = json.decode(jsonString) as List<dynamic>;
     final chapterObject = jsonData[chapter - 1] as Map<String, dynamic>;
     final versesMap = chapterObject[chapter.toString()] as Map<String, dynamic>;
-    return versesMap.entries.map((e) => '${e.key} ${e.value}').toList();
+    final verses = versesMap.entries.map((e) => '${e.key} ${e.value}').toList();
+    
+    // Inicializa as chaves para rolagem automática
+    _verseKeys.clear();
+    for (int i = 0; i < verses.length; i++) {
+      _verseKeys.add(GlobalKey());
+    }
+    
+    return verses;
   }
 
   Future<void> _markAsRead() async {
@@ -350,6 +365,10 @@ class _ReadingPageState extends State<ReadingPage> {
       // Prepara a string conjunta para uma leitura mais natural
       final StringBuffer fullTextBuffer = StringBuffer();
       _verseStartOffsets = [];
+      _verseKeys.clear();
+      for (int k = 0; k < content.length; k++) {
+        _verseKeys.add(GlobalKey());
+      }
 
       for (int i = 0; i < content.length; i++) {
         // Remove o número inicial do versículo para o buffer de texto
@@ -506,6 +525,7 @@ class _ReadingPageState extends State<ReadingPage> {
                                 final isSpeaking = index == _currentlySpeakingVerse;
 
                                 return AnimatedContainer(
+                                  key: index < _verseKeys.length ? _verseKeys[index] : null,
                                   duration: const Duration(milliseconds: 300),
                                   padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
                                   margin: const EdgeInsets.only(bottom: 8.0),
