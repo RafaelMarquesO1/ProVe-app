@@ -27,6 +27,9 @@ class _ReadingPageState extends State<ReadingPage> {
   bool _showFab = false;
   int _currentlySpeakingVerse = -1;
   Completer<void>? _speechCompleter;
+  
+  // Guardamos os offsets de caractere para cada versículo na string completa
+  List<int> _verseStartOffsets = [];
 
   @override
   void initState() {
@@ -58,7 +61,6 @@ class _ReadingPageState extends State<ReadingPage> {
       }
     });
 
-    // Caso o áudio pare ou sofra interrupção externa
     _flutterTts.setCancelHandler(() {
       if (_speechCompleter != null && !_speechCompleter!.isCompleted) {
         _speechCompleter!.complete();
@@ -68,6 +70,37 @@ class _ReadingPageState extends State<ReadingPage> {
           _isReading = false;
           _currentlySpeakingVerse = -1;
         });
+      }
+    });
+
+    // Sincronização de progresso para a leitura conjunta
+    _flutterTts.setProgressHandler((String text, int start, int end, String word) {
+      if (!mounted || _verseStartOffsets.isEmpty) return;
+
+      // Encontra a qual versículo o offset atual pertence
+      int verseIndex = -1;
+      for (int i = 0; i < _verseStartOffsets.length; i++) {
+        if (start >= _verseStartOffsets[i]) {
+          verseIndex = i;
+        } else {
+          break;
+        }
+      }
+
+      if (verseIndex != -1 && verseIndex != _currentlySpeakingVerse) {
+        setState(() {
+          _currentlySpeakingVerse = verseIndex;
+        });
+
+        // Tenta rolar suavemente para o versículo se necessário
+        if (_scrollController.hasClients && verseIndex > 2) {
+          final double scrollTarget = verseIndex * (_settings.fontSize * 3);
+          _scrollController.animateTo(
+            scrollTarget, 
+            duration: const Duration(milliseconds: 300), 
+            curve: Curves.ease
+          );
+        }
       }
     });
   }
@@ -313,43 +346,34 @@ class _ReadingPageState extends State<ReadingPage> {
       });
     } else {
       if (!mounted) return;
+      
+      // Prepara a string conjunta para uma leitura mais natural
+      final StringBuffer fullTextBuffer = StringBuffer();
+      _verseStartOffsets = [];
+
+      for (int i = 0; i < content.length; i++) {
+        // Remove o número inicial do versículo para o buffer de texto
+        String cleanedText = content[i];
+        final parts = cleanedText.split(' ');
+        if (parts.length > 1 && int.tryParse(parts.first) != null) {
+          cleanedText = parts.sublist(1).join(' ');
+        }
+        
+        // Registra o offset de início deste versículo no texto concatenado
+        _verseStartOffsets.add(fullTextBuffer.length);
+        fullTextBuffer.write(cleanedText);
+        fullTextBuffer.write(" "); // Pequena pausa natural entre versículos pela pontuação
+      }
+
       setState(() {
         _isReading = true;
       });
 
-      for (int i = 0; i < content.length; i++) {
-        if (!_isReading || !mounted) break;
-        
-        // Aplica as configurações a cada versículo para refletir mudanças em tempo real
-        await _applyTtsSettings();
+      await _applyTtsSettings();
 
-        if (mounted) {
-          setState(() {
-            _currentlySpeakingVerse = i;
-          });
-        }
-
-        // Tenta rolar suavemente para o versículo atual para acompanhar a leitura
-        final double scrollTarget = i * (_settings.fontSize * 3);
-        if (_scrollController.hasClients && i > 2) {
-          _scrollController.animateTo(
-            scrollTarget, 
-            duration: const Duration(milliseconds: 500), 
-            curve: Curves.ease
-          );
-        }
-
-        // Remove o número do versículo para a leitura ser mais natural
-        String textToSpeak = content[i];
-        final parts = textToSpeak.split(' ');
-        if (parts.length > 1 && int.tryParse(parts.first) != null) {
-          textToSpeak = parts.sublist(1).join(' ');
-        }
-
-        _speechCompleter = Completer<void>();
-        await _flutterTts.speak(textToSpeak);
-        await _speechCompleter!.future;
-      }
+      _speechCompleter = Completer<void>();
+      await _flutterTts.speak(fullTextBuffer.toString());
+      await _speechCompleter!.future;
 
       if (mounted) {
         setState(() {
