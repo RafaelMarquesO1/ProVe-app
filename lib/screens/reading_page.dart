@@ -82,16 +82,114 @@ class _ReadingPageState extends State<ReadingPage> {
     }
     await _flutterTts.setSpeechRate(rate);
 
+    // Ajuste de pitch baseado no gênero (ajuda na naturalidade)
+    final bool isMale = _settings.voiceType == VoiceType.masculina;
+    if (isMale) {
+      await _flutterTts.setPitch(0.75); // Tom mais profundo para masculino
+    } else {
+      await _flutterTts.setPitch(1.15); // Tom mais leve para feminino
+    }
+
     try {
+      // No Android, tenta usar o motor do Google para vozes mais naturais (Neural2, Wavenet)
+      if (!kIsWeb && Platform.isAndroid) {
+        final dynamic engines = await _flutterTts.getEngines;
+        if (engines is List && engines.contains("com.google.android.tts")) {
+          await _flutterTts.setEngine("com.google.android.tts");
+        }
+      }
+
       final dynamic voicesResult = await _flutterTts.getVoices;
       if (voicesResult is List) {
-        final voices = voicesResult.map((v) => Map<String, String>.from(v as Map)).toList();
+        final voices = voicesResult.map((v) => Map<String, dynamic>.from(v as Map)).toList();
         
-        var ptVoices = voices.where((v) => v['locale']?.toLowerCase() == 'pt-br').toList();
+        // Filtra por PT-BR
+        var ptVoices = voices.where((v) {
+          final locale = (v['locale'] as String?)?.toLowerCase() ?? '';
+          return locale == 'pt-br' || locale == 'pt_br';
+        }).toList();
+
         if (ptVoices.isEmpty) return;
 
-        final selectedVoice = ptVoices.first;
-        await _flutterTts.setVoice({'name': selectedVoice['name']!, 'locale': selectedVoice['locale']!});
+        // Heurística de gênero aprimorada e restritiva
+        var filteredVoices = ptVoices.where((v) {
+          final name = (v['name'] as String?)?.toLowerCase() ?? '';
+          final genderField = v['gender']?.toString().toLowerCase() ?? '';
+          
+          if (isMale) {
+            // Filtros Masculinos (Incluindo apenas padrões sabidamente masculinos)
+            if (name.contains('female')) return false; // Exclusão imediata
+            if (name.contains('male')) return true;
+            if (name.contains('pbc-local') || name.contains('ptd-local') || name.contains('ptl-local')) return true;
+            if (name.contains('-b-') || name.endsWith('-b') || name.contains('-d-') || name.endsWith('-d')) return true;
+            if (genderField == 'male' || genderField == '1' || genderField == 'man') return true;
+          } else {
+            // Filtros Femininos (Exclui padrões masculinos identificados pelo usuário)
+            if (name.contains('male') || name.contains('ptd-local') || name.contains('pbc-local')) return false;
+            if (name.contains('female')) return true;
+            if (name.contains('pba-local') || name.contains('ptc-local') || name.contains('pts-local') || name.contains('ptr-local')) return true;
+            if (name.contains('-a-') || name.endsWith('-a') || name.contains('-c-') || name.endsWith('-c') || name.contains('-e-') || name.endsWith('-e')) return true;
+            if (genderField == 'female' || genderField == '2' || genderField == 'woman') return true;
+          }
+          return false;
+        }).toList();
+
+        // Se a busca refinada falhar, usa a lista ptVoices excluindo explicitamente o oposto
+        if (filteredVoices.isEmpty) {
+          filteredVoices = ptVoices.where((v) {
+            final name = (v['name'] as String?)?.toLowerCase() ?? '';
+            if (isMale) {
+              return !name.contains('female') && !name.contains('pba') && !name.contains('ptc');
+            } else {
+              return !name.contains('male') && !name.contains('ptd') && !name.contains('pbc');
+            }
+          }).toList();
+        }
+
+        // Se ainda assim estiver vazio (caso improvável), usa ptVoices
+        if (filteredVoices.isEmpty) {
+          filteredVoices = ptVoices;
+        }
+
+        // Sistema de pontuação para priorizar vozes de alta qualidade (Neural2 > Wavenet > High Quality > Standard)
+        filteredVoices.sort((a, b) {
+          final nameA = (a['name'] as String?)?.toLowerCase() ?? '';
+          final nameB = (b['name'] as String?)?.toLowerCase() ?? '';
+          final qualityA = a['quality']?.toString().toLowerCase() ?? '';
+          final qualityB = b['quality']?.toString().toLowerCase() ?? '';
+          
+          int score(String name, String quality) {
+            int s = 0;
+            if (name.contains('neural2')) s += 1000; // Prioridade absoluta
+            if (name.contains('wavenet')) s += 500;
+            if (name.contains('enhanced') || quality.contains('high')) s += 250;
+            
+            // Heurística para trocar a voz feminina por uma alternativa (ex: C em vez de A)
+            if (!isMale) {
+              if (name.contains('-c-') || name.endsWith('-c')) s += 100;
+              if (name.contains('-e-') || name.endsWith('-e')) s += 80;
+              if (name.contains('-a-') || name.endsWith('-a')) s += 10; // A é a padrão, damos nota menor
+            }
+            
+            return s;
+          }
+          
+          return score(nameB, qualityB).compareTo(score(nameA, qualityA));
+        });
+
+        if (filteredVoices.isNotEmpty) {
+          // No caso da voz feminina, se houver mais de uma opção de alta qualidade, 
+          // pegamos a última da lista para garantir uma troca perceptível em relação à padrão.
+          final selectedVoice = !isMale && filteredVoices.length > 1 
+              ? filteredVoices.last 
+              : filteredVoices.first;
+              
+          await _flutterTts.setVoice({
+            'name': selectedVoice['name'] as String, 
+            'locale': selectedVoice['locale'] as String
+          });
+          debugPrint("Voz selecionada: ${selectedVoice['name']}");
+        }
       }
     } catch (e) {
       debugPrint("Erro ao encontrar configurações de voz: $e");
@@ -219,14 +317,17 @@ class _ReadingPageState extends State<ReadingPage> {
         _isReading = true;
       });
 
-      await _applyTtsSettings();
-
       for (int i = 0; i < content.length; i++) {
         if (!_isReading || !mounted) break;
         
-        setState(() {
-          _currentlySpeakingVerse = i;
-        });
+        // Aplica as configurações a cada versículo para refletir mudanças em tempo real
+        await _applyTtsSettings();
+
+        if (mounted) {
+          setState(() {
+            _currentlySpeakingVerse = i;
+          });
+        }
 
         // Tenta rolar suavemente para o versículo atual para acompanhar a leitura
         final double scrollTarget = i * (_settings.fontSize * 3);
@@ -238,8 +339,15 @@ class _ReadingPageState extends State<ReadingPage> {
           );
         }
 
+        // Remove o número do versículo para a leitura ser mais natural
+        String textToSpeak = content[i];
+        final parts = textToSpeak.split(' ');
+        if (parts.length > 1 && int.tryParse(parts.first) != null) {
+          textToSpeak = parts.sublist(1).join(' ');
+        }
+
         _speechCompleter = Completer<void>();
-        await _flutterTts.speak(content[i]);
+        await _flutterTts.speak(textToSpeak);
         await _speechCompleter!.future;
       }
 

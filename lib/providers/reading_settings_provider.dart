@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:myapp/screens/reading_settings_page.dart';
+
+// Enum para representar a seleção de voz
+enum VoiceType { masculina, feminina }
 
 class ReadingSettingsProvider with ChangeNotifier {
   // Construtor privado

@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:myapp/providers/reading_settings_provider.dart';
 
-// Enum para representar a seleção de voz
-enum VoiceType { masculina, feminina }
 
 class ReadingSettingsPage extends StatelessWidget {
   const ReadingSettingsPage({super.key});
