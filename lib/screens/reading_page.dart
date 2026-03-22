@@ -238,27 +238,37 @@ class _ReadingPageState extends State<ReadingPage> {
 
   Future<Map<String, dynamic>> _loadInitialData() async {
     final chapterData = await _progressService.getChapterForToday();
-    final content = await _loadChapterContent(chapterData['chapter']);
+    final chapters = List<int>.from(chapterData['chapters']);
+    final content = await _loadChaptersContent(chapters);
     return {
       ...chapterData,
       'content': content,
     };
   }
 
-  Future<List<String>> _loadChapterContent(int chapter) async {
+  Future<List<String>> _loadChaptersContent(List<int> chapters) async {
+    final List<String> allLines = [];
     final jsonString = await rootBundle.loadString('assets/proverbios.json');
     final jsonData = json.decode(jsonString) as List<dynamic>;
-    final chapterObject = jsonData[chapter - 1] as Map<String, dynamic>;
-    final versesMap = chapterObject[chapter.toString()] as Map<String, dynamic>;
-    final verses = versesMap.entries.map((e) => '${e.key} ${e.value}').toList();
+
+    for (int chapter in chapters) {
+      if (chapters.length > 1) {
+        allLines.add('HEAD Capítulo $chapter');
+      }
+      final chapterObject = jsonData[chapter - 1] as Map<String, dynamic>;
+      final versesMap = chapterObject[chapter.toString()] as Map<String, dynamic>;
+      
+      final verses = versesMap.entries.map((e) => '${e.key} ${e.value}').toList();
+      allLines.addAll(verses);
+    }
     
     // Inicializa as chaves para rolagem automática
     _verseKeys.clear();
-    for (int i = 0; i < verses.length; i++) {
+    for (int i = 0; i < allLines.length; i++) {
       _verseKeys.add(GlobalKey());
     }
     
-    return verses;
+    return allLines;
   }
 
   Future<void> _markAsRead() async {
@@ -371,8 +381,17 @@ class _ReadingPageState extends State<ReadingPage> {
       }
 
       for (int i = 0; i < content.length; i++) {
+        String line = content[i];
+        
+        // Se for um cabeçalho, registramos o offset mas não lemos ou lemos como título
+        if (line.startsWith('HEAD ')) {
+          _verseStartOffsets.add(fullTextBuffer.length);
+          fullTextBuffer.write(line.replaceFirst('HEAD ', '') + ". ");
+          continue;
+        }
+
         // Remove o número inicial do versículo para o buffer de texto
-        String cleanedText = content[i];
+        String cleanedText = line;
         final parts = cleanedText.split(' ');
         if (parts.length > 1 && int.tryParse(parts.first) != null) {
           cleanedText = parts.sublist(1).join(' ');
@@ -433,9 +452,13 @@ class _ReadingPageState extends State<ReadingPage> {
                 }
 
                 final data = snapshot.data!;
-                final int chapter = data['chapter'];
+                final List<int> chapters = List<int>.from(data['chapters']);
                 final bool canRead = data['canRead'];
                 final List<String> content = data['content'];
+
+                String chapterTitle = chapters.length > 1 
+                  ? '${chapters.first} - ${chapters.last}' 
+                  : chapters.first.toString();
 
                 return Column(
                   children: [
@@ -493,10 +516,10 @@ class _ReadingPageState extends State<ReadingPage> {
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
-                                    '$chapter',
+                                    chapterTitle,
                                     textAlign: TextAlign.center,
                                     style: theme.textTheme.displayLarge?.copyWith(
-                                      fontSize: 64,
+                                      fontSize: chapters.length > 1 ? 48 : 64,
                                       fontWeight: FontWeight.w900,
                                       color: textColor,
                                       height: 1.0,
@@ -519,10 +542,39 @@ class _ReadingPageState extends State<ReadingPage> {
                             delegate: SliverChildBuilderDelegate(
                               (context, index) {
                                 final line = content[index];
+                                final isSpeaking = index == _currentlySpeakingVerse;
+                                
+                                if (line.startsWith('HEAD ')) {
+                                  final title = line.replaceFirst('HEAD ', '');
+                                  return Container(
+                                    key: index < _verseKeys.length ? _verseKeys[index] : null,
+                                    padding: const EdgeInsets.fromLTRB(24, 40, 24, 16),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          title.toUpperCase(),
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w900,
+                                            letterSpacing: 2,
+                                            color: theme.colorScheme.primary,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Container(
+                                          width: 40,
+                                          height: 2,
+                                          color: theme.colorScheme.primary.withOpacity(0.3),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }
+
                                 final parts = line.split(' ');
                                 final verseNumber = parts.first;
                                 final verseText = parts.sublist(1).join(' ');
-                                final isSpeaking = index == _currentlySpeakingVerse;
 
                                 return AnimatedContainer(
                                   key: index < _verseKeys.length ? _verseKeys[index] : null,

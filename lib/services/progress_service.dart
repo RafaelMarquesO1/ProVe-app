@@ -8,6 +8,19 @@ class ProgressService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final User? _currentUser = FirebaseAuth.instance.currentUser;
 
+  List<int> getChaptersForDate(DateTime date) {
+    int day = date.day;
+    int lastDayOfMonth = DateTime(date.year, date.month + 1, 0).day;
+
+    if (day < lastDayOfMonth) {
+      if (day > 31) return [31]; // Segurança para meses hipotéticos
+      return [day];
+    } else {
+      // Último dia do mês: lê do dia atual até o 31
+      return List.generate(31 - day + 1, (index) => day + index);
+    }
+  }
+
   Future<Map<String, dynamic>> getChapterForToday() async {
     if (_currentUser == null) throw Exception("Usuário não autenticado.");
 
@@ -16,29 +29,16 @@ class ProgressService {
 
     // Se o documento do usuário não existe no Firestore, cria um.
     if (!userSnapshot.exists) {
-      // Usa a data de criação da conta de autenticação.
       final creationDate = _currentUser!.metadata.creationTime ?? DateTime.now();
       final newUser = UserModel(
         uid: _currentUser.uid,
         name: _currentUser!.displayName ?? 'Usuário',
         email: _currentUser!.email ?? '',
-        createdAt: creationDate, // Data de criação real
+        createdAt: creationDate,
         longestStreak: 0,
       );
       await userDocRef.set(newUser.toFirestore());
-      developer.log("Novo usuário criado no Firestore com data de criação correta.", name: 'ProgressService');
-      return {'chapter': newUser.currentChapter, 'canRead': true};
-    }
-
-    final data = userSnapshot.data()!;
-
-    // Migração para usuários antigos: se não houver 'createdAt', adiciona.
-    if (!data.containsKey('createdAt') || data['createdAt'] == null) {
-      final creationDate = _currentUser!.metadata.creationTime ?? DateTime.now();
-      await userDocRef.update({'createdAt': Timestamp.fromDate(creationDate)});
-      developer.log("Usuário antigo migrado com a data de criação correta.", name: 'ProgressService');
-      // Atualiza os dados locais para refletir a mudança imediatamente
-      data['createdAt'] = Timestamp.fromDate(creationDate);
+      return {'chapters': getChaptersForDate(DateTime.now()), 'canRead': true};
     }
 
     final user = UserModel.fromFirestore(userSnapshot);
@@ -46,13 +46,12 @@ class ProgressService {
     final startOfToday = DateTime(now.year, now.month, now.day);
 
     final bool hasReadToday = user.lastReadDate != null && !user.lastReadDate!.isBefore(startOfToday);
+    final chapters = getChaptersForDate(now);
 
-    if (hasReadToday) {
-      int chapterReadToday = user.currentChapter == 1 ? 31 : user.currentChapter - 1;
-      return {'chapter': chapterReadToday, 'canRead': false};
-    } else {
-      return {'chapter': user.currentChapter, 'canRead': true};
-    }
+    return {
+      'chapters': chapters,
+      'canRead': !hasReadToday,
+    };
   }
 
   Future<void> markChapterAsRead() async {
@@ -84,7 +83,10 @@ class ProgressService {
     }
 
     final int newLongestStreak = max(user.longestStreak, newStreak);
-    final int nextChapter = (user.currentChapter % 31) + 1;
+    
+    // O campo currentChapter agora é derivado da data, mas mantemos atualizado para o dia seguinte 
+    // apenas para manter os dados do Firestore consistentes com a versão anterior do app, se necessário.
+    final int nextDayChapter = (now.day % 31) + 1; 
     final Timestamp readTimestamp = Timestamp.fromDate(now);
 
     await userDocRef.update({
@@ -92,8 +94,8 @@ class ProgressService {
       'readingStreak': newStreak,
       'longestStreak': newLongestStreak,
       'completedDays': FieldValue.arrayUnion([readTimestamp]),
-      'currentChapter': nextChapter,
+      'currentChapter': nextDayChapter, 
     });
-    developer.log("Capítulo lido. Ofensiva: $newStreak, Maior Ofensiva: $newLongestStreak", name: 'ProgressService');
+    developer.log("Leitura concluída. Ofensiva: $newStreak", name: 'ProgressService');
   }
 }

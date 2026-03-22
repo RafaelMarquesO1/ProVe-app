@@ -27,27 +27,39 @@ class _HomePageState extends State<HomePage> {
     _loadVerseOfTheDay();
   }
 
+  // Lista curada de provérbios que trazem ensinamentos profundos
+  static const List<String> _curatedVerses = [
+    '1:7', '2:6', '3:5', '3:6', '3:27', '4:23', '6:6', '8:17', '9:10', '10:12',
+    '10:19', '12:1', '12:18', '14:1', '14:12', '15:1', '15:33', '16:3', '16:9',
+    '16:24', '17:17', '18:10', '18:24', '19:17', '21:3', '22:1', '22:6', '23:26',
+    '24:16', '27:17', '31:30', '16:18', '20:1', '28:13', '29:11'
+  ];
+
   Future<void> _loadVerseOfTheDay() async {
     final jsonString = await rootBundle.loadString('assets/proverbios.json');
     final proverbs = jsonDecode(jsonString) as List;
 
-    // Seleciona um capítulo aleatório
-    final randomChapterIndex = Random().nextInt(proverbs.length);
-    final chapterData = proverbs[randomChapterIndex];
-    final chapterNumberString = chapterData.keys.first;
-    final chapterContent = chapterData[chapterNumberString] as Map<String, dynamic>;
+    // Seleciona um provérbio da nossa lista curada
+    final randomRef = _curatedVerses[Random().nextInt(_curatedVerses.length)];
+    final parts = randomRef.split(':');
+    final chapterNum = parts[0];
+    final verseNum = parts[1];
 
-    // Seleciona um versículo aleatório do capítulo
-    final verseKeys = chapterContent.keys.toList();
-    final randomVerseKey = verseKeys[Random().nextInt(verseKeys.length)];
-    final verseText = chapterContent[randomVerseKey];
+    // Encontra o capítulo no JSON
+    final chapterData = proverbs.firstWhere(
+      (element) => element.containsKey(chapterNum),
+      orElse: () => null,
+    );
 
-    setState(() {
-      _verseOfTheDay = {
-        'text': verseText,
-        'reference': 'Provérbios $chapterNumberString:$randomVerseKey',
-      };
-    });
+    if (chapterData != null) {
+      final verseText = chapterData[chapterNum][verseNum];
+      setState(() {
+        _verseOfTheDay = {
+          'text': verseText,
+          'reference': 'Provérbios $chapterNum:$verseNum',
+        };
+      });
+    }
   }
 
   void _shareVerse() {
