@@ -36,7 +36,7 @@ class _HomePageState extends State<HomePage> {
   ];
 
   Future<void> _loadVerseOfTheDay() async {
-    final jsonString = await rootBundle.loadString('assets/proverbios.json');
+    final jsonString = await rootBundle.loadString('assets/proverbiosBibliaLivre.json');
     final proverbs = jsonDecode(jsonString) as List;
 
     // Seleciona um provérbio da nossa lista curada

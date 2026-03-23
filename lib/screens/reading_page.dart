@@ -248,7 +248,7 @@ class _ReadingPageState extends State<ReadingPage> {
 
   Future<List<String>> _loadChaptersContent(List<int> chapters) async {
     final List<String> allLines = [];
-    final jsonString = await rootBundle.loadString('assets/proverbios.json');
+    final jsonString = await rootBundle.loadString('assets/proverbiosBibliaLivre.json');
     final jsonData = json.decode(jsonString) as List<dynamic>;
 
     for (int chapter in chapters) {

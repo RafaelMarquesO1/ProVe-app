@@ -43,5 +43,5 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/proverbios.json
+    - assets/proverbiosBibliaLivre.json
     - assets/images/
