@@ -13,6 +13,7 @@ import 'package:myapp/screens/widgets_page.dart';
 import 'package:myapp/screens/notifications_page.dart';
 import 'package:myapp/screens/edit_profile_page.dart';
 import 'package:myapp/screens/reading_settings_page.dart';
+import 'package:myapp/screens/verify_email_page.dart';
 
 class GoRouterRefreshStream extends ChangeNotifier {
   late final StreamSubscription<User?> _subscription;
@@ -39,15 +40,32 @@ final GoRouter router = GoRouter(
   navigatorKey: _rootNavigatorKey,
   initialLocation: '/',
   refreshListenable: GoRouterRefreshStream(),
-  redirect: (BuildContext context, GoRouterState state) {
-    final bool loggedIn = FirebaseAuth.instance.currentUser != null;
-    final bool loggingIn = state.matchedLocation == '/' || state.matchedLocation == '/signup';
+  redirect: (BuildContext context, GoRouterState state) async {
+    final user = FirebaseAuth.instance.currentUser;
+    final bool loggedIn = user != null;
+    final String location = state.matchedLocation;
+    final bool isAuthRoute = location == '/' || location == '/signup';
+    final bool isVerifyRoute = location == '/verify-email';
 
     if (!loggedIn) {
-      return loggingIn ? null : '/';
+      return isAuthRoute ? null : '/';
     }
 
-    if (loggingIn) {
+    // Se estiver logado, usamos o status do prprio Firebase Auth para redirecionamento.
+    // Isso  muito mais rpido e evita loops causados por atraso no Firestore.
+    final bool isVerified = user.emailVerified;
+
+    if (isAuthRoute) {
+      return isVerified ? '/home' : '/verify-email';
+    }
+
+    // Protege as rotas internas se o usurio no estiver verificado
+    if (!isVerifyRoute && !isVerified) {
+      return '/verify-email';
+    }
+
+    // Se j estiver verificado e tentar entrar no /verify-email, manda pra home
+    if (isVerifyRoute && isVerified) {
       return '/home';
     }
 
@@ -61,6 +79,10 @@ final GoRouter router = GoRouter(
     GoRoute(
       path: '/signup',
       builder: (context, state) => const SignUpPage(),
+    ),
+    GoRoute(
+      path: '/verify-email',
+      builder: (context, state) => const VerifyEmailPage(),
     ),
     ShellRoute(
       navigatorKey: _shellNavigatorKey,

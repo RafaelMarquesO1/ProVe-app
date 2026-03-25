@@ -33,6 +33,8 @@ class _LoginPageState extends State<LoginPage> {
         String errorMessage;
         if (e.code == 'user-not-found' || e.code == 'wrong-password' || e.code == 'invalid-credential') {
           errorMessage = 'E-mail ou senha inválidos.';
+        } else if (e.code == 'user-disabled') {
+          errorMessage = 'Esta conta foi desativada.';
         } else {
           errorMessage = 'Ocorreu um erro. Tente novamente.';
         }
@@ -50,6 +52,54 @@ class _LoginPageState extends State<LoginPage> {
         });
       }
     }
+  }
+
+  Future<void> _forgotPassword() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty || !email.contains('@')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Insira seu e-mail acima para recuperar a senha.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      if (mounted) {
+        _showSuccessDialog(
+          'Recuperação Enviada!',
+          'Um e-mail do **ProVê** com informações importantes e o link para redefinir sua senha foi enviado para $email.\n\nVerifique também sua pasta de spam.',
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Erro ao enviar e-mail de recuperação. Verifique o e-mail digitado.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showSuccessDialog(String title, String content) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        content: Text(content),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -115,6 +165,19 @@ class _LoginPageState extends State<LoginPage> {
                     return null;
                   },
                 ),
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: _forgotPassword,
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: const Size(0, 0),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text('Esqueceu sua senha?'),
+                  ),
+                ),
                 const SizedBox(height: 32),
                 ElevatedButton(
                   onPressed: _isLoading ? null : _login,
@@ -140,7 +203,7 @@ class _LoginPageState extends State<LoginPage> {
                       child: const Text('CADASTRE-SE'),
                     ),
                   ],
-                )
+                ),
               ],
             ),
           ),

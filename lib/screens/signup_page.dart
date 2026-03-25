@@ -40,15 +40,21 @@ class _SignUpPageState extends State<SignUpPage> {
           'name': _nameController.text.trim(),
           'email': _emailController.text.trim(),
           'readingStreak': 0,
-          'longestStreak': 0, // INICIALIZA A MAIOR OFENSIVA
+          'longestStreak': 0,
           'lastReadDate': null,
           'createdAt': FieldValue.serverTimestamp(),
           'completedDays': [],
           'currentChapter': 1,
+          'isEmailVerified': false,
         });
 
+        // 1. Enviar email de verificação padrão do Firebase (Auth)
+        await user.sendEmailVerification();
+
+        // 2. Enviar email de verificação padrão do Firebase (Auth) já feito acima
+
         if (mounted) {
-          context.go('/home');
+          _showSuccessDialogAndGoHome(user.email ?? '');
         }
       }
     } on FirebaseAuthException catch (e) {
@@ -76,6 +82,38 @@ class _SignUpPageState extends State<SignUpPage> {
         });
       }
     }
+  }
+
+  void _showSuccessDialogAndGoHome(String email) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('VERIFIQUE SEU E-MAIL', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Sua conta foi criada, mas ainda não está ativa!'),
+            const SizedBox(height: 16),
+            Text('Um e-mail de verificação **REAL** enviado pelo Firebase foi encaminhado para $email.'),
+            const SizedBox(height: 16),
+            const Text('Abra seu e-mail e clique no link de validação para liberar seu acesso.', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
+            const SizedBox(height: 12),
+            const Text('Após clicar no link no seu e-mail, volte ao app e confirme sua entrada.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              context.go('/verify-email');
+            },
+            child: const Text('IR PARA VALIDAÇÃO'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
