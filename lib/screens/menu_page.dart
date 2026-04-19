@@ -1,6 +1,10 @@
+import 'dart:math' as math;
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:myapp/widgets/app_alerts.dart';
+import 'package:myapp/widgets/bounce_button.dart';
 
 class MenuPage extends StatefulWidget {
   const MenuPage({super.key});
@@ -9,12 +13,17 @@ class MenuPage extends StatefulWidget {
   State<MenuPage> createState() => _MenuPageState();
 }
 
-class _MenuPageState extends State<MenuPage> {
+class _MenuPageState extends State<MenuPage> with SingleTickerProviderStateMixin {
   User? _user;
+  late final AnimationController _attentionController;
 
   @override
   void initState() {
     super.initState();
+    _attentionController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2300),
+    )..repeat(reverse: true);
     FirebaseAuth.instance.userChanges().listen((user) {
       if (mounted) {
         setState(() {
@@ -24,29 +33,64 @@ class _MenuPageState extends State<MenuPage> {
     });
   }
 
+  @override
+  void dispose() {
+    _attentionController.dispose();
+    super.dispose();
+  }
+
   Future<void> _signOut() async {
-    // Diálogo de confirmação para sair
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Sair da Conta'),
-        content: const Text('Tem certeza que deseja sair agora?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
+      barrierColor: Colors.black54,
+      builder: (context) {
+        return TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0.92, end: 1),
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutBack,
+          builder: (context, scale, child) => Transform.scale(
+            scale: scale,
+            child: child,
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Sair', style: TextStyle(color: Colors.red)),
+          child: AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+            titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+            contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+            actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+            title: Row(
+              children: [
+                Icon(Icons.logout_rounded, color: Colors.red.shade700),
+                const SizedBox(width: 10),
+                const Text('Sair da Conta'),
+              ],
+            ),
+            content: const Text('Tem certeza que deseja sair agora?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancelar'),
+              ),
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.red.shade700,
+                ),
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Sair'),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
 
     if (confirm == true && mounted) {
       await FirebaseAuth.instance.signOut();
       if (mounted) {
+        AppAlerts.showSnackBar(
+          context,
+          message: 'Sessão encerrada com sucesso.',
+          type: AppAlertType.info,
+        );
         context.go('/');
       }
     }
@@ -72,6 +116,8 @@ class _MenuPageState extends State<MenuPage> {
               'Gerencie sua jornada e preferências',
               style: textTheme.titleMedium?.copyWith(color: Colors.grey.shade600),
             ),
+            const SizedBox(height: 20),
+            _buildQuickActions(context),
             const SizedBox(height: 32),
 
             _buildSectionTitle(context, 'SUA CONTA'),
@@ -98,14 +144,18 @@ class _MenuPageState extends State<MenuPage> {
                     context,
                     icon: Icons.text_fields_sharp,
                     title: 'Ajustes de Leitura',
-                    onTap: () => context.go('/settings/reading'),
+                    onTap: () =>
+                        context.go('/settings/reading', extra: {'returnIndex': 2}),
                   ),
                   Divider(height: 1, indent: 70, color: Colors.grey.shade100),
                   _buildMenuItem(
                     context,
                     icon: Icons.notifications_active_outlined,
                     title: 'Lembretes Diários',
-                    onTap: () => context.go('/settings/reminders'),
+                    onTap: () => context.go(
+                      '/settings/reminders',
+                      extra: {'returnIndex': 2},
+                    ),
                   ),
                 ],
               ),
@@ -113,9 +163,12 @@ class _MenuPageState extends State<MenuPage> {
             const SizedBox(height: 32),
 
             _buildSectionTitle(context, 'SAIR'),
-            BounceButton(
-              onTap: _signOut,
-              child: Container(
+            Semantics(
+              button: true,
+              label: 'Sair da conta',
+              child: BounceButton(
+                onTap: _signOut,
+                child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
                 decoration: BoxDecoration(
                   color: Colors.red.shade50,
@@ -138,6 +191,7 @@ class _MenuPageState extends State<MenuPage> {
                   ],
                 ),
               ),
+            ),
             ),
           ],
         ),
@@ -183,18 +237,25 @@ class _MenuPageState extends State<MenuPage> {
         ),
         child: Row(
           children: [
-            Hero(
-              tag: 'profile_avatar',
-              child: CircleAvatar(
-                radius: 32,
-                backgroundImage: photoURL != null ? NetworkImage(photoURL) : null,
-                backgroundColor: photoURL == null ? colorScheme.primary.withOpacity(0.12) : Colors.transparent,
-                child: photoURL == null
-                    ? Text(
-                        displayName.isNotEmpty ? displayName.substring(0, 1).toUpperCase() : 'U',
-                        style: TextStyle(fontSize: 28, color: colorScheme.primary, fontWeight: FontWeight.bold),
-                      )
-                    : null,
+            AnimatedBuilder(
+              animation: _attentionController,
+              builder: (context, child) {
+                final pulse = 1 + (math.sin(_attentionController.value * math.pi) * 0.03);
+                return Transform.scale(scale: pulse, child: child);
+              },
+              child: Hero(
+                tag: 'profile_avatar',
+                child: CircleAvatar(
+                  radius: 32,
+                  backgroundImage: photoURL != null ? NetworkImage(photoURL) : null,
+                  backgroundColor: photoURL == null ? colorScheme.primary.withOpacity(0.12) : Colors.transparent,
+                  child: photoURL == null
+                      ? Text(
+                          displayName.isNotEmpty ? displayName.substring(0, 1).toUpperCase() : 'U',
+                          style: TextStyle(fontSize: 28, color: colorScheme.primary, fontWeight: FontWeight.bold),
+                        )
+                      : null,
+                ),
               ),
             ),
             const SizedBox(width: 16),
@@ -246,65 +307,90 @@ class _MenuPageState extends State<MenuPage> {
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
     );
   }
+
+  Widget _buildQuickActions(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Expanded(
+          child: _QuickActionCard(
+            icon: Icons.menu_book_rounded,
+            title: 'Ler Agora',
+            subtitle: 'Provérbio do dia',
+            color: colorScheme.primary,
+            onTap: () => context.go('/reading'),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _QuickActionCard(
+            icon: Icons.local_fire_department_rounded,
+            title: 'Ofensiva',
+            subtitle: 'Ver progresso',
+            color: const Color(0xFFD65108),
+            onTap: () => context.go('/home', extra: {'index': 1}),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
-class BounceButton extends StatefulWidget {
-  final Widget child;
+class _QuickActionCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color color;
   final VoidCallback onTap;
 
-  const BounceButton({super.key, required this.child, required this.onTap});
-
-  @override
-  State<BounceButton> createState() => _BounceButtonState();
-}
-
-class _BounceButtonState extends State<BounceButton> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 100),
-    );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.96).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _onTapDown(TapDownDetails details) {
-    if (mounted) _controller.forward();
-  }
-
-  void _onTapUp(TapUpDetails details) {
-    if (mounted) {
-      _controller.reverse();
-      widget.onTap();
-    }
-  }
-
-  void _onTapCancel() {
-    if (mounted) _controller.reverse();
-  }
+  const _QuickActionCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.color,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTapDown: _onTapDown,
-      onTapUp: _onTapUp,
-      onTapCancel: _onTapCancel,
-      child: ScaleTransition(
-        scale: _scaleAnimation,
-        child: widget.child,
+    return BounceButton(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [color.withOpacity(0.95), color],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(0.28),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: Colors.white),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              subtitle,
+              style: TextStyle(color: Colors.white.withOpacity(0.88), fontSize: 12),
+            ),
+          ],
+        ),
       ),
     );
   }

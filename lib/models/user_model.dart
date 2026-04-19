@@ -5,6 +5,7 @@ class UserModel {
   final String uid;
   final String name;
   final String email;
+  final String? photoURL;
   final DateTime? lastReadDate;
   final int readingStreak;
   final int longestStreak; // Novo campo
@@ -16,6 +17,7 @@ class UserModel {
     required this.uid,
     required this.name,
     required this.email,
+    this.photoURL,
     this.lastReadDate,
     this.readingStreak = 0,
     this.longestStreak = 0,
@@ -39,6 +41,7 @@ class UserModel {
       uid: doc.id,
       name: data['name'] ?? '',
       email: data['email'] ?? '',
+      photoURL: data['photoURL'] as String?,
       lastReadDate: parseDate(data['lastReadDate']),
       readingStreak: data['readingStreak'] ?? 0,
       longestStreak: data['longestStreak'] ?? 0,
@@ -54,6 +57,7 @@ class UserModel {
       uid: '',
       name: 'Convidado',
       email: '',
+      photoURL: null,
       lastReadDate: null,
       readingStreak: 0,
       longestStreak: 0,
@@ -67,6 +71,7 @@ class UserModel {
     return {
       'name': name,
       'email': email,
+      'photoURL': photoURL,
       'lastReadDate': lastReadDate != null ? Timestamp.fromDate(lastReadDate!) : null,
       'readingStreak': readingStreak,
       'longestStreak': longestStreak,

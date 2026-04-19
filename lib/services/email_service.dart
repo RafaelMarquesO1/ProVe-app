@@ -3,11 +3,16 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 
 class EmailService {
-  // ATENÇÃO: Para que o envio funcione, você deve criar uma conta em emailjs.com
-  // e substituir os valores abaixo pelos seus IDs.
-  static const String _serviceId = 'service_ozisqwa'; // PLACEHOLDER
-  static const String _templateId = 'template_v2q7scu'; // PLACEHOLDER
-  static const String _publicKey = 'user_XXXXXX'; // PLACEHOLDER
+  // 1. Crie uma conta em https://www.emailjs.com/
+  // 2. Crie um Email Service (ex: Gmail) e pegue o Service ID
+  // 3. Crie um Email Template e pegue o Template ID
+  // 4. Pegue sua Public Key em Account > API Keys
+  static const String _serviceId = 'service_ozisqwa'; 
+  static const String _templateId = 'template_v2q7scu'; 
+  static const String _publicKey = 'SUBSTITUA_PELA_SUA_PUBLIC_KEY'; 
+
+  static bool get isConfigured =>
+      _publicKey.isNotEmpty && _publicKey != 'SUBSTITUA_PELA_SUA_PUBLIC_KEY';
 
   static Future<bool> sendOTP({
     required String userName,

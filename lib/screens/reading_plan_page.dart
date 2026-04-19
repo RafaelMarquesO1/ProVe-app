@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:myapp/models/user_model.dart';
 import 'package:intl/intl.dart';
 import 'package:confetti/confetti.dart';
+import 'package:myapp/widgets/app_alerts.dart';
+import 'package:myapp/widgets/bounce_button.dart';
 
 class ReadingPlanPage extends StatefulWidget {
   final bool showConfetti;
@@ -100,12 +102,11 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
           BounceButton(
             onTap: () {
               final randomQuote = _motivationalQuotes[Random().nextInt(_motivationalQuotes.length)];
-              ScaffoldMessenger.of(context).clearSnackBars();
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text(randomQuote),
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ));
+              AppAlerts.showSnackBar(
+                context,
+                message: randomQuote,
+                type: AppAlertType.info,
+              );
             },
             child: Text(
               'SEU PROGRESSO',
@@ -124,13 +125,11 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
           // Destaque Principal (Ofensiva)
           BounceButton(
             onTap: () {
-              ScaffoldMessenger.of(context).clearSnackBars();
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text('Sua ofensiva aumentará caso você leia o provérbio de hoje! 🔥'),
-                behavior: SnackBarBehavior.floating,
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ));
+              AppAlerts.showSnackBar(
+                context,
+                message: 'Sua ofensiva aumentará caso você leia o provérbio de hoje! 🔥',
+                type: AppAlertType.success,
+              );
             },
             child: _buildMainStreakHero(context, user),
           ),
@@ -177,19 +176,182 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
   }
 
   void _showInfoDialog(BuildContext context, String title, String description) {
-    showDialog(
+    showGeneralDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-        content: Text(description),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Entendi', style: TextStyle(fontWeight: FontWeight.bold)),
+      barrierDismissible: true,
+      barrierLabel: 'Fechar',
+      barrierColor: Colors.black54,
+      transitionDuration: const Duration(milliseconds: 220),
+      pageBuilder: (context, _, __) {
+        return Center(
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 24),
+              padding: const EdgeInsets.fromLTRB(22, 22, 22, 16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.18),
+                    blurRadius: 24,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.insights_rounded, color: Theme.of(context).colorScheme.primary),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Text(description, style: TextStyle(color: Colors.grey.shade700, height: 1.45)),
+                  const SizedBox(height: 16),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Entendi'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ],
-      ),
+        );
+      },
+      transitionBuilder: (_, animation, __, child) {
+        return FadeTransition(
+          opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.9, end: 1.0).animate(
+              CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
+            ),
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showAchievementDialog({
+    required BuildContext context,
+    required Map<String, dynamic> achievement,
+    required bool isUnlocked,
+    required int currentValue,
+  }) async {
+    final color = achievement['color'] as Color;
+    final iconData = achievement['icon'] as IconData;
+    final threshold = achievement['threshold'] as int;
+    final unit = achievement['unit'] as String;
+
+    await showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Fechar conquista',
+      barrierColor: Colors.black54,
+      transitionDuration: const Duration(milliseconds: 250),
+      pageBuilder: (context, _, __) {
+        return Center(
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 24),
+              padding: const EdgeInsets.all(22),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(26),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeOutBack,
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      color: isUnlocked ? color.withOpacity(0.16) : Colors.grey.shade100,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      isUnlocked ? iconData : Icons.lock_rounded,
+                      color: isUnlocked ? color : Colors.grey.shade400,
+                      size: 56,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    achievement['title'] as String,
+                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    achievement['desc'] as String,
+                    style: TextStyle(
+                      color: isUnlocked ? color.withOpacity(0.9) : Colors.grey.shade600,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    isUnlocked
+                        ? 'Conquista desbloqueada! Você já alcançou esse marco de Provérbios.'
+                        : 'Progresso atual: $currentValue/$threshold $unit.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey.shade700, height: 1.45),
+                  ),
+                  const SizedBox(height: 14),
+                  LinearProgressIndicator(
+                    value: (currentValue / threshold).clamp(0, 1).toDouble(),
+                    minHeight: 8,
+                    borderRadius: BorderRadius.circular(20),
+                    backgroundColor: Colors.grey.shade200,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      isUnlocked ? color : Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: isUnlocked ? color : Colors.grey.shade500,
+                      ),
+                      onPressed: () => Navigator.pop(context),
+                      child: Text(isUnlocked ? 'Fantástico!' : 'Continuar'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+      transitionBuilder: (_, animation, __, child) {
+        return FadeTransition(
+          opacity: animation,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, 0.05),
+              end: Offset.zero,
+            ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
+            child: child,
+          ),
+        );
+      },
     );
   }
 
@@ -339,15 +501,30 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
 
               return BounceButton(
                 onTap: () {
-                  ScaffoldMessenger.of(context).clearSnackBars();
                   if (isCompleted) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Na data $formattedDate você leu o provérbio! Parabéns! 🎉'), behavior: SnackBarBehavior.floating));
+                    AppAlerts.showSnackBar(
+                      context,
+                      message: 'Na data $formattedDate você leu o provérbio! Parabéns! 🎉',
+                      type: AppAlertType.success,
+                    );
                   } else if (day.isAfter(today)) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Aguarde! A data $formattedDate ainda não chegou.'), behavior: SnackBarBehavior.floating));
+                    AppAlerts.showSnackBar(
+                      context,
+                      message: 'Aguarde! A data $formattedDate ainda não chegou.',
+                      type: AppAlertType.warning,
+                    );
                   } else if (isToday) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('A data $formattedDate é hoje! Não esqueça de ler.'), behavior: SnackBarBehavior.floating));
+                    AppAlerts.showSnackBar(
+                      context,
+                      message: 'A data $formattedDate é hoje! Não esqueça de ler.',
+                      type: AppAlertType.info,
+                    );
                   } else {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Você não contabilizou leitura na data $formattedDate.'), behavior: SnackBarBehavior.floating));
+                    AppAlerts.showSnackBar(
+                      context,
+                      message: 'Você não contabilizou leitura na data $formattedDate.',
+                      type: AppAlertType.warning,
+                    );
                   }
                 },
                 child: Column(
@@ -385,17 +562,26 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
 
   Widget _buildAchievementsList(BuildContext context, UserModel user) {
     final longestStreak = user.longestStreak;
-    
+    final totalReadDays = user.completedDays.length;
+
     final achievements = [
-      {'title': 'Formiga', 'desc': '1 Dia', 'threshold': 1, 'icon': Icons.emoji_nature_rounded, 'color': const Color(0xFF8D6E63)},
-      {'title': 'Caminho Reto', 'desc': '3 Dias', 'threshold': 3, 'icon': Icons.alt_route_rounded, 'color': const Color(0xFF66BB6A)},
-      {'title': 'Ferro Afiado', 'desc': '7 Dias', 'threshold': 7, 'icon': Icons.handyman_rounded, 'color': const Color(0xFF78909C)},
-      {'title': 'Fonte de Vida', 'desc': '15 Dias', 'threshold': 15, 'icon': Icons.waves_rounded, 'color': const Color(0xFF42A5F5)},
-      {'title': 'Favo de Mel', 'desc': '30 Dias', 'threshold': 30, 'icon': Icons.filter_vintage_rounded, 'color': const Color(0xFFFFB300)},
-      {'title': 'Torre Forte', 'desc': '60 Dias', 'threshold': 60, 'icon': Icons.castle_rounded, 'color': const Color(0xFFBDBDBD)},
-      {'title': 'Coroa de Sábio', 'desc': '100 Dias', 'threshold': 100, 'icon': Icons.military_tech_rounded, 'color': const Color(0xFFFBC02D)},
-      {'title': 'Rubi Precioso', 'desc': '200 Dias', 'threshold': 200, 'icon': Icons.diamond_rounded, 'color': const Color(0xFFD81B60)},
-      {'title': 'Árvore da Vida', 'desc': '365 Dias', 'threshold': 365, 'icon': Icons.eco_rounded, 'color': const Color(0xFF2E7D32)},
+      {'title': 'Formiga Diligente', 'desc': '1 dia de ofensiva', 'threshold': 1, 'metric': 'streak', 'unit': 'dias', 'icon': Icons.emoji_nature_rounded, 'color': const Color(0xFF8D6E63)},
+      {'title': 'Temor do Senhor', 'desc': '3 dias de ofensiva', 'threshold': 3, 'metric': 'streak', 'unit': 'dias', 'icon': Icons.auto_awesome_rounded, 'color': const Color(0xFF5C6BC0)},
+      {'title': 'Caminho Reto', 'desc': '7 dias de ofensiva', 'threshold': 7, 'metric': 'streak', 'unit': 'dias', 'icon': Icons.alt_route_rounded, 'color': const Color(0xFF66BB6A)},
+      {'title': 'Língua Mansa', 'desc': '14 dias de ofensiva', 'threshold': 14, 'metric': 'streak', 'unit': 'dias', 'icon': Icons.record_voice_over_rounded, 'color': const Color(0xFF26A69A)},
+      {'title': 'Ferro Afiado', 'desc': '21 dias de ofensiva', 'threshold': 21, 'metric': 'streak', 'unit': 'dias', 'icon': Icons.handyman_rounded, 'color': const Color(0xFF78909C)},
+      {'title': 'Torre Forte', 'desc': '60 dias de ofensiva', 'threshold': 60, 'metric': 'streak', 'unit': 'dias', 'icon': Icons.castle_rounded, 'color': const Color(0xFFBDBDBD)},
+      {'title': 'Coroa de Sábio', 'desc': '100 dias de ofensiva', 'threshold': 100, 'metric': 'streak', 'unit': 'dias', 'icon': Icons.military_tech_rounded, 'color': const Color(0xFFFBC02D)},
+      {'title': 'Muralha Inabalável', 'desc': '180 dias de ofensiva', 'threshold': 180, 'metric': 'streak', 'unit': 'dias', 'icon': Icons.fort_rounded, 'color': const Color(0xFF7E57C2)},
+      {'title': 'Guardião de Provérbios', 'desc': '265 dias de ofensiva', 'threshold': 265, 'metric': 'streak', 'unit': 'dias', 'icon': Icons.shield_moon_rounded, 'color': const Color(0xFF3949AB)},
+      {'title': 'Peregrino Fiel', 'desc': '365 dias de ofensiva', 'threshold': 365, 'metric': 'streak', 'unit': 'dias', 'icon': Icons.travel_explore_rounded, 'color': const Color(0xFF00695C)},
+      {'title': 'Lâmpada para os Pés', 'desc': '30 leituras totais', 'threshold': 30, 'metric': 'total', 'unit': 'leituras', 'icon': Icons.lightbulb_circle_rounded, 'color': const Color(0xFFFF7043)},
+      {'title': 'Fonte de Vida', 'desc': '90 leituras totais', 'threshold': 90, 'metric': 'total', 'unit': 'leituras', 'icon': Icons.waves_rounded, 'color': const Color(0xFF42A5F5)},
+      {'title': 'Rubi Precioso', 'desc': '180 leituras totais', 'threshold': 180, 'metric': 'total', 'unit': 'leituras', 'icon': Icons.diamond_rounded, 'color': const Color(0xFFD81B60)},
+      {'title': 'Sábio Experiente', 'desc': '265 leituras totais', 'threshold': 265, 'metric': 'total', 'unit': 'leituras', 'icon': Icons.psychology_alt_rounded, 'color': const Color(0xFF8E24AA)},
+      {'title': 'Árvore da Vida', 'desc': '365 leituras totais', 'threshold': 365, 'metric': 'total', 'unit': 'leituras', 'icon': Icons.eco_rounded, 'color': const Color(0xFF2E7D32)},
+      {'title': 'Escriba da Sabedoria', 'desc': '500 leituras totais', 'threshold': 500, 'metric': 'total', 'unit': 'leituras', 'icon': Icons.menu_book_rounded, 'color': const Color(0xFF5D4037)},
+      {'title': 'Aliança de Ouro', 'desc': '730 leituras totais (2 anos)', 'threshold': 730, 'metric': 'total', 'unit': 'leituras', 'icon': Icons.workspace_premium_rounded, 'color': const Color(0xFFFFC107)},
     ];
 
     return SingleChildScrollView(
@@ -403,62 +589,19 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
       clipBehavior: Clip.none,
       child: Row(
         children: achievements.map((a) {
-          final isUnlocked = longestStreak >= (a['threshold'] as int);
+          final metric = a['metric'] as String;
+          final threshold = a['threshold'] as int;
+          final currentValue = metric == 'total' ? totalReadDays : longestStreak;
+          final isUnlocked = currentValue >= threshold;
           final color = a['color'] as Color;
           
           return BounceButton(
-            onTap: () {
-              showDialog(
-                context: context,
-                builder: (dialogContext) => Dialog(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: isUnlocked ? color.withOpacity(0.15) : Colors.grey.shade100,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            isUnlocked ? (a['icon'] as IconData) : Icons.lock_rounded, 
-                            color: isUnlocked ? color : Colors.grey.shade400, 
-                            size: 64
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        Text(
-                          a['title'] as String,
-                          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          isUnlocked 
-                            ? 'Parabéns! Você desbloqueou esta insígnia incrível por bater um recorde de ${a['threshold']} dias seguidos de ofensiva!'
-                            : 'Insígnia bloqueada. Mantenha seu ritmo diário e atinja uma ofensiva de ${a['threshold']} dias seguidos para abri-la!',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.grey.shade700, height: 1.5),
-                        ),
-                        const SizedBox(height: 24),
-                        ElevatedButton(
-                          onPressed: () => Navigator.pop(dialogContext),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: isUnlocked ? color : Colors.grey.shade400,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            minimumSize: const Size(double.infinity, 50),
-                          ),
-                          child: const Text('Fantástico!', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            },
+            onTap: () => _showAchievementDialog(
+              context: context,
+              achievement: a,
+              isUnlocked: isUnlocked,
+              currentValue: currentValue,
+            ),
             child: AnimatedOpacity(
               duration: const Duration(milliseconds: 500),
               opacity: isUnlocked ? 1.0 : 0.4,
@@ -568,68 +711,6 @@ class _GlowingFireIconState extends State<GlowingFireIcon> with SingleTickerProv
           ),
         );
       },
-    );
-  }
-}
-
-class BounceButton extends StatefulWidget {
-  final Widget child;
-  final VoidCallback onTap;
-
-  const BounceButton({super.key, required this.child, required this.onTap});
-
-  @override
-  State<BounceButton> createState() => _BounceButtonState();
-}
-
-class _BounceButtonState extends State<BounceButton> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 100),
-    );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _onTapDown(TapDownDetails details) {
-    if (mounted) _controller.forward();
-  }
-
-  void _onTapUp(TapUpDetails details) {
-    if (mounted) {
-      _controller.reverse();
-      widget.onTap();
-    }
-  }
-
-  void _onTapCancel() {
-    if (mounted) _controller.reverse();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTapDown: _onTapDown,
-      onTapUp: _onTapUp,
-      onTapCancel: _onTapCancel,
-      child: ScaleTransition(
-        scale: _scaleAnimation,
-        child: widget.child,
-      ),
     );
   }
 }

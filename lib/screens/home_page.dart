@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:myapp/models/user_model.dart';
+import 'package:myapp/widgets/bounce_button.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:table_calendar/table_calendar.dart';
 
@@ -20,6 +21,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final User? _currentUser = FirebaseAuth.instance.currentUser;
   Map<String, String> _verseOfTheDay = {};
+  bool _isVerseLoadError = false;
 
   @override
   void initState() {
@@ -36,29 +38,36 @@ class _HomePageState extends State<HomePage> {
   ];
 
   Future<void> _loadVerseOfTheDay() async {
-    final jsonString = await rootBundle.loadString('assets/proverbiosBibliaLivre.json');
-    final proverbs = jsonDecode(jsonString) as List;
+    try {
+      final jsonString =
+          await rootBundle.loadString('assets/proverbiosBibliaLivre.json');
+      final proverbs = jsonDecode(jsonString) as List;
 
-    // Seleciona um provérbio da nossa lista curada
-    final randomRef = _curatedVerses[Random().nextInt(_curatedVerses.length)];
-    final parts = randomRef.split(':');
-    final chapterNum = parts[0];
-    final verseNum = parts[1];
+      final randomRef = _curatedVerses[Random().nextInt(_curatedVerses.length)];
+      final parts = randomRef.split(':');
+      final chapterNum = parts[0];
+      final verseNum = parts[1];
 
-    // Encontra o capítulo no JSON
-    final chapterData = proverbs.firstWhere(
-      (element) => element.containsKey(chapterNum),
-      orElse: () => null,
-    );
+      final chapterData = proverbs.firstWhere(
+        (element) => element.containsKey(chapterNum),
+        orElse: () => null,
+      );
 
-    if (chapterData != null) {
-      final verseText = chapterData[chapterNum][verseNum];
-      setState(() {
-        _verseOfTheDay = {
-          'text': verseText,
-          'reference': 'Provérbios $chapterNum:$verseNum',
-        };
-      });
+      if (!mounted) return;
+
+      if (chapterData != null) {
+        final verseText = chapterData[chapterNum][verseNum];
+        setState(() {
+          _isVerseLoadError = false;
+          _verseOfTheDay = {
+            'text': verseText,
+            'reference': 'Provérbios $chapterNum:$verseNum',
+          };
+        });
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isVerseLoadError = true);
     }
   }
 
@@ -82,10 +91,21 @@ class _HomePageState extends State<HomePage> {
       stream: FirebaseFirestore.instance.collection('users').doc(_currentUser.uid).snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return _buildLoadingState(context);
+        }
+        if (snapshot.hasError) {
+          return _buildContent(
+            context,
+            UserModel.empty(),
+            showConnectionWarning: true,
+          );
         }
         if (!snapshot.hasData || !snapshot.data!.exists) {
-          return _buildContent(context, UserModel.empty()); 
+          return _buildContent(
+            context,
+            UserModel.empty(),
+            showConnectionWarning: true,
+          );
         }
 
         final user = UserModel.fromFirestore(snapshot.data!);
@@ -94,7 +114,11 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildContent(BuildContext context, UserModel user) {
+  Widget _buildContent(
+    BuildContext context,
+    UserModel user, {
+    bool showConnectionWarning = false,
+  }) {
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -107,6 +131,10 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (showConnectionWarning) ...[
+              _buildConnectionWarning(context),
+              const SizedBox(height: 24),
+            ],
             // 1. Saudação Personalizada
             Text(
               'Olá, $firstName!',
@@ -149,9 +177,14 @@ class _HomePageState extends State<HomePage> {
 
     final shadowColor = isCompletedToday ? const Color(0xFF388E3C) : const Color(0xFFD65108);
 
-    return BounceButton(
-      onTap: () => context.go('/reading'),
-      child: Container(
+    return Semantics(
+      button: true,
+      label: isCompletedToday
+          ? 'Abrir leitura já concluída hoje'
+          : 'Abrir leitura diária de Provérbios',
+      child: BounceButton(
+        onTap: () => context.go('/reading'),
+        child: Container(
         padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -202,6 +235,7 @@ class _HomePageState extends State<HomePage> {
             const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 20),
           ],
         ),
+        ),
       ),
     );
   }
@@ -240,6 +274,7 @@ class _HomePageState extends State<HomePage> {
               IconButton(
                 icon: Icon(Icons.share_rounded, color: Colors.grey.shade500, size: 22),
                 onPressed: _shareVerse,
+                tooltip: 'Compartilhar versículo',
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
               ),
@@ -247,7 +282,9 @@ class _HomePageState extends State<HomePage> {
           ),
           const SizedBox(height: 16),
           Text(
-            _verseOfTheDay['text'] ?? 'Buscando sabedoria...',
+            _isVerseLoadError
+                ? 'Não foi possível carregar o versículo de hoje agora. Tente novamente mais tarde.'
+                : (_verseOfTheDay['text'] ?? 'Buscando sabedoria...'),
             style: textTheme.bodyLarge?.copyWith(
               fontStyle: FontStyle.italic, 
               height: 1.6, 
@@ -367,66 +404,81 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
-}
 
-// Reutilizando o mesmo botão com o efeito de contração/mola criado na tela de Ofensiva.
-class BounceButton extends StatefulWidget {
-  final Widget child;
-  final VoidCallback onTap;
-
-  const BounceButton({super.key, required this.child, required this.onTap});
-
-  @override
-  State<BounceButton> createState() => _BounceButtonState();
-}
-
-class _BounceButtonState extends State<BounceButton> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 100),
-    );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+  Widget _buildConnectionWarning(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade50,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.orange.shade200),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.wifi_off_rounded, color: Colors.orange.shade800),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Conexão instável. Alguns dados podem estar desatualizados.',
+              style: TextStyle(
+                color: Colors.orange.shade900,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
+  Widget _buildLoadingState(BuildContext context) {
+    final base = Colors.grey.shade200;
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 64, 20, 32),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _skeletonLine(width: 170, height: 30, color: base),
+            const SizedBox(height: 12),
+            _skeletonLine(width: 240, height: 16, color: base),
+            const SizedBox(height: 32),
+            _skeletonBox(height: 132, color: base),
+            const SizedBox(height: 24),
+            _skeletonBox(height: 190, color: base),
+            const SizedBox(height: 24),
+            _skeletonBox(height: 340, color: base),
+          ],
+        ),
+      ),
+    );
   }
 
-  void _onTapDown(TapDownDetails details) {
-    if (mounted) _controller.forward();
+  Widget _skeletonLine({
+    required double width,
+    required double height,
+    required Color color,
+  }) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
   }
 
-  void _onTapUp(TapUpDetails details) {
-    if (mounted) {
-      _controller.reverse();
-      widget.onTap();
-    }
-  }
-
-  void _onTapCancel() {
-    if (mounted) _controller.reverse();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTapDown: _onTapDown,
-      onTapUp: _onTapUp,
-      onTapCancel: _onTapCancel,
-      child: ScaleTransition(
-        scale: _scaleAnimation,
-        child: widget.child,
+  Widget _skeletonBox({required double height, required Color color}) {
+    return Container(
+      height: height,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(20),
       ),
     );
   }

@@ -7,6 +7,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:go_router/go_router.dart';
 import 'package:myapp/providers/reading_settings_provider.dart';
 import 'package:myapp/services/progress_service.dart';
+import 'package:myapp/widgets/bounce_button.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 
 class ReadingPage extends StatefulWidget {
@@ -17,6 +18,9 @@ class ReadingPage extends StatefulWidget {
 }
 
 class _ReadingPageState extends State<ReadingPage> {
+  static const String _bibleVersion =
+      'Versão bíblica utilizada: Bíblia Livre (Português).';
+
   final ProgressService _progressService = ProgressService();
   late Future<Map<String, dynamic>> _readingData;
   final ScrollController _scrollController = ScrollController();
@@ -654,6 +658,20 @@ class _ReadingPageState extends State<ReadingPage> {
                                 ),
                               ),
                             ),
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(24, 8, 24, 4),
+                              child: Text(
+                                _bibleVersion,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: subtleTextColor,
+                                  fontSize: 12,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ),
+                          ),
                           const SliverToBoxAdapter(child: SizedBox(height: 48)),
                         ],
                       ),
@@ -683,68 +701,6 @@ class _ReadingPageState extends State<ReadingPage> {
           ),
         );
       },
-    );
-  }
-}
-
-class BounceButton extends StatefulWidget {
-  final Widget child;
-  final VoidCallback onTap;
-
-  const BounceButton({super.key, required this.child, required this.onTap});
-
-  @override
-  State<BounceButton> createState() => _BounceButtonState();
-}
-
-class _BounceButtonState extends State<BounceButton> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 100),
-    );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _onTapDown(TapDownDetails details) {
-    if (mounted) _controller.forward();
-  }
-
-  void _onTapUp(TapUpDetails details) {
-    if (mounted) {
-      _controller.reverse();
-      widget.onTap();
-    }
-  }
-
-  void _onTapCancel() {
-    if (mounted) _controller.reverse();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTapDown: _onTapDown,
-      onTapUp: _onTapUp,
-      onTapCancel: _onTapCancel,
-      child: ScaleTransition(
-        scale: _scaleAnimation,
-        child: widget.child,
-      ),
     );
   }
 }

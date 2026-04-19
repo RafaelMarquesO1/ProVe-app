@@ -4,7 +4,9 @@ import 'package:myapp/providers/reading_settings_provider.dart';
 
 
 class ReadingSettingsPage extends StatelessWidget {
-  const ReadingSettingsPage({super.key});
+  final int returnIndex;
+
+  const ReadingSettingsPage({super.key, this.returnIndex = 0});
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +26,7 @@ class ReadingSettingsPage extends StatelessWidget {
             if (context.canPop()) {
               context.pop();
             } else {
-              context.go('/home');
+              context.go('/home', extra: {'index': returnIndex});
             }
           },
         ),

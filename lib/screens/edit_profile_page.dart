@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:myapp/widgets/app_alerts.dart';
+import 'package:myapp/widgets/bounce_button.dart';
 
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
@@ -22,12 +24,15 @@ class _EditProfilePageState extends State<EditProfilePage> {
   final User? _currentUser = FirebaseAuth.instance.currentUser;
   final ImagePicker _picker = ImagePicker();
   File? _imageFile;
+  String? _storedPhotoUrl;
+  bool _removeCurrentPhoto = false;
   bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
     _nameController.text = _currentUser?.displayName ?? '';
+    _storedPhotoUrl = _currentUser?.photoURL;
   }
 
   @override
@@ -38,11 +43,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
     super.dispose();
   }
 
-  Future<void> _pickImage() async {
-    final pickedFile = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+  Future<void> _pickImage(ImageSource source) async {
+    final pickedFile = await _picker.pickImage(source: source, imageQuality: 80);
     if (pickedFile != null) {
       setState(() {
         _imageFile = File(pickedFile.path);
+        _removeCurrentPhoto = false;
       });
     }
   }
@@ -50,12 +56,20 @@ class _EditProfilePageState extends State<EditProfilePage> {
   Future<String?> _uploadProfilePicture(String userId) async {
     if (_imageFile == null) return null;
     try {
-      final storageRef = FirebaseStorage.instance.ref().child('profile_pictures').child('$userId.jpg');
+      final fileName = '$userId-${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final storageRef = FirebaseStorage.instance
+          .ref()
+          .child('profile_pictures')
+          .child(fileName);
       await storageRef.putFile(_imageFile!);
       return await storageRef.getDownloadURL();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro ao enviar foto: $e')));
+        AppAlerts.showSnackBar(
+          context,
+          message: 'Erro ao enviar foto: $e',
+          type: AppAlertType.error,
+        );
       }
       return null;
     }
@@ -63,6 +77,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   Future<void> _updateProfile() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
+    final bool canProceed = await _showPreviewAndConfirmSave();
+    if (!canProceed) return;
 
     final user = _currentUser;
     if (user == null) return;
@@ -71,26 +87,31 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
     try {
       String? photoURL = user.photoURL;
-      if (_imageFile != null) {
+      if (_removeCurrentPhoto) {
+        photoURL = null;
+      } else if (_imageFile != null) {
         photoURL = await _uploadProfilePicture(user.uid);
       }
 
       await user.updateDisplayName(_nameController.text);
-      if (photoURL != null) {
-        await user.updatePhotoURL(photoURL);
-      }
+      await user.updatePhotoURL(photoURL);
+      await user.reload();
       
       final Map<String, dynamic> updateData = {
         'name': _nameController.text,
       };
-      if (photoURL != null) {
-        updateData['photoURL'] = photoURL;
-      }
+      updateData['photoURL'] = photoURL;
       
       await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
           .set(updateData, SetOptions(merge: true));
+
+      setState(() {
+        _storedPhotoUrl = photoURL;
+        _imageFile = null;
+        _removeCurrentPhoto = false;
+      });
 
       if (_currentPasswordController.text.isNotEmpty && _newPasswordController.text.isNotEmpty) {
         final email = user.email;
@@ -103,26 +124,20 @@ class _EditProfilePageState extends State<EditProfilePage> {
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Perfil atualizado com sucesso!'),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            backgroundColor: Colors.green,
-          ),
+        AppAlerts.showSnackBar(
+          context,
+          message: 'Perfil atualizado com sucesso!',
+          type: AppAlertType.success,
         );
         context.go('/home', extra: {'index': 2});
       }
 
     } on FirebaseAuthException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro: ${e.message}'),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            backgroundColor: Colors.red,
-          ),
+        AppAlerts.showSnackBar(
+          context,
+          message: 'Erro: ${e.message}',
+          type: AppAlertType.error,
         );
       }
     } finally {
@@ -130,6 +145,145 @@ class _EditProfilePageState extends State<EditProfilePage> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  Future<void> _showImageSourceSheet() async {
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        final theme = Theme.of(context);
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Foto de perfil',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Escolha de onde deseja selecionar a imagem.',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                ListTile(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  leading: const Icon(Icons.photo_library_outlined),
+                  title: const Text('Galeria'),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await _pickImage(ImageSource.gallery);
+                  },
+                ),
+                const SizedBox(height: 8),
+                ListTile(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  leading: const Icon(Icons.photo_camera_outlined),
+                  title: const Text('Câmera'),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await _pickImage(ImageSource.camera);
+                  },
+                ),
+                if (_storedPhotoUrl != null || _imageFile != null) ...[
+                  const SizedBox(height: 8),
+                  ListTile(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    leading: const Icon(Icons.delete_outline_rounded),
+                    iconColor: Colors.red.shade700,
+                    title: const Text('Remover foto atual'),
+                    textColor: Colors.red.shade700,
+                    onTap: () {
+                      Navigator.pop(context);
+                      setState(() {
+                        _imageFile = null;
+                        _storedPhotoUrl = null;
+                        _removeCurrentPhoto = true;
+                      });
+                    },
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<bool> _showPreviewAndConfirmSave() async {
+    final ImageProvider? imageProvider = _imageFile != null
+        ? FileImage(_imageFile!)
+        : (_storedPhotoUrl != null ? NetworkImage(_storedPhotoUrl!) : null);
+
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+          title: const Text('Confirmar alterações'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircleAvatar(
+                radius: 44,
+                backgroundImage: imageProvider,
+                child: imageProvider == null
+                    ? Text(
+                        _nameController.text.isNotEmpty
+                            ? _nameController.text.substring(0, 1).toUpperCase()
+                            : 'U',
+                        style: const TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
+                    : null,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                _nameController.text.trim(),
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Verifique os dados antes de salvar.',
+                style: TextStyle(color: Colors.grey.shade600),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Revisar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Salvar'),
+            ),
+          ],
+        );
+      },
+    );
+    return confirm ?? false;
   }
 
   @override
@@ -309,7 +463,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 
   Widget _buildAvatar(BuildContext context, ColorScheme colorScheme) {
-    final photoURL = _currentUser?.photoURL;
+    final photoURL = _storedPhotoUrl;
     final displayName = _currentUser?.displayName ?? 'U';
 
     return Center(
@@ -342,7 +496,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
             bottom: 0,
             right: 0,
             child: BounceButton(
-              onTap: _pickImage,
+              onTap: _showImageSourceSheet,
               child: Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
@@ -362,68 +516,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class BounceButton extends StatefulWidget {
-  final Widget child;
-  final VoidCallback onTap;
-
-  const BounceButton({super.key, required this.child, required this.onTap});
-
-  @override
-  State<BounceButton> createState() => _BounceButtonState();
-}
-
-class _BounceButtonState extends State<BounceButton> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 100),
-    );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.96).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _onTapDown(TapDownDetails details) {
-    if (mounted) _controller.forward();
-  }
-
-  void _onTapUp(TapUpDetails details) {
-    if (mounted) {
-      _controller.reverse();
-      widget.onTap();
-    }
-  }
-
-  void _onTapCancel() {
-    if (mounted) _controller.reverse();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTapDown: _onTapDown,
-      onTapUp: _onTapUp,
-      onTapCancel: _onTapCancel,
-      child: ScaleTransition(
-        scale: _scaleAnimation,
-        child: widget.child,
       ),
     );
   }

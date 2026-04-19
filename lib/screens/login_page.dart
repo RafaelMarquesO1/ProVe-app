@@ -14,12 +14,23 @@ class _LoginPageState extends State<LoginPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
+  String? _emailErrorText;
+  String? _passwordErrorText;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
       _isLoading = true;
+      _emailErrorText = null;
+      _passwordErrorText = null;
     });
 
     try {
@@ -30,14 +41,22 @@ class _LoginPageState extends State<LoginPage> {
       // O listener em main.dart cuidará da navegação em caso de sucesso.
     } on FirebaseAuthException catch (e) {
       if (mounted) {
-        String errorMessage;
-        if (e.code == 'user-not-found' || e.code == 'wrong-password' || e.code == 'invalid-credential') {
-          errorMessage = 'E-mail ou senha inválidos.';
+        String errorMessage = 'Ocorreu um erro. Tente novamente.';
+        if (e.code == 'invalid-email') {
+          _emailErrorText = 'E-mail inválido.';
+          errorMessage = 'Verifique o e-mail informado.';
+        } else if (e.code == 'user-not-found') {
+          _emailErrorText = 'Conta não encontrada para este e-mail.';
+          errorMessage = 'Conta não encontrada.';
+        } else if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
+          _passwordErrorText = 'Senha incorreta.';
+          errorMessage = 'Senha incorreta.';
         } else if (e.code == 'user-disabled') {
           errorMessage = 'Esta conta foi desativada.';
-        } else {
-          errorMessage = 'Ocorreu um erro. Tente novamente.';
+        } else if (e.code == 'too-many-requests') {
+          errorMessage = 'Muitas tentativas. Tente novamente em alguns minutos.';
         }
+        setState(() {});
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(errorMessage),
@@ -118,14 +137,17 @@ class _LoginPageState extends State<LoginPage> {
         ),
       ),
       body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(32.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
+        child: GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(32.0),
+            child: Form(
+              key: _formKey,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
                 Text(
                   'FAÇA LOGIN AQUI!',
                   textAlign: TextAlign.center,
@@ -140,10 +162,18 @@ class _LoginPageState extends State<LoginPage> {
                 const SizedBox(height: 48),
                 TextFormField(
                   controller: _emailController,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'E-mail',
+                    errorText: _emailErrorText,
                   ),
+                  textInputAction: TextInputAction.next,
+                  autofillHints: const [AutofillHints.email],
                   keyboardType: TextInputType.emailAddress,
+                  onChanged: (_) {
+                    if (_emailErrorText != null) {
+                      setState(() => _emailErrorText = null);
+                    }
+                  },
                   validator: (value) {
                     if (value == null || value.isEmpty || !value.contains('@')) {
                       return 'Por favor, insira um e-mail válido';
@@ -154,10 +184,19 @@ class _LoginPageState extends State<LoginPage> {
                 const SizedBox(height: 24),
                 TextFormField(
                   controller: _passwordController,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Senha',
+                    errorText: _passwordErrorText,
                   ),
                   obscureText: true,
+                  textInputAction: TextInputAction.done,
+                  autofillHints: const [AutofillHints.password],
+                  onFieldSubmitted: (_) => _isLoading ? null : _login(),
+                  onChanged: (_) {
+                    if (_passwordErrorText != null) {
+                      setState(() => _passwordErrorText = null);
+                    }
+                  },
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Por favor, insira sua senha';
@@ -207,6 +246,7 @@ class _LoginPageState extends State<LoginPage> {
               ],
             ),
           ),
+        ),
         ),
       ),
     );

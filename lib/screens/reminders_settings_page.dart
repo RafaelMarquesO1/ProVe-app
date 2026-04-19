@@ -4,7 +4,9 @@ import 'package:myapp/services/notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class RemindersSettingsPage extends StatefulWidget {
-  const RemindersSettingsPage({super.key});
+  final int returnIndex;
+
+  const RemindersSettingsPage({super.key, this.returnIndex = 0});
 
   @override
   State<RemindersSettingsPage> createState() => _RemindersSettingsPageState();
@@ -150,7 +152,7 @@ class _RemindersSettingsPageState extends State<RemindersSettingsPage> {
             if (context.canPop()) {
               context.pop();
             } else {
-              context.go('/home');
+              context.go('/home', extra: {'index': widget.returnIndex});
             }
           },
         ),

@@ -1,7 +1,10 @@
+import 'dart:math';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:myapp/services/email_service.dart';
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
@@ -16,15 +19,59 @@ class _SignUpPageState extends State<SignUpPage> {
   final _passwordController = TextEditingController();
   final _nameController = TextEditingController();
   bool _isLoading = false;
+  String? _nameErrorText;
+  String? _emailErrorText;
+  String? _passwordErrorText;
 
   Future<void> _signUp() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
       _isLoading = true;
+      _nameErrorText = null;
+      _emailErrorText = null;
+      _passwordErrorText = null;
     });
 
     try {
+      final bool emailVerificationEnabled = EmailService.isConfigured;
+      final String verificationCode = _generateSixDigitCode();
+      final String userName = _nameController.text.trim();
+      final String userEmail = _emailController.text.trim();
+      final String userPassword = _passwordController.text.trim();
+
+      if (emailVerificationEnabled) {
+        final bool sent = await EmailService.sendOTP(
+          userName: userName,
+          userEmail: userEmail,
+          otpCode: verificationCode,
+        );
+
+        if (!sent) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Não foi possível enviar o código de verificação. Tente novamente em instantes.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return;
+        }
+
+        if (mounted) {
+          context.go('/verify-email', extra: {
+            'name': userName,
+            'email': userEmail,
+            'password': userPassword,
+            'code': verificationCode,
+            'otpCreatedAt': DateTime.now().millisecondsSinceEpoch,
+            'otpAttempts': 0,
+          });
+        }
+        return;
+      }
+
       UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
@@ -33,35 +80,47 @@ class _SignUpPageState extends State<SignUpPage> {
       User? user = userCredential.user;
 
       if (user != null) {
-        await user.updateDisplayName(_nameController.text.trim());
+        await user.updateDisplayName(userName);
 
         await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
           'uid': user.uid,
-          'name': _nameController.text.trim(),
-          'email': _emailController.text.trim(),
+          'name': userName,
+          'email': userEmail,
           'readingStreak': 0,
           'longestStreak': 0,
           'lastReadDate': null,
           'createdAt': FieldValue.serverTimestamp(),
           'completedDays': [],
           'currentChapter': 1,
-          'isEmailVerified': false,
+          'isEmailVerified': true,
         });
 
-        // 1. Enviar email de verificação padrão do Firebase (Auth)
-        await user.sendEmailVerification();
-
-        // 2. Enviar email de verificação padrão do Firebase (Auth) já feito acima
-
         if (mounted) {
-          _showSuccessDialogAndGoHome(user.email ?? '');
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Conta criada. Ative a chave pública do EmailJS para liberar verificação por código.'),
+            ),
+          );
+          context.go('/home');
         }
       }
     } on FirebaseAuthException catch (e) {
       if (mounted) {
+        String errorMessage = e.message ?? 'Ocorreu um erro desconhecido.';
+        if (e.code == 'email-already-in-use') {
+          _emailErrorText = 'Este e-mail já está cadastrado.';
+          errorMessage = 'Este e-mail já está em uso.';
+        } else if (e.code == 'invalid-email') {
+          _emailErrorText = 'Digite um e-mail válido.';
+          errorMessage = 'E-mail inválido.';
+        } else if (e.code == 'weak-password') {
+          _passwordErrorText = 'Senha fraca. Use ao menos 6 caracteres.';
+          errorMessage = 'Senha fraca.';
+        }
+        setState(() {});
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.message ?? 'Ocorreu um erro desconhecido.'),
+            content: Text(errorMessage),
             backgroundColor: Colors.red,
           ),
         );
@@ -84,36 +143,17 @@ class _SignUpPageState extends State<SignUpPage> {
     }
   }
 
-  void _showSuccessDialogAndGoHome(String email) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('VERIFIQUE SEU E-MAIL', style: TextStyle(fontWeight: FontWeight.bold)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Sua conta foi criada, mas ainda não está ativa!'),
-            const SizedBox(height: 16),
-            Text('Um e-mail de verificação **REAL** enviado pelo Firebase foi encaminhado para $email.'),
-            const SizedBox(height: 16),
-            const Text('Abra seu e-mail e clique no link de validação para liberar seu acesso.', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
-            const SizedBox(height: 12),
-            const Text('Após clicar no link no seu e-mail, volte ao app e confirme sua entrada.', style: TextStyle(fontSize: 12, color: Colors.grey)),
-          ],
-        ),
-        actions: [
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              context.go('/verify-email');
-            },
-            child: const Text('IR PARA VALIDAÇÃO'),
-          ),
-        ],
-      ),
-    );
+  String _generateSixDigitCode() {
+    final random = Random();
+    return (100000 + random.nextInt(900000)).toString();
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    _nameController.dispose();
+    super.dispose();
   }
 
   @override
@@ -124,18 +164,27 @@ class _SignUpPageState extends State<SignUpPage> {
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: Theme.of(context).colorScheme.primary),
-          onPressed: () => context.pop(),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/');
+            }
+          },
         ),
       ),
       body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(32.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
+        child: GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(32.0),
+            child: Form(
+              key: _formKey,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
                 Text(
                   'CRIE SUA CONTA',
                   textAlign: TextAlign.center,
@@ -150,10 +199,18 @@ class _SignUpPageState extends State<SignUpPage> {
                 const SizedBox(height: 48),
                 TextFormField(
                   controller: _nameController,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Nome Completo',
+                    errorText: _nameErrorText,
                   ),
+                  textInputAction: TextInputAction.next,
+                  autofillHints: const [AutofillHints.name],
                   keyboardType: TextInputType.name,
+                  onChanged: (_) {
+                    if (_nameErrorText != null) {
+                      setState(() => _nameErrorText = null);
+                    }
+                  },
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return 'Por favor, insira seu nome completo';
@@ -164,10 +221,18 @@ class _SignUpPageState extends State<SignUpPage> {
                 const SizedBox(height: 24),
                 TextFormField(
                   controller: _emailController,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'E-mail',
+                    errorText: _emailErrorText,
                   ),
+                  textInputAction: TextInputAction.next,
+                  autofillHints: const [AutofillHints.email],
                   keyboardType: TextInputType.emailAddress,
+                  onChanged: (_) {
+                    if (_emailErrorText != null) {
+                      setState(() => _emailErrorText = null);
+                    }
+                  },
                   validator: (value) {
                     if (value == null || !value.contains('@')) {
                       return 'Por favor, insira um e-mail válido';
@@ -178,10 +243,19 @@ class _SignUpPageState extends State<SignUpPage> {
                 const SizedBox(height: 24),
                 TextFormField(
                   controller: _passwordController,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Senha',
+                    errorText: _passwordErrorText,
                   ),
                   obscureText: true,
+                  textInputAction: TextInputAction.done,
+                  autofillHints: const [AutofillHints.newPassword],
+                  onFieldSubmitted: (_) => _isLoading ? null : _signUp(),
+                  onChanged: (_) {
+                    if (_passwordErrorText != null) {
+                      setState(() => _passwordErrorText = null);
+                    }
+                  },
                   validator: (value) {
                     if (value == null || value.length < 6) {
                       return 'A senha deve ter pelo menos 6 caracteres';
@@ -219,6 +293,7 @@ class _SignUpPageState extends State<SignUpPage> {
               ],
             ),
           ),
+        ),
         ),
       ),
     );

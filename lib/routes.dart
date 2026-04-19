@@ -44,28 +44,15 @@ final GoRouter router = GoRouter(
     final user = FirebaseAuth.instance.currentUser;
     final bool loggedIn = user != null;
     final String location = state.matchedLocation;
-    final bool isAuthRoute = location == '/' || location == '/signup';
-    final bool isVerifyRoute = location == '/verify-email';
+    const publicRoutes = {'/', '/signup', '/verify-email'};
+    final bool isAuthRoute = publicRoutes.contains(location);
 
     if (!loggedIn) {
       return isAuthRoute ? null : '/';
     }
 
-    // Se estiver logado, usamos o status do prprio Firebase Auth para redirecionamento.
-    // Isso  muito mais rpido e evita loops causados por atraso no Firestore.
-    final bool isVerified = user.emailVerified;
-
+    // Se j estiver logado e tentar entrar em / ou /signup, manda pra home
     if (isAuthRoute) {
-      return isVerified ? '/home' : '/verify-email';
-    }
-
-    // Protege as rotas internas se o usurio no estiver verificado
-    if (!isVerifyRoute && !isVerified) {
-      return '/verify-email';
-    }
-
-    // Se j estiver verificado e tentar entrar no /verify-email, manda pra home
-    if (isVerifyRoute && isVerified) {
       return '/home';
     }
 
@@ -82,7 +69,10 @@ final GoRouter router = GoRouter(
     ),
     GoRoute(
       path: '/verify-email',
-      builder: (context, state) => const VerifyEmailPage(),
+      builder: (context, state) {
+        final registrationData = state.extra as Map<String, dynamic>?;
+        return VerifyEmailPage(registrationData: registrationData);
+      },
     ),
     ShellRoute(
       navigatorKey: _shellNavigatorKey,
@@ -115,11 +105,21 @@ final GoRouter router = GoRouter(
         ),
         GoRoute(
           path: '/settings/reminders',
-          builder: (context, state) => const RemindersSettingsPage(),
+          builder: (context, state) {
+            final Map<String, dynamic> extra =
+                (state.extra as Map<String, dynamic>?) ?? {};
+            final int returnIndex = extra['returnIndex'] as int? ?? 0;
+            return RemindersSettingsPage(returnIndex: returnIndex);
+          },
         ),
         GoRoute(
           path: '/settings/reading',
-          builder: (context, state) => const ReadingSettingsPage(),
+          builder: (context, state) {
+            final Map<String, dynamic> extra =
+                (state.extra as Map<String, dynamic>?) ?? {};
+            final int returnIndex = extra['returnIndex'] as int? ?? 0;
+            return ReadingSettingsPage(returnIndex: returnIndex);
+          },
         ),
         GoRoute(
           path: '/favorites',
