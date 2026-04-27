@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:myapp/services/email_service.dart';
+import 'package:myapp/widgets/app_logo.dart';
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
@@ -19,6 +20,7 @@ class _SignUpPageState extends State<SignUpPage> {
   final _passwordController = TextEditingController();
   final _nameController = TextEditingController();
   bool _isLoading = false;
+  bool _obscurePassword = true;
   String? _nameErrorText;
   String? _emailErrorText;
   String? _passwordErrorText;
@@ -185,6 +187,8 @@ class _SignUpPageState extends State<SignUpPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
+                const AppLogo(size: 80),
+                const SizedBox(height: 32),
                 Text(
                   'CRIE SUA CONTA',
                   textAlign: TextAlign.center,
@@ -246,8 +250,15 @@ class _SignUpPageState extends State<SignUpPage> {
                   decoration: InputDecoration(
                     labelText: 'Senha',
                     errorText: _passwordErrorText,
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePassword ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                        color: Colors.grey.shade500,
+                      ),
+                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                    ),
                   ),
-                  obscureText: true,
+                  obscureText: _obscurePassword,
                   textInputAction: TextInputAction.done,
                   autofillHints: const [AutofillHints.newPassword],
                   onFieldSubmitted: (_) => _isLoading ? null : _signUp(),

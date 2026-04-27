@@ -4,6 +4,9 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
+// Cor primária do app para notificações
+const Color _notificationColor = Color(0xFFE09F3E);
+
 class NotificationService {
   static NotificationService? _instance;
   factory NotificationService() {
@@ -158,6 +161,8 @@ class NotificationService {
             importance: Importance.max,
             priority: Priority.high,
             icon: '@mipmap/ic_launcher',
+            color: _notificationColor,
+            largeIcon: DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
           ),
           iOS: DarwinNotificationDetails(),
         ),

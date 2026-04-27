@@ -94,6 +94,22 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
+      navigationBarTheme: NavigationBarThemeData(
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return GoogleFonts.lato(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: primarySeedColor,
+            );
+          }
+          return GoogleFonts.lato(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: Colors.grey.shade600,
+          );
+        }),
+      ),
     );
 
     return MaterialApp.router(

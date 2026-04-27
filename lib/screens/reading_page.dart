@@ -3,12 +3,15 @@ import 'dart:convert';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:myapp/providers/reading_settings_provider.dart';
 import 'package:myapp/services/progress_service.dart';
+import 'package:myapp/services/user_data_service.dart';
 import 'package:myapp/widgets/bounce_button.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:myapp/widgets/app_alerts.dart';
 
 class ReadingPage extends StatefulWidget {
   const ReadingPage({super.key});
@@ -22,6 +25,7 @@ class _ReadingPageState extends State<ReadingPage> {
       'Versão bíblica utilizada: Bíblia Livre (Português).';
 
   final ProgressService _progressService = ProgressService();
+  final UserDataService _userDataService = UserDataService();
   late Future<Map<String, dynamic>> _readingData;
   final ScrollController _scrollController = ScrollController();
   final FlutterTts _flutterTts = FlutterTts();
@@ -29,6 +33,7 @@ class _ReadingPageState extends State<ReadingPage> {
 
   bool _isReading = false;
   bool _showFab = false;
+  bool _isHeartAnimating = false;
   int _currentlySpeakingVerse = -1;
   Completer<void>? _speechCompleter;
   
@@ -36,6 +41,11 @@ class _ReadingPageState extends State<ReadingPage> {
   List<int> _verseStartOffsets = [];
   // Chaves para identificar a posição de cada versículo na tela
   final List<GlobalKey> _verseKeys = [];
+  
+  // Controle de Seleção e Favoritos
+  final Set<String> _selectedVerses = {};
+  final Set<String> _favoriteVerses = {};
+  StreamSubscription? _favoritesSubscription;
 
   @override
   void initState() {
@@ -47,12 +57,39 @@ class _ReadingPageState extends State<ReadingPage> {
         setState(() => _showFab = false);
       }
     });
-    _readingData = _loadInitialData();
+    _readingData = _loadInitialData().then((data) {
+      _listenToFavorites(data['chapters']);
+      return data;
+    });
     _initTts();
+  }
+
+  void _listenToFavorites(List<int> chapters) {
+    // Escuta favoritos em tempo real para os capítulos carregados
+    _favoritesSubscription?.cancel();
+    _favoritesSubscription = _userDataService.getFavoritesStream().listen((snapshot) {
+      if (!mounted) return;
+      final newFavorites = <String>{};
+      for (var doc in snapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        final chapter = data['chapter'] ?? '';
+        final verseNumber = data['verseNumber'] ?? '';
+        
+        // Verifica se o favorito pertence a um dos capítulos abertos
+        if (chapters.contains(int.tryParse(chapter))) {
+          newFavorites.add('${chapter}_$verseNumber');
+        }
+      }
+      setState(() {
+        _favoriteVerses.clear();
+        _favoriteVerses.addAll(newFavorites);
+      });
+    });
   }
 
   @override
   void dispose() {
+    _favoritesSubscription?.cancel();
     _scrollController.dispose();
     _flutterTts.stop();
     super.dispose();
@@ -426,6 +463,169 @@ class _ReadingPageState extends State<ReadingPage> {
     }
   }
 
+  // _showVerseOptions (antigo long-press) removido. Agora usamos a barra flutuante.
+
+  void _handleVerseTap(String chapter, String verseNumber, String verseText) {
+    HapticFeedback.selectionClick();
+    final verseKey = '${chapter}_$verseNumber';
+    final fullData = '"$verseText"\n— Provérbios $chapter:$verseNumber';
+    
+    setState(() {
+      if (_selectedVerses.contains(fullData)) {
+        _selectedVerses.remove(fullData);
+      } else {
+        _selectedVerses.add(fullData);
+      }
+    });
+  }
+
+  Widget _buildSelectionActionBar(ThemeData theme) {
+    if (_selectedVerses.isEmpty) return const SizedBox.shrink();
+
+    final selectedText = _selectedVerses.join('\n\n');
+
+    return Positioned(
+      bottom: 24,
+      left: 24,
+      right: 24,
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0.0, end: 1.0),
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutBack,
+        builder: (context, value, child) {
+          return Transform.scale(
+            scale: value,
+            child: child,
+          );
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primary,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: theme.colorScheme.primary.withOpacity(0.4),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildActionIconButton(
+                icon: Icons.copy_rounded,
+                label: 'Copiar',
+                onTap: () {
+                  Clipboard.setData(ClipboardData(text: selectedText));
+                  setState(() => _selectedVerses.clear());
+                  AppAlerts.showSnackBar(context, message: 'Copiado!', type: AppAlertType.success);
+                },
+              ),
+              _buildActionIconButton(
+                icon: Icons.share_rounded,
+                label: 'Enviar',
+                onTap: () {
+                  Share.share(selectedText);
+                  setState(() => _selectedVerses.clear());
+                },
+              ),
+              _buildActionIconButton(
+                icon: Icons.note_add_rounded,
+                label: 'Anotar',
+                onTap: () {
+                  context.push('/reading/nova-nota', extra: selectedText);
+                  setState(() => _selectedVerses.clear());
+                },
+              ),
+              Container(width: 1, height: 30, color: Colors.white30),
+              IconButton(
+                icon: const Icon(Icons.close_rounded, color: Colors.white),
+                onPressed: () => setState(() => _selectedVerses.clear()),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionIconButton({required IconData icon, required String label, required VoidCallback onTap}) {
+    return InkWell(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: Colors.white, size: 24),
+          const SizedBox(height: 4),
+          Text(label, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+
+
+  Widget _buildReadingShimmer(BuildContext context, Color textColor, Color subtleTextColor) {
+    final theme = Theme.of(context);
+    return CustomScrollView(
+      physics: const NeverScrollableScrollPhysics(),
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 80, 24, 48),
+            child: Column(
+              children: [
+                Text(
+                  'PROVÉRBIOS',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 16,
+                    letterSpacing: 4,
+                    fontWeight: FontWeight.bold,
+                    color: subtleTextColor,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '...',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.displayLarge?.copyWith(
+                    fontSize: 64,
+                    fontWeight: FontWeight.w900,
+                    color: textColor,
+                    height: 1.0,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  width: 60,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) {
+              final widthFactor = 0.6 + (index % 4) * 0.1;
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+                child: _ShimmerLine(widthFactor: widthFactor),
+              );
+            },
+            childCount: 12,
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -439,12 +639,14 @@ class _ReadingPageState extends State<ReadingPage> {
 
         return Scaffold(
           backgroundColor: _settings.backgroundColor,
-          body: SafeArea(
-            child: FutureBuilder<Map<String, dynamic>>(
-              future: _readingData,
+          body: Stack(
+            children: [
+              SafeArea(
+                child: FutureBuilder<Map<String, dynamic>>(
+                  future: _readingData,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
+                  return _buildReadingShimmer(context, textColor, subtleTextColor);
                 }
 
                 if (snapshot.hasError) {
@@ -486,6 +688,11 @@ class _ReadingPageState extends State<ReadingPage> {
                               },
                             ),
                             actions: [
+                              IconButton(
+                                icon: Icon(Icons.bookmarks_rounded, color: theme.colorScheme.primary),
+                                tooltip: 'Minha Biblioteca',
+                                onPressed: () => context.push('/library'),
+                              ),
                               IconButton(
                                 icon: Icon(Icons.tune_rounded, color: theme.colorScheme.primary),
                                 tooltip: 'Ajustes de Leitura',
@@ -580,43 +787,76 @@ class _ReadingPageState extends State<ReadingPage> {
                                 final verseNumber = parts.first;
                                 final verseText = parts.sublist(1).join(' ');
 
-                                return AnimatedContainer(
-                                  key: index < _verseKeys.length ? _verseKeys[index] : null,
-                                  duration: const Duration(milliseconds: 300),
-                                  padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
-                                  margin: const EdgeInsets.only(bottom: 8.0),
-                                  decoration: BoxDecoration(
-                                    color: isSpeaking ? theme.colorScheme.primary.withOpacity(0.15) : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  child: RichText(
-                                    textAlign: TextAlign.justify,
-                                    text: TextSpan(
-                                      style: theme.textTheme.bodyLarge?.copyWith(
-                                        fontSize: _settings.fontSize,
-                                        height: 1.6,
-                                        color: textColor,
-                                      ),
-                                      children: [
-                                        WidgetSpan(
-                                          alignment: PlaceholderAlignment.top,
-                                          child: Transform.translate(
-                                            offset: const Offset(0, 2),
-                                            child: Padding(
-                                              padding: const EdgeInsets.only(right: 6.0),
-                                              child: Text(
-                                                verseNumber,
-                                                style: TextStyle(
-                                                  fontWeight: FontWeight.w900, 
-                                                  fontSize: _settings.fontSize * 0.6,
-                                                  color: theme.colorScheme.primary,
+                                final fullData = '"$verseText"\n— Provérbios $chapterTitle:$verseNumber';
+                                final isSelected = _selectedVerses.contains(fullData);
+                                final isFavorited = _favoriteVerses.contains('${chapterTitle}_$verseNumber');
+
+                                return GestureDetector(
+                                  onTap: () => _handleVerseTap(chapterTitle, verseNumber, verseText),
+                                  onDoubleTap: () async {
+                                    HapticFeedback.lightImpact();
+                                    await _userDataService.toggleFavorite(
+                                      chapter: chapterTitle,
+                                      verseNumber: verseNumber,
+                                      verseText: verseText,
+                                    );
+                                    if (mounted) {
+                                      setState(() => _isHeartAnimating = true);
+                                      Future.delayed(const Duration(milliseconds: 800), () {
+                                        if (mounted) setState(() => _isHeartAnimating = false);
+                                      });
+                                    }
+                                  },
+                                  child: AnimatedContainer(
+                                    key: index < _verseKeys.length ? _verseKeys[index] : null,
+                                    duration: const Duration(milliseconds: 300),
+                                    padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
+                                    margin: const EdgeInsets.only(bottom: 8.0),
+                                    decoration: BoxDecoration(
+                                      color: isSelected 
+                                          ? theme.colorScheme.primary.withOpacity(0.08)
+                                          : (isSpeaking ? theme.colorScheme.primary.withOpacity(0.15) : Colors.transparent),
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    child: RichText(
+                                      textAlign: TextAlign.justify,
+                                      text: TextSpan(
+                                        style: theme.textTheme.bodyLarge?.copyWith(
+                                          fontSize: _settings.fontSize,
+                                          height: 1.6,
+                                          color: textColor,
+                                          decoration: isSelected ? TextDecoration.underline : TextDecoration.none,
+                                          decorationColor: theme.colorScheme.primary.withOpacity(0.5),
+                                        ),
+                                        children: [
+                                          WidgetSpan(
+                                            alignment: PlaceholderAlignment.top,
+                                            child: Transform.translate(
+                                              offset: const Offset(0, 2),
+                                              child: Padding(
+                                                padding: const EdgeInsets.only(right: 6.0),
+                                                child: Text(
+                                                  verseNumber,
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.w900, 
+                                                    fontSize: _settings.fontSize * 0.6,
+                                                    color: theme.colorScheme.primary,
+                                                  ),
                                                 ),
                                               ),
                                             ),
                                           ),
-                                        ),
-                                        TextSpan(text: verseText),
-                                      ],
+                                          TextSpan(text: verseText),
+                                          if (isFavorited)
+                                            WidgetSpan(
+                                              alignment: PlaceholderAlignment.middle,
+                                              child: Padding(
+                                                padding: const EdgeInsets.only(left: 6.0),
+                                                child: Icon(Icons.favorite_rounded, size: _settings.fontSize * 0.8, color: Colors.pink),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 );
@@ -681,22 +921,89 @@ class _ReadingPageState extends State<ReadingPage> {
               },
             ),
           ),
-          floatingActionButton: AnimatedOpacity(
-            opacity: _showFab ? 1.0 : 0.0,
-            duration: const Duration(milliseconds: 300),
-            child: FloatingActionButton(
-              onPressed: () {
-                if (_showFab && _scrollController.hasClients) {
-                  _scrollController.animateTo(
-                    0,
-                    duration: const Duration(seconds: 1),
-                    curve: Curves.easeInOut,
+          // Heart Animation Overlay
+          if (_isHeartAnimating)
+            Center(
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0.5, end: 1.5),
+                duration: const Duration(milliseconds: 400),
+                curve: Curves.elasticOut,
+                builder: (context, scale, child) {
+                  return AnimatedOpacity(
+                    opacity: _isHeartAnimating ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 300),
+                    child: Transform.scale(
+                      scale: scale,
+                      child: const Icon(
+                        Icons.favorite_rounded,
+                        color: Colors.pink,
+                        size: 120,
+                      ),
+                    ),
                   );
-                }
-              },
-              backgroundColor: theme.colorScheme.primary,
-              elevation: 4,
-              child: const Icon(Icons.arrow_upward_rounded, color: Colors.white),
+                },
+              ),
+            ),
+        ],
+      ),
+      floatingActionButton: _buildSelectionActionBar(theme),
+      bottomNavigationBar: _selectedVerses.isEmpty 
+          ? null 
+          : const SizedBox(height: 80),
+    );
+      },
+    );
+  }
+}
+
+class _ShimmerLine extends StatefulWidget {
+  final double widthFactor;
+  const _ShimmerLine({required this.widthFactor});
+
+  @override
+  State<_ShimmerLine> createState() => _ShimmerLineState();
+}
+
+class _ShimmerLineState extends State<_ShimmerLine> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return FractionallySizedBox(
+          alignment: Alignment.centerLeft,
+          widthFactor: widget.widthFactor,
+          child: Container(
+            height: 16,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              gradient: LinearGradient(
+                colors: [
+                  Colors.grey.shade300,
+                  Colors.grey.shade100,
+                  Colors.grey.shade300,
+                ],
+                stops: const [0.0, 0.5, 1.0],
+                begin: Alignment(-1.0 + 2 * _controller.value, 0),
+                end: Alignment(1.0 + 2 * _controller.value, 0),
+              ),
             ),
           ),
         );

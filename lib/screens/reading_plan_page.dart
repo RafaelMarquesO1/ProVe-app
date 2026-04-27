@@ -60,7 +60,7 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return _buildLoadingShimmer(context);
         }
         if (!snapshot.hasData || !snapshot.data!.exists) {
           return const Center(child: Text("Nenhum dado de usuário encontrado."));
@@ -652,6 +652,41 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
       ),
     );
   }
+
+  Widget _buildLoadingShimmer(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 64, 20, 32),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _ShimmerRect(width: 200, height: 30),
+            const SizedBox(height: 12),
+            _ShimmerRect(width: 260, height: 16),
+            const SizedBox(height: 24),
+            _ShimmerRect(height: 160, borderRadius: 24),
+            const SizedBox(height: 24),
+            _ShimmerRect(height: 100, borderRadius: 20),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(child: _ShimmerRect(height: 110, borderRadius: 20)),
+                const SizedBox(width: 16),
+                Expanded(child: _ShimmerRect(height: 110, borderRadius: 20)),
+              ],
+            ),
+            const SizedBox(height: 32),
+            _ShimmerRect(width: 140, height: 20),
+            const SizedBox(height: 16),
+            _ShimmerRect(height: 80, borderRadius: 16),
+            const SizedBox(height: 12),
+            _ShimmerRect(height: 80, borderRadius: 16),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class GlowingFireIcon extends StatefulWidget {
@@ -707,6 +742,65 @@ class _GlowingFireIconState extends State<GlowingFireIcon> with SingleTickerProv
               Icons.local_fire_department_rounded,
               color: Colors.white,
               size: 56,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ShimmerRect extends StatefulWidget {
+  final double? width;
+  final double height;
+  final double borderRadius;
+
+  const _ShimmerRect({this.width, required this.height, this.borderRadius = 8});
+
+  @override
+  State<_ShimmerRect> createState() => _ShimmerRectState();
+}
+
+class _ShimmerRectState extends State<_ShimmerRect> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return Align(
+          alignment: Alignment.centerLeft,
+          child: Container(
+            width: widget.width,
+            height: widget.height,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(widget.borderRadius),
+              gradient: LinearGradient(
+                colors: [
+                  Colors.grey.shade200,
+                  Colors.grey.shade100,
+                  Colors.grey.shade200,
+                ],
+                stops: const [0.0, 0.5, 1.0],
+                begin: Alignment(-1.0 + 2 * _controller.value, 0),
+                end: Alignment(1.0 + 2 * _controller.value, 0),
+              ),
             ),
           ),
         );

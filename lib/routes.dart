@@ -8,13 +8,23 @@ import 'package:myapp/screens/main_scaffold.dart';
 import 'package:myapp/screens/reading_page.dart';
 import 'package:myapp/screens/note_page.dart';
 import 'package:myapp/screens/reminders_settings_page.dart';
-import 'package:myapp/screens/favorites_page.dart';
-import 'package:myapp/screens/widgets_page.dart';
-import 'package:myapp/screens/notifications_page.dart';
 import 'package:myapp/screens/edit_profile_page.dart';
 import 'package:myapp/screens/reading_settings_page.dart';
 import 'package:myapp/screens/verify_email_page.dart';
+import 'package:myapp/screens/library_page.dart';
 
+CustomTransitionPage buildPageWithDefaultTransition<T>({
+  required BuildContext context, 
+  required GoRouterState state, 
+  required Widget child,
+}) {
+  return CustomTransitionPage<T>(
+    key: state.pageKey,
+    child: child,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) => FadeTransition(opacity: animation, child: child),
+    transitionDuration: const Duration(milliseconds: 300),
+  );
+}
 class GoRouterRefreshStream extends ChangeNotifier {
   late final StreamSubscription<User?> _subscription;
 
@@ -51,7 +61,7 @@ final GoRouter router = GoRouter(
       return isAuthRoute ? null : '/';
     }
 
-    // Se j estiver logado e tentar entrar em / ou /signup, manda pra home
+    // Se já estiver logado e tentar entrar em / ou /signup, manda pra home
     if (isAuthRoute) {
       return '/home';
     }
@@ -61,83 +71,115 @@ final GoRouter router = GoRouter(
   routes: [
     GoRoute(
       path: '/',
-      builder: (context, state) => const LoginPage(),
+      pageBuilder: (context, state) => buildPageWithDefaultTransition(
+        context: context, 
+        state: state, 
+        child: const LoginPage(),
+      ),
     ),
     GoRoute(
       path: '/signup',
-      builder: (context, state) => const SignUpPage(),
+      pageBuilder: (context, state) => buildPageWithDefaultTransition(
+        context: context, 
+        state: state, 
+        child: const SignUpPage(),
+      ),
     ),
     GoRoute(
       path: '/verify-email',
-      builder: (context, state) {
+      pageBuilder: (context, state) {
         final registrationData = state.extra as Map<String, dynamic>?;
-        return VerifyEmailPage(registrationData: registrationData);
+        return buildPageWithDefaultTransition(
+          context: context,
+          state: state,
+          child: VerifyEmailPage(registrationData: registrationData),
+        );
       },
     ),
     ShellRoute(
       navigatorKey: _shellNavigatorKey,
-      // O builder agora simplesmente retorna o filho (a tela da rota correspondente)
       builder: (context, state, child) {
         return child;
       },
       routes: [
         GoRoute(
           path: '/home',
-          builder: (context, state) {
+          pageBuilder: (context, state) {
             final Map<String, dynamic> extra = (state.extra as Map<String, dynamic>?) ?? {};
             final int initialIndex = extra['index'] as int? ?? 0;
             final bool showConfetti = extra['showConfetti'] as bool? ?? false;
-            return MainScaffold(initialIndex: initialIndex, showConfetti: showConfetti);
+            return buildPageWithDefaultTransition(
+              context: context,
+              state: state,
+              child: MainScaffold(initialIndex: initialIndex, showConfetti: showConfetti),
+            );
           },
         ),
         GoRoute(
+          path: '/library',
+          pageBuilder: (context, state) => buildPageWithDefaultTransition(
+            context: context,
+            state: state,
+            child: const LibraryPage(),
+          ),
+        ),
+        GoRoute(
           path: '/reading',
-          builder: (context, state) => const ReadingPage(),
+          pageBuilder: (context, state) => buildPageWithDefaultTransition(
+            context: context,
+            state: state,
+            child: const ReadingPage(),
+          ),
           routes: [
             GoRoute(
               path: 'nova-nota',
-              builder: (context, state) {
+              pageBuilder: (context, state) {
                 final selectedText = state.extra as String? ?? '';
-                return NotePage(selectedText: selectedText);
+                return buildPageWithDefaultTransition(
+                  context: context,
+                  state: state,
+                  child: NotePage(selectedText: selectedText),
+                );
               },
             ),
           ],
         ),
         GoRoute(
           path: '/settings/reminders',
-          builder: (context, state) {
+          pageBuilder: (context, state) {
             final Map<String, dynamic> extra =
                 (state.extra as Map<String, dynamic>?) ?? {};
             final int returnIndex = extra['returnIndex'] as int? ?? 0;
-            return RemindersSettingsPage(returnIndex: returnIndex);
+            return buildPageWithDefaultTransition(
+              context: context,
+              state: state,
+              child: RemindersSettingsPage(returnIndex: returnIndex),
+            );
           },
         ),
         GoRoute(
           path: '/settings/reading',
-          builder: (context, state) {
+          pageBuilder: (context, state) {
             final Map<String, dynamic> extra =
                 (state.extra as Map<String, dynamic>?) ?? {};
             final int returnIndex = extra['returnIndex'] as int? ?? 0;
-            return ReadingSettingsPage(returnIndex: returnIndex);
+            return buildPageWithDefaultTransition(
+              context: context,
+              state: state,
+              child: ReadingSettingsPage(returnIndex: returnIndex),
+            );
           },
         ),
         GoRoute(
-          path: '/favorites',
-          builder: (context, state) => const FavoritesPage(),
-        ),
-        GoRoute(
-          path: '/widgets',
-          builder: (context, state) => const WidgetsPage(),
-        ),
-        GoRoute(
-          path: '/notifications',
-          builder: (context, state) => const NotificationsPage(),
-        ),
-        GoRoute(
           path: '/profile/edit',
-          builder: (context, state) => const EditProfilePage(),
+          pageBuilder: (context, state) => buildPageWithDefaultTransition(
+            context: context,
+            state: state,
+            child: const EditProfilePage(),
+          ),
         ),
       ],
     ),
   ],
 );
+

@@ -18,15 +18,26 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
   final User? _currentUser = FirebaseAuth.instance.currentUser;
   Map<String, String> _verseOfTheDay = {};
   bool _isVerseLoadError = false;
+  late final AnimationController _shimmerController;
 
   @override
   void initState() {
     super.initState();
+    _shimmerController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat();
     _loadVerseOfTheDay();
+  }
+
+  @override
+  void dispose() {
+    _shimmerController.dispose();
+    super.dispose();
   }
 
   // Lista curada de provérbios que trazem ensinamentos profundos
@@ -75,7 +86,7 @@ class _HomePageState extends State<HomePage> {
     if (_verseOfTheDay.isNotEmpty) {
       final text = _verseOfTheDay['text']!;
       final reference = _verseOfTheDay['reference']!;
-      SharePlus.instance.share(ShareParams(text: '"$text" - $reference\n\nCompartilhado pelo app ProVê.'));
+      Share.share('"$text" - $reference\n\nCompartilhado pelo app ProVê.');
     }
   }
 
@@ -137,7 +148,7 @@ class _HomePageState extends State<HomePage> {
             ],
             // 1. Saudação Personalizada
             Text(
-              'Olá, $firstName!',
+              _getGreeting(firstName),
               style: textTheme.displayLarge?.copyWith(fontSize: 32),
               textAlign: TextAlign.left,
             ),
@@ -271,12 +282,25 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ],
               ),
-              IconButton(
-                icon: Icon(Icons.share_rounded, color: Colors.grey.shade500, size: 22),
-                onPressed: _shareVerse,
-                tooltip: 'Compartilhar versículo',
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: Icon(Icons.refresh_rounded, color: Colors.grey.shade500, size: 22),
+                    onPressed: _loadVerseOfTheDay,
+                    tooltip: 'Novo versículo',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: Icon(Icons.share_rounded, color: Colors.grey.shade500, size: 22),
+                    onPressed: _shareVerse,
+                    tooltip: 'Compartilhar versículo',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
               ),
             ],
           ),
@@ -307,6 +331,11 @@ class _HomePageState extends State<HomePage> {
     final completedDaysSet = completedDays.map((d) => DateTime(d.year, d.month, d.day)).toSet();
     final highlightColor = colorScheme.primary;
 
+    // Calcular % de conclusão do mês
+    final daysInMonth = DateTime(today.year, today.month + 1, 0).day;
+    final completedThisMonth = completedDaysSet.where((d) => d.year == today.year && d.month == today.month).length;
+    final monthPercent = ((completedThisMonth / daysInMonth) * 100).round();
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -324,9 +353,38 @@ class _HomePageState extends State<HomePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Calendário do Mês',
+                style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: Colors.black87),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: monthPercent >= 80
+                      ? const Color(0xFF388E3C).withOpacity(0.12)
+                      : colorScheme.primary.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '$monthPercent%',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: monthPercent >= 80
+                        ? const Color(0xFF388E3C)
+                        : colorScheme.primary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
           Text(
-            'Calendário do Mês',
-            style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: Colors.black87),
+            '$completedThisMonth de $daysInMonth dias lidos',
+            style: textTheme.bodySmall?.copyWith(color: Colors.grey.shade500),
           ),
           const SizedBox(height: 12),
           TableCalendar(
@@ -431,54 +489,83 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  String _getGreeting(String name) {
+    final hour = DateTime.now().hour;
+    if (hour >= 5 && hour < 12) {
+      return 'Bom dia, $name!';
+    } else if (hour >= 12 && hour < 18) {
+      return 'Boa tarde, $name!';
+    } else {
+      return 'Boa noite, $name!';
+    }
+  }
+
   Widget _buildLoadingState(BuildContext context) {
-    final base = Colors.grey.shade200;
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 64, 20, 32),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _skeletonLine(width: 170, height: 30, color: base),
-            const SizedBox(height: 12),
-            _skeletonLine(width: 240, height: 16, color: base),
-            const SizedBox(height: 32),
-            _skeletonBox(height: 132, color: base),
-            const SizedBox(height: 24),
-            _skeletonBox(height: 190, color: base),
-            const SizedBox(height: 24),
-            _skeletonBox(height: 340, color: base),
-          ],
-        ),
+      body: AnimatedBuilder(
+        animation: _shimmerController,
+        builder: (context, _) {
+          return SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 64, 20, 32),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _shimmerLine(width: 170, height: 30),
+                const SizedBox(height: 12),
+                _shimmerLine(width: 240, height: 16),
+                const SizedBox(height: 32),
+                _shimmerBox(height: 132),
+                const SizedBox(height: 24),
+                _shimmerBox(height: 190),
+                const SizedBox(height: 24),
+                _shimmerBox(height: 340),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
 
-  Widget _skeletonLine({
-    required double width,
-    required double height,
-    required Color color,
-  }) {
+  Widget _shimmerLine({required double width, required double height}) {
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
         width: width,
         height: height,
         decoration: BoxDecoration(
-          color: color,
           borderRadius: BorderRadius.circular(8),
+          gradient: LinearGradient(
+            colors: [
+              Colors.grey.shade200,
+              Colors.grey.shade100,
+              Colors.grey.shade200,
+            ],
+            stops: const [0.0, 0.5, 1.0],
+            begin: Alignment(-1.0 + 2 * _shimmerController.value, 0),
+            end: Alignment(1.0 + 2 * _shimmerController.value, 0),
+          ),
         ),
       ),
     );
   }
 
-  Widget _skeletonBox({required double height, required Color color}) {
+  Widget _shimmerBox({required double height}) {
     return Container(
       height: height,
       decoration: BoxDecoration(
-        color: color,
         borderRadius: BorderRadius.circular(20),
+        gradient: LinearGradient(
+          colors: [
+            Colors.grey.shade200,
+            Colors.grey.shade100,
+            Colors.grey.shade200,
+          ],
+          stops: const [0.0, 0.5, 1.0],
+          begin: Alignment(-1.0 + 2 * _shimmerController.value, 0),
+          end: Alignment(1.0 + 2 * _shimmerController.value, 0),
+        ),
       ),
     );
   }

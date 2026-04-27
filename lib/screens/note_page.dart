@@ -1,11 +1,77 @@
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:myapp/services/user_data_service.dart';
+import 'package:myapp/widgets/app_alerts.dart';
 
-class NotePage extends StatelessWidget {
+class NotePage extends StatefulWidget {
   final String selectedText;
 
   const NotePage({super.key, required this.selectedText});
+
+  @override
+  State<NotePage> createState() => _NotePageState();
+}
+
+class _NotePageState extends State<NotePage> {
+  final TextEditingController _noteController = TextEditingController();
+  final UserDataService _userDataService = UserDataService();
+  bool _isSaving = false;
+
+  @override
+  void dispose() {
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveNote() async {
+    if (_noteController.text.trim().isEmpty) {
+      AppAlerts.showSnackBar(
+        context,
+        message: 'A anotação não pode estar vazia.',
+        type: AppAlertType.warning,
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    try {
+      String reference = 'Múltiplos versículos';
+      String verseText = widget.selectedText;
+      
+      if (!widget.selectedText.contains('\n\n')) {
+        final parts = widget.selectedText.split('\n— ');
+        verseText = parts.first.replaceAll('"', ''); 
+        reference = parts.length > 1 ? parts.last : 'Referência desconhecida';
+      }
+
+      await _userDataService.saveNote(
+        reference: reference,
+        verseText: verseText,
+        noteText: _noteController.text.trim(),
+      );
+
+      if (mounted) {
+        AppAlerts.showSnackBar(
+          context,
+          message: 'Anotação salva com sucesso!',
+          type: AppAlertType.success,
+        );
+        context.pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        AppAlerts.showSnackBar(
+          context,
+          message: 'Erro ao salvar anotação. Tente novamente.',
+          type: AppAlertType.error,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +85,7 @@ class NotePage extends StatelessWidget {
         ),
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.close), // Ícone de fechar
+          icon: const Icon(Icons.close),
           onPressed: () => context.pop(),
         ),
       ),
@@ -28,7 +94,6 @@ class NotePage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Texto selecionado
             Text(
               'Trecho Selecionado:',
               style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
@@ -42,19 +107,18 @@ class NotePage extends StatelessWidget {
                 border: Border.all(color: Colors.grey.shade300),
               ),
               child: Text(
-                selectedText,
+                widget.selectedText,
                 style: theme.textTheme.bodyMedium?.copyWith(fontStyle: FontStyle.italic),
               ),
             ),
             const SizedBox(height: 32),
-
-            // Campo de texto para a anotação
-            const Expanded(
+            Expanded(
               child: TextField(
-                maxLines: null, // Permite múltiplas linhas
+                controller: _noteController,
+                maxLines: null,
                 expands: true,
                 textAlignVertical: TextAlignVertical.top,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   labelText: 'Sua anotação aqui...',
                   alignLabelWithHint: true,
                   contentPadding: EdgeInsets.all(16),
@@ -62,17 +126,19 @@ class NotePage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 32),
-
-            // Botão de salvar
             ElevatedButton(
-              onPressed: () {
-                // Lógica para salvar a anotação
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Anotação salva! (funcionalidade a ser implementada)')),
-                );
-                context.pop(); // Volta para a tela de leitura
-              },
-              child: const Text('SALVAR'),
+              onPressed: _isSaving ? null : _saveNote,
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+              child: _isSaving
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Text('SALVAR', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             ),
           ],
         ),

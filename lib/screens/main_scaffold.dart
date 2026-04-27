@@ -64,6 +64,8 @@ class _MainScaffoldState extends State<MainScaffold> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
       body: PageView(
         controller: _pageController,
@@ -75,32 +77,47 @@ class _MainScaffoldState extends State<MainScaffold> {
         },
         children: _widgetOptions,
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: 'Início',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.calendar_today_outlined),
-            activeIcon: Icon(Icons.calendar_today),
-            label: 'Ofensiva',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.menu_outlined),
-            activeIcon: Icon(Icons.menu),
-            label: 'Menu',
-          ),
-        ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: Theme.of(context).colorScheme.primary,
-        unselectedItemColor: Colors.grey[600],
-        backgroundColor: Theme.of(context).cardColor,
-        type: BottomNavigationBarType
-            .fixed, // Garante que todos os itens apareçam
-        onTap: _onItemTapped,
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 20,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: NavigationBar(
+          selectedIndex: _selectedIndex,
+          onDestinationSelected: _onItemTapped,
+          elevation: 0,
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          indicatorColor: colorScheme.primary.withOpacity(0.12),
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+          animationDuration: const Duration(milliseconds: 400),
+          height: 70,
+          destinations: [
+            NavigationDestination(
+              icon: Icon(Icons.home_outlined, color: Colors.grey.shade600),
+              selectedIcon: Icon(Icons.home_rounded, color: colorScheme.primary),
+              label: 'Início',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.local_fire_department_outlined, color: Colors.grey.shade600),
+              selectedIcon: Icon(Icons.local_fire_department_rounded, color: colorScheme.primary),
+              label: 'Ofensiva',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.person_outline_rounded, color: Colors.grey.shade600),
+              selectedIcon: Icon(Icons.person_rounded, color: colorScheme.primary),
+              label: 'Menu',
+            ),
+          ],
+        ),
       ),
     );
   }
 }
+

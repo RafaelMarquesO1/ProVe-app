@@ -4,7 +4,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:myapp/widgets/app_alerts.dart';
+import 'package:myapp/widgets/app_logo.dart';
 import 'package:myapp/widgets/bounce_button.dart';
+import 'package:share_plus/share_plus.dart';
 
 class MenuPage extends StatefulWidget {
   const MenuPage({super.key});
@@ -155,6 +157,82 @@ class _MenuPageState extends State<MenuPage> with SingleTickerProviderStateMixin
                     onTap: () => context.go(
                       '/settings/reminders',
                       extra: {'returnIndex': 2},
+                    ),
+                  ),
+                  Divider(height: 1, indent: 70, color: Colors.grey.shade100),
+                  _buildMenuItem(
+                    context,
+                    icon: Icons.share_rounded,
+                    title: 'Compartilhar App',
+                    onTap: () {
+                      Share.share('📖 Conheça o ProVê! Um app para ler Provérbios diariamente e crescer em sabedoria. Baixe agora!');
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            _buildSectionTitle(context, 'SOBRE'),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  const AppLogo(size: 48),
+                  const SizedBox(height: 12),
+                  Text(
+                    'ProVê',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Versão 1.0.0',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.grey.shade500,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Leia Provérbios todos os dias e cresça em sabedoria.',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.favorite_rounded, size: 16, color: Theme.of(context).colorScheme.primary),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Feito com fé e dedicação',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
