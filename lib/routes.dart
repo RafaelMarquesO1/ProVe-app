@@ -2,7 +2,9 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:myapp/screens/favorites_page.dart';
 import 'package:myapp/screens/login_page.dart';
+import 'package:myapp/screens/notes_list_page.dart';
 import 'package:myapp/screens/signup_page.dart';
 import 'package:myapp/screens/main_scaffold.dart';
 import 'package:myapp/screens/reading_page.dart';
@@ -14,17 +16,19 @@ import 'package:myapp/screens/verify_email_page.dart';
 import 'package:myapp/screens/library_page.dart';
 
 CustomTransitionPage buildPageWithDefaultTransition<T>({
-  required BuildContext context, 
-  required GoRouterState state, 
+  required BuildContext context,
+  required GoRouterState state,
   required Widget child,
 }) {
   return CustomTransitionPage<T>(
     key: state.pageKey,
     child: child,
-    transitionsBuilder: (context, animation, secondaryAnimation, child) => FadeTransition(opacity: animation, child: child),
+    transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+        FadeTransition(opacity: animation, child: child),
     transitionDuration: const Duration(milliseconds: 300),
   );
 }
+
 class GoRouterRefreshStream extends ChangeNotifier {
   late final StreamSubscription<User?> _subscription;
 
@@ -72,16 +76,16 @@ final GoRouter router = GoRouter(
     GoRoute(
       path: '/',
       pageBuilder: (context, state) => buildPageWithDefaultTransition(
-        context: context, 
-        state: state, 
+        context: context,
+        state: state,
         child: const LoginPage(),
       ),
     ),
     GoRoute(
       path: '/signup',
       pageBuilder: (context, state) => buildPageWithDefaultTransition(
-        context: context, 
-        state: state, 
+        context: context,
+        state: state,
         child: const SignUpPage(),
       ),
     ),
@@ -105,13 +109,15 @@ final GoRouter router = GoRouter(
         GoRoute(
           path: '/home',
           pageBuilder: (context, state) {
-            final Map<String, dynamic> extra = (state.extra as Map<String, dynamic>?) ?? {};
+            final Map<String, dynamic> extra =
+                (state.extra as Map<String, dynamic>?) ?? {};
             final int initialIndex = extra['index'] as int? ?? 0;
             final bool showConfetti = extra['showConfetti'] as bool? ?? false;
             return buildPageWithDefaultTransition(
               context: context,
               state: state,
-              child: MainScaffold(initialIndex: initialIndex, showConfetti: showConfetti),
+              child: MainScaffold(
+                  initialIndex: initialIndex, showConfetti: showConfetti),
             );
           },
         ),
@@ -143,6 +149,22 @@ final GoRouter router = GoRouter(
               },
             ),
           ],
+        ),
+        GoRoute(
+          path: '/notes',
+          pageBuilder: (context, state) => buildPageWithDefaultTransition(
+            context: context,
+            state: state,
+            child: const NotesListPage(),
+          ),
+        ),
+        GoRoute(
+          path: '/favorites',
+          pageBuilder: (context, state) => buildPageWithDefaultTransition(
+            context: context,
+            state: state,
+            child: const FavoritesPage(),
+          ),
         ),
         GoRoute(
           path: '/settings/reminders',
@@ -182,4 +204,3 @@ final GoRouter router = GoRouter(
     ),
   ],
 );
-

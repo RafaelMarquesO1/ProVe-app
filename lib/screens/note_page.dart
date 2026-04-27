@@ -1,7 +1,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:myapp/services/user_data_service.dart';
+import 'package:myapp/services/database_service.dart';
 import 'package:myapp/widgets/app_alerts.dart';
 
 class NotePage extends StatefulWidget {
@@ -15,7 +15,7 @@ class NotePage extends StatefulWidget {
 
 class _NotePageState extends State<NotePage> {
   final TextEditingController _noteController = TextEditingController();
-  final UserDataService _userDataService = UserDataService();
+  final DatabaseService _dbService = DatabaseService.instance;
   bool _isSaving = false;
 
   @override
@@ -46,10 +46,11 @@ class _NotePageState extends State<NotePage> {
         reference = parts.length > 1 ? parts.last : 'Referência desconhecida';
       }
 
-      await _userDataService.saveNote(
-        reference: reference,
-        verseText: verseText,
-        noteText: _noteController.text.trim(),
+      String finalContent = 'Trecho: "$verseText"\n\nAnotação: ${_noteController.text.trim()}';
+
+      await _dbService.createNote(
+        title: reference,
+        content: finalContent,
       );
 
       if (mounted) {

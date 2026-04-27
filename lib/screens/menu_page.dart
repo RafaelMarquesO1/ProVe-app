@@ -144,6 +144,20 @@ class _MenuPageState extends State<MenuPage> with SingleTickerProviderStateMixin
                 children: [
                   _buildMenuItem(
                     context,
+                    icon: Icons.favorite_outline,
+                    title: 'Meus Favoritos',
+                    onTap: () => context.go('/favorites'),
+                  ),
+                  Divider(height: 1, indent: 70, color: Colors.grey.shade100),
+                  _buildMenuItem(
+                    context,
+                    icon: Icons.note_alt_outlined,
+                    title: 'Minhas Anotações',
+                    onTap: () => context.go('/notes'),
+                  ),
+                  Divider(height: 1, indent: 70, color: Colors.grey.shade100),
+                  _buildMenuItem(
+                    context,
                     icon: Icons.text_fields_sharp,
                     title: 'Ajustes de Leitura',
                     onTap: () =>
@@ -473,4 +487,3 @@ class _QuickActionCard extends StatelessWidget {
     );
   }
 }
-

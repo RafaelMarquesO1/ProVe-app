@@ -3,14 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:myapp/services/user_data_service.dart';
 import 'package:myapp/widgets/app_alerts.dart';
 
-class FavoritesPage extends StatefulWidget {
-  const FavoritesPage({super.key});
+class NotesListPage extends StatefulWidget {
+  const NotesListPage({super.key});
 
   @override
-  State<FavoritesPage> createState() => _FavoritesPageState();
+  State<NotesListPage> createState() => _NotesListPageState();
 }
 
-class _FavoritesPageState extends State<FavoritesPage> {
+class _NotesListPageState extends State<NotesListPage> {
   final UserDataService _userDataService = UserDataService();
 
   @override
@@ -19,11 +19,11 @@ class _FavoritesPageState extends State<FavoritesPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Meus Favoritos'),
+        title: const Text('Minhas Anotações'),
         centerTitle: true,
       ),
       body: StreamBuilder<QuerySnapshot>(
-        stream: _userDataService.getFavoritesStream(),
+        stream: _userDataService.getNotesStream(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -31,7 +31,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
 
           if (snapshot.hasError) {
             return const Center(
-              child: Text('Erro ao carregar os favoritos.'),
+              child: Text('Erro ao carregar as anotações.'),
             );
           }
 
@@ -41,18 +41,18 @@ class _FavoritesPageState extends State<FavoritesPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    Icons.favorite_border,
+                    Icons.note_alt_outlined,
                     size: 80,
                     color: Colors.grey[400],
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Nenhum favorito ainda',
+                    'Nenhuma anotação ainda',
                     style: theme.textTheme.titleLarge,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Seus versículos favoritos aparecerão aqui.',
+                    'Suas anotações aparecerão aqui.',
                     style: theme.textTheme.bodyMedium,
                     textAlign: TextAlign.center,
                   ),
@@ -61,15 +61,15 @@ class _FavoritesPageState extends State<FavoritesPage> {
             );
           }
 
-          final favorites = snapshot.data!.docs;
+          final notes = snapshot.data!.docs;
 
           return ListView.builder(
-            itemCount: favorites.length,
+            itemCount: notes.length,
             padding: const EdgeInsets.all(16),
             itemBuilder: (context, index) {
-              final favorite = favorites[index];
-              final data = favorite.data() as Map<String, dynamic>;
-              final docId = favorite.id;
+              final note = notes[index];
+              final data = note.data() as Map<String, dynamic>;
+              final docId = note.id;
 
               return Card(
                 elevation: 2,
@@ -83,9 +83,15 @@ class _FavoritesPageState extends State<FavoritesPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '"${data['text']}"',
-                        style: theme.textTheme.bodyLarge?.copyWith(
+                        data['noteText'],
+                        style: theme.textTheme.bodyLarge,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        '"${data['verseText']}"',
+                        style: theme.textTheme.bodyMedium?.copyWith(
                           fontStyle: FontStyle.italic,
+                          color: Colors.grey[600],
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -93,7 +99,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            '${data['chapter']} ${data['verseNumber']}',
+                            data['reference'],
                             style: theme.textTheme.bodySmall?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: theme.colorScheme.primary,
@@ -104,15 +110,15 @@ class _FavoritesPageState extends State<FavoritesPage> {
                             onPressed: () async {
                               final confirm = await AppAlerts.showConfirmationDialog(
                                 context,
-                                title: 'Excluir Favorito',
-                                content: 'Tem certeza que deseja remover este versículo dos seus favoritos?',
+                                title: 'Excluir Anotação',
+                                content: 'Tem certeza que deseja excluir esta anotação?',
                               );
                               if (confirm == true) {
-                                await _userDataService.deleteFavorite(docId);
+                                await _userDataService.deleteNote(docId);
                                 if (mounted) {
                                   AppAlerts.showSnackBar(
                                     context,
-                                    message: 'Removido dos favoritos.',
+                                    message: 'Anotação excluída.',
                                     type: AppAlertType.success,
                                   );
                                 }
