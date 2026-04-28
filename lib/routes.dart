@@ -2,9 +2,7 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:myapp/screens/favorites_page.dart';
 import 'package:myapp/screens/login_page.dart';
-import 'package:myapp/screens/notes_list_page.dart';
 import 'package:myapp/screens/signup_page.dart';
 import 'package:myapp/screens/main_scaffold.dart';
 import 'package:myapp/screens/reading_page.dart';
@@ -123,11 +121,16 @@ final GoRouter router = GoRouter(
         ),
         GoRoute(
           path: '/library',
-          pageBuilder: (context, state) => buildPageWithDefaultTransition(
-            context: context,
-            state: state,
-            child: const LibraryPage(),
-          ),
+          pageBuilder: (context, state) {
+            final Map<String, dynamic> extra =
+                (state.extra as Map<String, dynamic>?) ?? {};
+            final int initialIndex = extra['initialIndex'] as int? ?? 0;
+            return buildPageWithDefaultTransition(
+              context: context,
+              state: state,
+              child: LibraryPage(initialIndex: initialIndex),
+            );
+          },
         ),
         GoRoute(
           path: '/reading',
@@ -149,22 +152,6 @@ final GoRouter router = GoRouter(
               },
             ),
           ],
-        ),
-        GoRoute(
-          path: '/notes',
-          pageBuilder: (context, state) => buildPageWithDefaultTransition(
-            context: context,
-            state: state,
-            child: const NotesListPage(),
-          ),
-        ),
-        GoRoute(
-          path: '/favorites',
-          pageBuilder: (context, state) => buildPageWithDefaultTransition(
-            context: context,
-            state: state,
-            child: const FavoritesPage(),
-          ),
         ),
         GoRoute(
           path: '/settings/reminders',

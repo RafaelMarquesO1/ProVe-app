@@ -82,86 +82,154 @@ class AppAlerts {
       context: context,
       barrierDismissible: true,
       barrierLabel: '',
-      barrierColor: Colors.black.withOpacity(0.4),
-      transitionDuration: const Duration(milliseconds: 300),
-      pageBuilder: (context, animation, secondaryAnimation) {
-        return const SizedBox(); // Will be replaced by transitionBuilder
-      },
+      barrierColor: Colors.black.withOpacity(0.7),
+      transitionDuration: const Duration(milliseconds: 500),
+      pageBuilder: (context, animation, secondaryAnimation) => const SizedBox(),
       transitionBuilder: (context, animation, secondaryAnimation, child) {
-        final curve = CurvedAnimation(parent: animation, curve: Curves.easeOutBack);
+        final curve = CurvedAnimation(parent: animation, curve: Curves.elasticOut);
         return ScaleTransition(
           scale: Tween<double>(begin: 0.8, end: 1.0).animate(curve),
           child: FadeTransition(
             opacity: animation,
-            child: AlertDialog(
-              backgroundColor: Colors.white,
-              surfaceTintColor: Colors.transparent,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-              contentPadding: const EdgeInsets.all(24),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (icon != null) ...[
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: (iconColor ?? Theme.of(context).colorScheme.primary).withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(icon, color: iconColor ?? Theme.of(context).colorScheme.primary, size: 36),
-                    ),
-                    const SizedBox(height: 20),
-                  ],
-                  Text(
-                    title,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            child: Center(
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  width: MediaQuery.of(context).size.width * 0.85,
+                  clipBehavior: Clip.antiAlias,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(32),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2),
+                        blurRadius: 30,
+                        offset: const Offset(0, 10),
+                      )
+                    ],
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    message,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 15, color: Colors.grey.shade600, height: 1.4),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (cancelText != null) ...[
-                        Expanded(
-                          child: TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            style: TextButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      // Header Accent
+                      Container(
+                        height: 80,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              (iconColor ?? Theme.of(context).colorScheme.primary).withOpacity(0.8),
+                              (iconColor ?? Theme.of(context).colorScheme.primary),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                        ),
+                      ),
+                      Transform.translate(
+                        offset: const Offset(0, -40),
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              )
+                            ],
+                          ),
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: (iconColor ?? Theme.of(context).colorScheme.primary).withOpacity(0.1),
+                              shape: BoxShape.circle,
                             ),
-                            child: Text(
-                              cancelText,
-                              style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w600),
+                            child: Icon(
+                              icon ?? Icons.info_rounded,
+                              color: iconColor ?? Theme.of(context).colorScheme.primary,
+                              size: 32,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 12),
-                      ],
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () {
-                            Navigator.pop(context);
-                            onConfirm();
-                          },
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                          child: Text(
-                            confirmText,
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+                        child: Column(
+                          children: [
+                            Text(
+                              title,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: -0.5,
+                                color: Colors.black,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              message,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 15,
+                                color: Colors.grey.shade600,
+                                height: 1.5,
+                              ),
+                            ),
+                            const SizedBox(height: 32),
+                            Row(
+                              children: [
+                                if (cancelText != null) ...[
+                                  Expanded(
+                                    child: TextButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      style: TextButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(vertical: 16),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(16),
+                                          side: BorderSide(color: Colors.grey.shade200),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        cancelText,
+                                        style: TextStyle(
+                                          color: Colors.grey.shade500,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                ],
+                                Expanded(
+                                  child: FilledButton(
+                                    onPressed: () {
+                                      Navigator.pop(context);
+                                      onConfirm();
+                                    },
+                                    style: FilledButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(vertical: 16),
+                                      backgroundColor: iconColor ?? Theme.of(context).colorScheme.primary,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                      elevation: 0,
+                                    ),
+                                    child: Text(
+                                      confirmText,
+                                      style: const TextStyle(fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
             ),
           ),

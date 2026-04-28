@@ -1,8 +1,8 @@
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:myapp/services/database_service.dart';
+import 'package:myapp/services/user_data_service.dart';
 import 'package:myapp/widgets/app_alerts.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class NotePage extends StatefulWidget {
   final String selectedText;
@@ -15,7 +15,7 @@ class NotePage extends StatefulWidget {
 
 class _NotePageState extends State<NotePage> {
   final TextEditingController _noteController = TextEditingController();
-  final DatabaseService _dbService = DatabaseService.instance;
+  final UserDataService _userDataService = UserDataService.instance;
   bool _isSaving = false;
 
   @override
@@ -42,30 +42,38 @@ class _NotePageState extends State<NotePage> {
       
       if (!widget.selectedText.contains('\n\n')) {
         final parts = widget.selectedText.split('\n— ');
-        verseText = parts.first.replaceAll('"', ''); 
-        reference = parts.length > 1 ? parts.last : 'Referência desconhecida';
+        if (parts.length > 1) {
+          verseText = parts.first.replaceAll('"', ''); 
+          reference = parts.last;
+        }
+      } else {
+        // Handle multiple verses if needed, or just use the whole text
+        verseText = widget.selectedText;
       }
 
-      String finalContent = 'Trecho: "$verseText"\n\nAnotação: ${_noteController.text.trim()}';
-
-      await _dbService.createNote(
-        title: reference,
-        content: finalContent,
+      await _userDataService.saveNote(
+        reference: reference,
+        verseText: verseText,
+        noteText: _noteController.text.trim(),
       );
 
       if (mounted) {
         AppAlerts.showSnackBar(
           context,
-          message: 'Anotação salva com sucesso!',
+          message: 'Sua reflexão foi salva na biblioteca!',
           type: AppAlertType.success,
         );
-        context.pop();
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        } else {
+          context.go('/home');
+        }
       }
     } catch (e) {
       if (mounted) {
         AppAlerts.showSnackBar(
           context,
-          message: 'Erro ao salvar anotação. Tente novamente.',
+          message: 'Erro ao salvar no Firebase. Verifique sua conexão.',
           type: AppAlertType.error,
         );
       }
@@ -81,68 +89,164 @@ class _NotePageState extends State<NotePage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'CRIAR ANOTAÇÃO',
-          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+          'NOVA ANOTAÇÃO',
+          style: GoogleFonts.oswald(
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.5,
+          ),
         ),
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => context.pop(),
+          icon: const Icon(Icons.close_rounded),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              context.go('/home');
+            }
+          },
         ),
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            _buildHeader(theme),
+            const SizedBox(height: 32),
+            _buildNoteInput(theme),
+            const SizedBox(height: 40),
+            _buildSaveButton(theme),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.format_quote_rounded, color: theme.colorScheme.primary),
+            const SizedBox(width: 8),
             Text(
-              'Trecho Selecionado:',
-              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade300),
+              'TRECHO SELECIONADO',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.2,
+                color: theme.colorScheme.primary,
               ),
-              child: Text(
-                widget.selectedText,
-                style: theme.textTheme.bodyMedium?.copyWith(fontStyle: FontStyle.italic),
-              ),
-            ),
-            const SizedBox(height: 32),
-            Expanded(
-              child: TextField(
-                controller: _noteController,
-                maxLines: null,
-                expands: true,
-                textAlignVertical: TextAlignVertical.top,
-                decoration: const InputDecoration(
-                  labelText: 'Sua anotação aqui...',
-                  alignLabelWithHint: true,
-                  contentPadding: EdgeInsets.all(16),
-                ),
-              ),
-            ),
-            const SizedBox(height: 32),
-            ElevatedButton(
-              onPressed: _isSaving ? null : _saveNote,
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              ),
-              child: _isSaving
-                  ? const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                    )
-                  : const Text('SALVAR', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             ),
           ],
         ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.03),
+                blurRadius: 15,
+                offset: const Offset(0, 5),
+              ),
+            ],
+            border: Border.all(color: theme.colorScheme.primary.withOpacity(0.1)),
+          ),
+          child: Text(
+            widget.selectedText,
+            style: GoogleFonts.lato(
+              fontSize: 15,
+              height: 1.6,
+              fontStyle: FontStyle.italic,
+              color: Colors.grey.shade800,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNoteInput(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.edit_note_rounded, color: theme.colorScheme.primary),
+            const SizedBox(width: 8),
+            Text(
+              'SUA REFLEXÃO',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.2,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _noteController,
+          maxLines: 8,
+          style: GoogleFonts.lato(fontSize: 16),
+          decoration: InputDecoration(
+            hintText: 'O que o Espírito Santo te falou através desse versículo?',
+            hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+            fillColor: Colors.white,
+            filled: true,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(24),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(24),
+              borderSide: BorderSide(color: theme.colorScheme.primary.withOpacity(0.1)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(24),
+              borderSide: BorderSide(color: theme.colorScheme.primary, width: 2),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSaveButton(ThemeData theme) {
+    return Container(
+      height: 60,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: theme.colorScheme.primary.withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: ElevatedButton(
+        onPressed: _isSaving ? null : _saveNote,
+        style: ElevatedButton.styleFrom(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          elevation: 0,
+        ),
+        child: _isSaving
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 3, color: Colors.white),
+              )
+            : const Text(
+                'SALVAR REFLEXÃO',
+                style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5),
+              ),
       ),
     );
   }

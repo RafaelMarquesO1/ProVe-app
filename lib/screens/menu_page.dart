@@ -42,60 +42,26 @@ class _MenuPageState extends State<MenuPage> with SingleTickerProviderStateMixin
   }
 
   Future<void> _signOut() async {
-    final confirm = await showDialog<bool>(
+    AppAlerts.showCustomDialog(
       context: context,
-      barrierColor: Colors.black54,
-      builder: (context) {
-        return TweenAnimationBuilder<double>(
-          tween: Tween(begin: 0.92, end: 1),
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOutBack,
-          builder: (context, scale, child) => Transform.scale(
-            scale: scale,
-            child: child,
-          ),
-          child: AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-            titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
-            contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-            actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-            title: Row(
-              children: [
-                Icon(Icons.logout_rounded, color: Colors.red.shade700),
-                const SizedBox(width: 10),
-                const Text('Sair da Conta'),
-              ],
-            ),
-            content: const Text('Tem certeza que deseja sair agora?'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancelar'),
-              ),
-              FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.red.shade700,
-                ),
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Sair'),
-              ),
-            ],
-          ),
-        );
+      title: 'Sair da Conta',
+      message: 'Tem certeza que deseja sair agora? Sua jornada de sabedoria continuará aqui quando você voltar.',
+      confirmText: 'Sair',
+      cancelText: 'Cancelar',
+      icon: Icons.logout_rounded,
+      iconColor: Colors.red.shade700,
+      onConfirm: () async {
+        await FirebaseAuth.instance.signOut();
+        if (mounted) {
+          AppAlerts.showSnackBar(
+            context,
+            message: 'Sessão encerrada com sucesso.',
+            type: AppAlertType.info,
+          );
+          context.go('/');
+        }
       },
     );
-
-    if (confirm == true && mounted) {
-      await FirebaseAuth.instance.signOut();
-      if (mounted) {
-        AppAlerts.showSnackBar(
-          context,
-          message: 'Sessão encerrada com sucesso.',
-          type: AppAlertType.info,
-        );
-        context.go('/');
-      }
-    }
   }
 
   @override
@@ -146,14 +112,14 @@ class _MenuPageState extends State<MenuPage> with SingleTickerProviderStateMixin
                     context,
                     icon: Icons.favorite_outline,
                     title: 'Meus Favoritos',
-                    onTap: () => context.go('/favorites'),
+                    onTap: () => context.push('/library', extra: {'initialIndex': 0}),
                   ),
                   Divider(height: 1, indent: 70, color: Colors.grey.shade100),
                   _buildMenuItem(
                     context,
                     icon: Icons.note_alt_outlined,
                     title: 'Minhas Anotações',
-                    onTap: () => context.go('/notes'),
+                    onTap: () => context.push('/library', extra: {'initialIndex': 1}),
                   ),
                   Divider(height: 1, indent: 70, color: Colors.grey.shade100),
                   _buildMenuItem(
@@ -161,14 +127,14 @@ class _MenuPageState extends State<MenuPage> with SingleTickerProviderStateMixin
                     icon: Icons.text_fields_sharp,
                     title: 'Ajustes de Leitura',
                     onTap: () =>
-                        context.go('/settings/reading', extra: {'returnIndex': 2}),
+                        context.push('/settings/reading', extra: {'returnIndex': 2}),
                   ),
                   Divider(height: 1, indent: 70, color: Colors.grey.shade100),
                   _buildMenuItem(
                     context,
                     icon: Icons.notifications_active_outlined,
                     title: 'Lembretes Diários',
-                    onTap: () => context.go(
+                    onTap: () => context.push(
                       '/settings/reminders',
                       extra: {'returnIndex': 2},
                     ),
@@ -313,7 +279,7 @@ class _MenuPageState extends State<MenuPage> with SingleTickerProviderStateMixin
     final displayName = _user?.displayName ?? 'Usuário';
 
     return BounceButton(
-      onTap: () => context.go('/profile/edit'),
+      onTap: () => context.push('/profile/edit'),
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
@@ -410,7 +376,7 @@ class _MenuPageState extends State<MenuPage> with SingleTickerProviderStateMixin
             title: 'Ler Agora',
             subtitle: 'Provérbio do dia',
             color: colorScheme.primary,
-            onTap: () => context.go('/reading'),
+            onTap: () => context.push('/reading'),
           ),
         ),
         const SizedBox(width: 12),

@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:myapp/models/user_model.dart';
 import 'package:myapp/widgets/bounce_button.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:myapp/widgets/app_alerts.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 class HomePage extends StatefulWidget {
@@ -194,7 +195,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           ? 'Abrir leitura já concluída hoje'
           : 'Abrir leitura diária de Provérbios',
       child: BounceButton(
-        onTap: () => context.go('/reading'),
+        onTap: () => context.push('/reading'),
         child: Container(
         padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
         decoration: BoxDecoration(
@@ -337,99 +338,171 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     final monthPercent = ((completedThisMonth / daysInMonth) * 100).round();
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.shade200),
+        borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
           )
         ],
+        border: Border.all(color: Colors.grey.shade100, width: 1.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Calendário do Mês',
-                style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: Colors.black87),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: colorScheme.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(Icons.calendar_month_rounded, color: colorScheme.primary, size: 24),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Seu Desempenho',
+                      style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                    ),
+                    Text(
+                      '$completedThisMonth de $daysInMonth dias lidos',
+                      style: textTheme.bodySmall?.copyWith(color: Colors.grey.shade500, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: monthPercent >= 80
-                      ? const Color(0xFF388E3C).withOpacity(0.12)
-                      : colorScheme.primary.withOpacity(0.12),
+                  gradient: LinearGradient(
+                    colors: monthPercent >= 80 
+                        ? [const Color(0xFF43A047), const Color(0xFF2E7D32)]
+                        : [colorScheme.primary, colorScheme.primary.withOpacity(0.8)],
+                  ),
                   borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: (monthPercent >= 80 ? const Color(0xFF2E7D32) : colorScheme.primary).withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    )
+                  ],
                 ),
                 child: Text(
                   '$monthPercent%',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: monthPercent >= 80
-                        ? const Color(0xFF388E3C)
-                        : colorScheme.primary,
-                  ),
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 4),
-          Text(
-            '$completedThisMonth de $daysInMonth dias lidos',
-            style: textTheme.bodySmall?.copyWith(color: Colors.grey.shade500),
-          ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 24),
           TableCalendar(
             locale: 'pt_BR',
             firstDay: DateTime.utc(today.year, 1, 1),
             lastDay: DateTime.utc(today.year, 12, 31),
             focusedDay: today,
+            selectedDayPredicate: (day) => isSameDay(day, today),
+            onDaySelected: (selectedDay, focusedDay) {
+              final dayOnly = DateTime(selectedDay.year, selectedDay.month, selectedDay.day);
+              final isCompleted = completedDaysSet.contains(dayOnly);
+              final isFuture = selectedDay.isAfter(today);
+              final isToday = isSameDay(selectedDay, today);
+              
+              String statusTitle = '';
+              String statusDesc = '';
+              IconData statusIcon = Icons.info_outline;
+              Color statusColor = Colors.blue;
+
+              if (isCompleted) {
+                statusTitle = 'Leitura Concluída';
+                statusDesc = 'No dia ${selectedDay.day}/${selectedDay.month} você concluiu a leitura do capítulo ${selectedDay.day}. Excelente hábito!';
+                statusIcon = Icons.check_circle_rounded;
+                statusColor = const Color(0xFF388E3C);
+              } else if (isFuture) {
+                statusTitle = 'Futura Leitura';
+                statusDesc = 'Prepare o seu coração! No dia ${selectedDay.day}/${selectedDay.month} você lerá o capítulo ${selectedDay.day}.';
+                statusIcon = Icons.event_note_rounded;
+                statusColor = Colors.blueGrey;
+              } else if (isToday) {
+                statusTitle = 'Hoje é o Dia!';
+                statusDesc = 'Você ainda não registrou a leitura de hoje (Capítulo ${selectedDay.day}). Que tal ler agora?';
+                statusIcon = Icons.local_fire_department_rounded;
+                statusColor = colorScheme.primary;
+              } else {
+                statusTitle = 'Leitura Pendente';
+                statusDesc = 'Infelizmente você não registrou a leitura no dia ${selectedDay.day}/${selectedDay.month}. Mas não desanime, o importante é continuar hoje!';
+                statusIcon = Icons.history_rounded;
+                statusColor = Colors.orange;
+              }
+
+              AppAlerts.showCustomDialog(
+                context: context,
+                title: statusTitle,
+                message: statusDesc,
+                icon: statusIcon,
+                iconColor: statusColor,
+                confirmText: isCompleted || isFuture ? 'FECHAR' : 'LER AGORA',
+                cancelText: isCompleted || isFuture ? null : 'MAIS TARDE',
+                onConfirm: () {
+                  if (!isCompleted && !isFuture) {
+                    context.push('/reading');
+                  }
+                },
+              );
+            },
             headerStyle: HeaderStyle(
               titleCentered: true,
               formatButtonVisible: false,
-              titleTextStyle: textTheme.titleMedium!.copyWith(fontWeight: FontWeight.bold),
+              titleTextStyle: textTheme.titleMedium!.copyWith(fontWeight: FontWeight.w900, color: Colors.black87),
+              leftChevronIcon: Icon(Icons.chevron_left_rounded, color: colorScheme.primary),
+              rightChevronIcon: Icon(Icons.chevron_right_rounded, color: colorScheme.primary),
+              headerPadding: const EdgeInsets.only(bottom: 16),
             ),
             calendarFormat: CalendarFormat.month,
             startingDayOfWeek: StartingDayOfWeek.monday,
+            daysOfWeekHeight: 32,
             daysOfWeekStyle: DaysOfWeekStyle(
-              weekdayStyle: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey.shade600),
-              weekendStyle: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey.shade400),
+              weekdayStyle: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey.shade400, fontSize: 12),
+              weekendStyle: TextStyle(fontWeight: FontWeight.bold, color: colorScheme.primary.withOpacity(0.4), fontSize: 12),
             ),
             calendarBuilders: CalendarBuilders(
               prioritizedBuilder: (context, day, focusedDay) {
                 final dayOnly = DateTime(day.year, day.month, day.day);
                 final isCompleted = completedDaysSet.contains(dayOnly);
                 final isToday = isSameDay(day, today);
+                final isOutside = day.month != focusedDay.month;
 
                 if (isCompleted) {
                   return Center(
                     child: Container(
-                      width: 36,
-                      height: 36,
+                      width: 38,
+                      height: 38,
                       decoration: BoxDecoration(
-                        color: highlightColor,
+                        gradient: LinearGradient(
+                          colors: [colorScheme.primary, colorScheme.primary.withOpacity(0.8)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: highlightColor.withOpacity(0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
+                            color: colorScheme.primary.withOpacity(0.4),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
                           )
-                        ]
+                        ],
                       ),
-                      child: Center(
-                        child: Text(
-                          '${day.day}',
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                        ),
+                      child: const Center(
+                        child: Icon(Icons.check_rounded, color: Colors.white, size: 18),
                       ),
                     ),
                   );
@@ -438,18 +511,28 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 if (isToday) {
                   return Center(
                     child: Container(
-                      width: 36,
-                      height: 36,
+                      width: 38,
+                      height: 38,
                       decoration: BoxDecoration(
-                        border: Border.all(color: highlightColor, width: 2),
+                        color: colorScheme.primary.withOpacity(0.1),
+                        border: Border.all(color: colorScheme.primary, width: 2),
                         shape: BoxShape.circle,
                       ),
                       child: Center(
                         child: Text(
                           '${day.day}',
-                          style: TextStyle(color: highlightColor, fontWeight: FontWeight.bold),
+                          style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.w900, fontSize: 14),
                         ),
                       ),
+                    ),
+                  );
+                }
+
+                if (isOutside) {
+                  return Center(
+                    child: Text(
+                      '${day.day}',
+                      style: TextStyle(color: Colors.grey.shade300, fontSize: 14),
                     ),
                   );
                 }

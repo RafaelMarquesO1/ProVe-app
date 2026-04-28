@@ -6,7 +6,7 @@ import 'dart:developer' as developer;
 
 class ProgressService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final User? _currentUser = FirebaseAuth.instance.currentUser;
+  User? get _currentUser => FirebaseAuth.instance.currentUser;
 
   List<int> getChaptersForDate(DateTime date) {
     int day = date.day;
@@ -22,18 +22,19 @@ class ProgressService {
   }
 
   Future<Map<String, dynamic>> getChapterForToday() async {
-    if (_currentUser == null) throw Exception("Usuário não autenticado.");
+    final user = _currentUser;
+    if (user == null) throw Exception("Usuário não autenticado.");
 
-    final userDocRef = _firestore.collection('users').doc(_currentUser.uid);
+    final userDocRef = _firestore.collection('users').doc(user.uid);
     final userSnapshot = await userDocRef.get();
 
     // Se o documento do usuário não existe no Firestore, cria um.
     if (!userSnapshot.exists) {
-      final creationDate = _currentUser!.metadata.creationTime ?? DateTime.now();
+      final creationDate = user.metadata.creationTime ?? DateTime.now();
       final newUser = UserModel(
-        uid: _currentUser.uid,
-        name: _currentUser!.displayName ?? 'Usuário',
-        email: _currentUser!.email ?? '',
+        uid: user.uid,
+        name: user.displayName ?? 'Usuário',
+        email: user.email ?? '',
         createdAt: creationDate,
         longestStreak: 0,
       );
@@ -41,11 +42,11 @@ class ProgressService {
       return {'chapters': getChaptersForDate(DateTime.now()), 'canRead': true};
     }
 
-    final user = UserModel.fromFirestore(userSnapshot);
+    final userModel = UserModel.fromFirestore(userSnapshot);
     final now = DateTime.now();
     final startOfToday = DateTime(now.year, now.month, now.day);
 
-    final bool hasReadToday = user.lastReadDate != null && !user.lastReadDate!.isBefore(startOfToday);
+    final bool hasReadToday = userModel.lastReadDate != null && !userModel.lastReadDate!.isBefore(startOfToday);
     final chapters = getChaptersForDate(now);
 
     return {
@@ -55,34 +56,35 @@ class ProgressService {
   }
 
   Future<void> markChapterAsRead() async {
-    if (_currentUser == null) throw Exception("Usuário não autenticado.");
+    final user = _currentUser;
+    if (user == null) throw Exception("Usuário não autenticado.");
 
-    final userDocRef = _firestore.collection('users').doc(_currentUser.uid);
+    final userDocRef = _firestore.collection('users').doc(user.uid);
     final userSnapshot = await userDocRef.get();
 
     if (!userSnapshot.exists) throw Exception("Usuário não encontrado.");
 
-    final user = UserModel.fromFirestore(userSnapshot);
+    final userModel = UserModel.fromFirestore(userSnapshot);
     final now = DateTime.now();
     final startOfToday = DateTime(now.year, now.month, now.day);
 
-    if (user.lastReadDate != null && !user.lastReadDate!.isBefore(startOfToday)) {
+    if (userModel.lastReadDate != null && !userModel.lastReadDate!.isBefore(startOfToday)) {
       developer.log("Leitura de hoje já foi registrada.", name: 'ProgressService');
       return;
     }
 
     int newStreak = 1;
-    if (user.lastReadDate != null) {
-      final lastRead = user.lastReadDate!;
+    if (userModel.lastReadDate != null) {
+      final lastRead = userModel.lastReadDate!;
       final startOfLastReadDay = DateTime(lastRead.year, lastRead.month, lastRead.day);
       final difference = startOfToday.difference(startOfLastReadDay).inDays;
 
       if (difference == 1) {
-        newStreak = user.readingStreak + 1;
+        newStreak = userModel.readingStreak + 1;
       }
     }
 
-    final int newLongestStreak = max(user.longestStreak, newStreak);
+    final int newLongestStreak = max(userModel.longestStreak, newStreak);
     
     // O campo currentChapter agora é derivado da data, mas mantemos atualizado para o dia seguinte 
     // apenas para manter os dados do Firestore consistentes com a versão anterior do app, se necessário.

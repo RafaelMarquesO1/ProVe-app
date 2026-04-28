@@ -23,8 +23,8 @@ class ReadingSettingsPage extends StatelessWidget {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new),
           onPressed: () {
-            if (context.canPop()) {
-              context.pop();
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
             } else {
               context.go('/home', extra: {'index': returnIndex});
             }

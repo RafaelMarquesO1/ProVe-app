@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ui' as ui;
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -25,7 +26,7 @@ class _ReadingPageState extends State<ReadingPage> {
       'Versão bíblica utilizada: Bíblia Livre (Português).';
 
   final ProgressService _progressService = ProgressService();
-  final UserDataService _userDataService = UserDataService();
+  final UserDataService _userDataService = UserDataService.instance;
   late Future<Map<String, dynamic>> _readingData;
   final ScrollController _scrollController = ScrollController();
   final FlutterTts _flutterTts = FlutterTts();
@@ -43,7 +44,7 @@ class _ReadingPageState extends State<ReadingPage> {
   final List<GlobalKey> _verseKeys = [];
   
   // Controle de Seleção e Favoritos
-  final Set<String> _selectedVerses = {};
+  final List<Map<String, dynamic>> _selectedVerses = []; 
   final Set<String> _favoriteVerses = {};
   StreamSubscription? _favoritesSubscription;
 
@@ -319,62 +320,113 @@ class _ReadingPageState extends State<ReadingPage> {
       if (!mounted) return;
 
       // Mostra a Animação de Parabéns por Concluir a Leitura!
-      showDialog(
+      showGeneralDialog(
         context: context,
         barrierDismissible: false,
-        barrierColor: Colors.black87, // Fundo escuro para foco total
-        builder: (dialogContext) {
+        barrierLabel: 'Parabéns',
+        barrierColor: Colors.black.withOpacity(0.85),
+        transitionDuration: const Duration(milliseconds: 600),
+        pageBuilder: (context, animation, secondaryAnimation) {
           return Center(
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0.0, end: 1.0),
-              duration: const Duration(milliseconds: 600),
-              curve: Curves.elasticOut,
-              builder: (context, value, child) {
-                return Transform.scale(
-                  scale: value,
-                  child: Container(
-                    padding: const EdgeInsets.all(32),
-                    margin: const EdgeInsets.symmetric(horizontal: 32),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF81C784), Color(0xFF388E3C)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(32),
-                      boxShadow: [
-                        BoxShadow(color: const Color(0xFF388E3C).withOpacity(0.5), blurRadius: 30, spreadRadius: 10),
-                      ]
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 24),
+                padding: const EdgeInsets.all(32),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF2E7D32), Color(0xFF1B5E20)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(32),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF1B5E20).withOpacity(0.4),
+                      blurRadius: 30,
+                      offset: const Offset(0, 15),
+                    )
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Stack(
+                      alignment: Alignment.center,
                       children: [
+                        TweenAnimationBuilder<double>(
+                          tween: Tween(begin: 0.0, end: 1.0),
+                          duration: const Duration(milliseconds: 1000),
+                          builder: (context, value, child) {
+                            return Transform.rotate(
+                              angle: value * 2 * 3.1415,
+                              child: Icon(Icons.auto_awesome_rounded, color: Colors.white.withOpacity(0.2), size: 120),
+                            );
+                          },
+                        ),
                         Container(
                           padding: const EdgeInsets.all(24),
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.2),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.check_rounded, color: Colors.white, size: 72),
-                        ),
-                        const SizedBox(height: 24),
-                        const Text(
-                          'Leitura Concluída!',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.white, decoration: TextDecoration.none),
-                        ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'Sua ofensiva aumentou. A sabedoria divina te fortaleceu hoje!',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.white, decoration: TextDecoration.none),
+                          child: const Icon(Icons.check_rounded, color: Colors.white, size: 64),
                         ),
                       ],
                     ),
-                  ),
-                );
-              }
+                    const SizedBox(height: 32),
+                    const Text(
+                      'SABEDORIA\nALCANÇADA!',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 28, 
+                        fontWeight: FontWeight.w900, 
+                        color: Colors.white,
+                        letterSpacing: 2,
+                        height: 1.1,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Parabéns! Você acaba de concluir mais um passo na sua jornada espiritual.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 16, 
+                        color: Colors.white.withOpacity(0.9),
+                        height: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 40),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: const Color(0xFF1B5E20),
+                          padding: const EdgeInsets.symmetric(vertical: 18),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                        onPressed: () {
+                          Navigator.of(context, rootNavigator: true).pop();
+                          context.go('/home', extra: {'index': 1, 'showConfetti': true});
+                        },
+                        child: const Text(
+                          'VER MEU PROGRESSO',
+                          style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
+          );
+        },
+        transitionBuilder: (context, animation, secondaryAnimation, child) {
+          final curve = CurvedAnimation(parent: animation, curve: Curves.elasticOut);
+          return ScaleTransition(
+            scale: Tween<double>(begin: 0.5, end: 1.0).animate(curve),
+            child: FadeTransition(opacity: animation, child: child),
           );
         },
       );
@@ -465,86 +517,132 @@ class _ReadingPageState extends State<ReadingPage> {
 
   // _showVerseOptions (antigo long-press) removido. Agora usamos a barra flutuante.
 
-  void _handleVerseTap(String chapter, String verseNumber, String verseText) {
+  void _handleVerseTap(Map<String, dynamic> verseData) {
     HapticFeedback.selectionClick();
-    final verseKey = '${chapter}_$verseNumber';
-    final fullData = '"$verseText"\n— Provérbios $chapter:$verseNumber';
-    
     setState(() {
-      if (_selectedVerses.contains(fullData)) {
-        _selectedVerses.remove(fullData);
+      bool exists = _selectedVerses.any((v) => v['key'] == verseData['key']);
+      if (exists) {
+        _selectedVerses.removeWhere((v) => v['key'] == verseData['key']);
       } else {
-        _selectedVerses.add(fullData);
+        _selectedVerses.add(verseData);
       }
     });
   }
 
+
   Widget _buildSelectionActionBar(ThemeData theme) {
     if (_selectedVerses.isEmpty) return const SizedBox.shrink();
-
-    final selectedText = _selectedVerses.join('\n\n');
+    
+    final String shareText = _selectedVerses.map((v) => '"${v['text']}"\n— Provérbios ${v['chapter']}:${v['verseNumber']}').join('\n\n');
 
     return Positioned(
-      bottom: 24,
-      left: 24,
-      right: 24,
+      bottom: 20 + MediaQuery.of(context).padding.bottom,
+      left: 16,
+      right: 16,
       child: TweenAnimationBuilder<double>(
         tween: Tween(begin: 0.0, end: 1.0),
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOutBack,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.elasticOut,
         builder: (context, value, child) {
-          return Transform.scale(
-            scale: value,
-            child: child,
+          return Transform.translate(
+            offset: Offset(0, 100 * (1 - value)),
+            child: Opacity(opacity: value.clamp(0, 1), child: child),
           );
         },
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.primary,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: theme.colorScheme.primary.withOpacity(0.4),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: BackdropFilter(
+            filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withOpacity(0.95),
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: theme.colorScheme.primary.withOpacity(0.3),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildActionIconButton(
-                icon: Icons.copy_rounded,
-                label: 'Copiar',
-                onTap: () {
-                  Clipboard.setData(ClipboardData(text: selectedText));
-                  setState(() => _selectedVerses.clear());
-                  AppAlerts.showSnackBar(context, message: 'Copiado!', type: AppAlertType.success);
-                },
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Contador de Seleção
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4, bottom: 8),
+                    child: Text(
+                      '${_selectedVerses.length} ${_selectedVerses.length == 1 ? 'versículo selecionado' : 'versículos selecionados'}',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildActionIconButton(
+                        icon: Icons.copy_rounded,
+                        label: 'Copiar',
+                        onTap: () {
+                          Clipboard.setData(ClipboardData(text: shareText));
+                          setState(() => _selectedVerses.clear());
+                          AppAlerts.showSnackBar(context, message: 'Copiado para a área de transferência!', type: AppAlertType.success);
+                        },
+                      ),
+                      _buildActionIconButton(
+                        icon: Icons.share_rounded,
+                        label: 'Enviar',
+                        onTap: () {
+                          Share.share(shareText);
+                          setState(() => _selectedVerses.clear());
+                        },
+                      ),
+                      _buildActionIconButton(
+                        icon: Icons.favorite_rounded,
+                        label: 'Favoritar',
+                        onTap: () async {
+                          HapticFeedback.mediumImpact();
+                          for (var v in _selectedVerses) {
+                            await _userDataService.toggleFavorite(
+                              chapter: v['chapter'],
+                              verseNumber: v['verseNumber'],
+                              verseText: v['text'],
+                            );
+                          }
+                          setState(() {
+                            _selectedVerses.clear();
+                            _isHeartAnimating = true;
+                          });
+                          Future.delayed(const Duration(milliseconds: 1000), () {
+                            if (mounted) setState(() => _isHeartAnimating = false);
+                          });
+                        },
+                      ),
+                      _buildActionIconButton(
+                        icon: Icons.note_add_rounded,
+                        label: 'Anotar',
+                        onTap: () {
+                          context.push('/reading/nova-nota', extra: shareText);
+                          setState(() => _selectedVerses.clear());
+                        },
+                      ),
+                      const SizedBox(width: 4),
+                      Container(width: 1, height: 24, color: Colors.white24),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, color: Colors.white, size: 24),
+                        onPressed: () => setState(() => _selectedVerses.clear()),
+                        tooltip: 'Limpar seleção',
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              _buildActionIconButton(
-                icon: Icons.share_rounded,
-                label: 'Enviar',
-                onTap: () {
-                  Share.share(selectedText);
-                  setState(() => _selectedVerses.clear());
-                },
-              ),
-              _buildActionIconButton(
-                icon: Icons.note_add_rounded,
-                label: 'Anotar',
-                onTap: () {
-                  context.push('/reading/nova-nota', extra: selectedText);
-                  setState(() => _selectedVerses.clear());
-                },
-              ),
-              Container(width: 1, height: 30, color: Colors.white30),
-              IconButton(
-                icon: const Icon(Icons.close_rounded, color: Colors.white),
-                onPressed: () => setState(() => _selectedVerses.clear()),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -552,15 +650,26 @@ class _ReadingPageState extends State<ReadingPage> {
   }
 
   Widget _buildActionIconButton({required IconData icon, required String label, required VoidCallback onTap}) {
-    return InkWell(
+    return BounceButton(
       onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: Colors.white, size: 24),
-          const SizedBox(height: 4),
-          Text(label, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: Colors.white, size: 22),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.2,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -680,8 +789,8 @@ class _ReadingPageState extends State<ReadingPage> {
                             leading: IconButton(
                               icon: Icon(Icons.arrow_back_ios_new_rounded, color: theme.colorScheme.primary),
                               onPressed: () {
-                                if (context.canPop()) {
-                                  context.pop();
+                                if (Navigator.of(context).canPop()) {
+                                  Navigator.of(context).pop();
                                 } else {
                                   context.go('/home');
                                 }
@@ -787,12 +896,16 @@ class _ReadingPageState extends State<ReadingPage> {
                                 final verseNumber = parts.first;
                                 final verseText = parts.sublist(1).join(' ');
 
-                                final fullData = '"$verseText"\n— Provérbios $chapterTitle:$verseNumber';
-                                final isSelected = _selectedVerses.contains(fullData);
+                                final isSelected = _selectedVerses.any((v) => v['key'] == '${chapterTitle}_$verseNumber');
                                 final isFavorited = _favoriteVerses.contains('${chapterTitle}_$verseNumber');
 
                                 return GestureDetector(
-                                  onTap: () => _handleVerseTap(chapterTitle, verseNumber, verseText),
+                                  onTap: () => _handleVerseTap({
+                                    'key': '${chapterTitle}_$verseNumber',
+                                    'chapter': chapterTitle,
+                                    'verseNumber': verseNumber,
+                                    'text': verseText,
+                                  }),
                                   onDoubleTap: () async {
                                     HapticFeedback.lightImpact();
                                     await _userDataService.toggleFavorite(
@@ -944,12 +1057,10 @@ class _ReadingPageState extends State<ReadingPage> {
                 },
               ),
             ),
+          // Selection Action Bar (Floating)
+          _buildSelectionActionBar(theme),
         ],
       ),
-      floatingActionButton: _buildSelectionActionBar(theme),
-      bottomNavigationBar: _selectedVerses.isEmpty 
-          ? null 
-          : const SizedBox(height: 80),
     );
       },
     );
