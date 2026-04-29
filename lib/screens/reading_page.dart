@@ -157,23 +157,8 @@ class _ReadingPageState extends State<ReadingPage> {
   Future<void> _applyTtsSettings() async {
     if (!mounted) return;
 
-    // Normalização no Android
-    double rate = _settings.speechRate;
-    if (!kIsWeb && Platform.isAndroid) {
-      rate = rate / 2.0;
-    }
-    await _flutterTts.setSpeechRate(rate);
-
-    // Ajuste de pitch baseado no gênero (ajuda na naturalidade)
-    final bool isMale = _settings.voiceType == VoiceType.masculina;
-    if (isMale) {
-      await _flutterTts.setPitch(0.75); // Tom mais profundo para masculino
-    } else {
-      await _flutterTts.setPitch(1.15); // Tom mais leve para feminino
-    }
-
     try {
-      // No Android, tenta usar o motor do Google para vozes mais naturais (Neural2, Wavenet)
+      // 1. Configurações Iniciais do Motor
       if (!kIsWeb && Platform.isAndroid) {
         final dynamic engines = await _flutterTts.getEngines;
         if (engines is List && engines.contains("com.google.android.tts")) {
@@ -181,100 +166,87 @@ class _ReadingPageState extends State<ReadingPage> {
         }
       }
 
+      final bool isMale = _settings.voiceType == VoiceType.masculina;
+
+      // 2. Seleção de Voz (O motor pode resetar rate/pitch ao trocar de voz)
       final dynamic voicesResult = await _flutterTts.getVoices;
       if (voicesResult is List) {
         final voices = voicesResult.map((v) => Map<String, dynamic>.from(v as Map)).toList();
         
-        // Filtra por PT-BR
         var ptVoices = voices.where((v) {
           final locale = (v['locale'] as String?)?.toLowerCase() ?? '';
           return locale == 'pt-br' || locale == 'pt_br';
         }).toList();
 
-        if (ptVoices.isEmpty) return;
-
-        // Heurística de gênero aprimorada e restritiva
-        var filteredVoices = ptVoices.where((v) {
-          final name = (v['name'] as String?)?.toLowerCase() ?? '';
-          final genderField = v['gender']?.toString().toLowerCase() ?? '';
-          
-          if (isMale) {
-            // Filtros Masculinos (Incluindo apenas padrões sabidamente masculinos)
-            if (name.contains('female')) return false; // Exclusão imediata
-            if (name.contains('male')) return true;
-            if (name.contains('pbc-local') || name.contains('ptd-local') || name.contains('ptl-local')) return true;
-            if (name.contains('-b-') || name.endsWith('-b') || name.contains('-d-') || name.endsWith('-d')) return true;
-            if (genderField == 'male' || genderField == '1' || genderField == 'man') return true;
-          } else {
-            // Filtros Femininos (Exclui padrões masculinos identificados pelo usuário)
-            if (name.contains('male') || name.contains('ptd-local') || name.contains('pbc-local')) return false;
-            if (name.contains('female')) return true;
-            if (name.contains('pba-local') || name.contains('ptc-local') || name.contains('pts-local') || name.contains('ptr-local')) return true;
-            if (name.contains('-a-') || name.endsWith('-a') || name.contains('-c-') || name.endsWith('-c') || name.contains('-e-') || name.endsWith('-e')) return true;
-            if (genderField == 'female' || genderField == '2' || genderField == 'woman') return true;
-          }
-          return false;
-        }).toList();
-
-        // Se a busca refinada falhar, usa a lista ptVoices excluindo explicitamente o oposto
-        if (filteredVoices.isEmpty) {
-          filteredVoices = ptVoices.where((v) {
+        if (ptVoices.isNotEmpty) {
+          var filteredVoices = ptVoices.where((v) {
             final name = (v['name'] as String?)?.toLowerCase() ?? '';
+            final genderField = v['gender']?.toString().toLowerCase() ?? '';
+            
             if (isMale) {
-              return !name.contains('female') && !name.contains('pba') && !name.contains('ptc');
+              if (name.contains('female')) return false;
+              if (name.contains('male')) return true;
+              if (name.contains('pbc-local') || name.contains('ptd-local') || name.contains('ptl-local')) return true;
+              if (name.contains('-b-') || name.endsWith('-b') || name.contains('-d-') || name.endsWith('-d')) return true;
+              if (genderField == 'male' || genderField == '1' || genderField == 'man') return true;
             } else {
-              return !name.contains('male') && !name.contains('ptd') && !name.contains('pbc');
+              if (name.contains('male') || name.contains('ptd-local') || name.contains('pbc-local')) return false;
+              if (name.contains('female')) return true;
+              if (name.contains('pba-local') || name.contains('ptc-local') || name.contains('pts-local') || name.contains('ptr-local')) return true;
+              if (name.contains('-a-') || name.endsWith('-a') || name.contains('-c-') || name.endsWith('-c') || name.contains('-e-') || name.endsWith('-e')) return true;
+              if (genderField == 'female' || genderField == '2' || genderField == 'woman') return true;
             }
+            return false;
           }).toList();
-        }
 
-        // Se ainda assim estiver vazio (caso improvável), usa ptVoices
-        if (filteredVoices.isEmpty) {
-          filteredVoices = ptVoices;
-        }
-
-        // Sistema de pontuação para priorizar vozes de alta qualidade (Neural2 > Wavenet > High Quality > Standard)
-        filteredVoices.sort((a, b) {
-          final nameA = (a['name'] as String?)?.toLowerCase() ?? '';
-          final nameB = (b['name'] as String?)?.toLowerCase() ?? '';
-          final qualityA = a['quality']?.toString().toLowerCase() ?? '';
-          final qualityB = b['quality']?.toString().toLowerCase() ?? '';
-          
-          int score(String name, String quality) {
-            int s = 0;
-            if (name.contains('neural2')) s += 1000; // Prioridade absoluta
-            if (name.contains('wavenet')) s += 500;
-            if (name.contains('enhanced') || quality.contains('high')) s += 250;
-            
-            // Heurística para trocar a voz feminina por uma alternativa (ex: C em vez de A)
-            if (!isMale) {
-              if (name.contains('-c-') || name.endsWith('-c')) s += 100;
-              if (name.contains('-e-') || name.endsWith('-e')) s += 80;
-              if (name.contains('-a-') || name.endsWith('-a')) s += 10; // A é a padrão, damos nota menor
-            }
-            
-            return s;
+          if (filteredVoices.isEmpty) {
+            filteredVoices = ptVoices.where((v) {
+              final name = (v['name'] as String?)?.toLowerCase() ?? '';
+              if (isMale) return !name.contains('female') && !name.contains('pba');
+              return !name.contains('male') && !name.contains('ptd');
+            }).toList();
           }
-          
-          return score(nameB, qualityB).compareTo(score(nameA, qualityA));
-        });
 
-        if (filteredVoices.isNotEmpty) {
-          // No caso da voz feminina, se houver mais de uma opção de alta qualidade, 
-          // pegamos a última da lista para garantir uma troca perceptível em relação à padrão.
-          final selectedVoice = !isMale && filteredVoices.length > 1 
-              ? filteredVoices.last 
-              : filteredVoices.first;
-              
-          await _flutterTts.setVoice({
-            'name': selectedVoice['name'] as String, 
-            'locale': selectedVoice['locale'] as String
-          });
-          debugPrint("Voz selecionada: ${selectedVoice['name']}");
+          if (filteredVoices.isNotEmpty) {
+            filteredVoices.sort((a, b) {
+              final nameA = (a['name'] as String?)?.toLowerCase() ?? '';
+              final nameB = (b['name'] as String?)?.toLowerCase() ?? '';
+              int score(String name) {
+                if (name.contains('neural2')) return 1000;
+                if (name.contains('wavenet')) return 500;
+                return 0;
+              }
+              return score(nameB).compareTo(score(nameA));
+            });
+
+            final selectedVoice = !isMale && filteredVoices.length > 1 ? filteredVoices.last : filteredVoices.first;
+            await _flutterTts.setVoice({
+              'name': selectedVoice['name'] as String, 
+              'locale': selectedVoice['locale'] as String
+            });
+          }
         }
       }
+
+      // 3. Aplicação de Rate e Pitch (Sempre após a voz para garantir persistência)
+      double rate = _settings.speechRate;
+      if (Platform.isIOS) {
+        rate = rate * 0.5; // No iOS, 0.5 é a velocidade normal (1.0x)
+      } else if (Platform.isAndroid) {
+        // No Android, a escala varia entre motores, mas o Google TTS costuma usar 0.5 a 1.0 como faixa ideal
+        // Mantemos a proporção direta mas garantimos que 1.0 seja uma velocidade natural
+        rate = rate * 0.5; 
+      }
+      await _flutterTts.setSpeechRate(rate);
+
+      if (isMale) {
+        await _flutterTts.setPitch(0.85);
+      } else {
+        await _flutterTts.setPitch(1.05);
+      }
+
     } catch (e) {
-      debugPrint("Erro ao encontrar configurações de voz: $e");
+      debugPrint("Erro ao aplicar configurações de TTS: $e");
     }
   }
 
@@ -320,137 +292,26 @@ class _ReadingPageState extends State<ReadingPage> {
       if (!mounted) return;
 
       // Mostra a Animação de Parabéns por Concluir a Leitura!
-      showGeneralDialog(
+      AppAlerts.showCustomDialog(
         context: context,
-        barrierDismissible: false,
-        barrierLabel: 'Parabéns',
-        barrierColor: Colors.black.withOpacity(0.85),
-        transitionDuration: const Duration(milliseconds: 600),
-        pageBuilder: (context, animation, secondaryAnimation) {
-          return Center(
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 24),
-                padding: const EdgeInsets.all(32),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF2E7D32), Color(0xFF1B5E20)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(32),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF1B5E20).withOpacity(0.4),
-                      blurRadius: 30,
-                      offset: const Offset(0, 15),
-                    )
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        TweenAnimationBuilder<double>(
-                          tween: Tween(begin: 0.0, end: 1.0),
-                          duration: const Duration(milliseconds: 1000),
-                          builder: (context, value, child) {
-                            return Transform.rotate(
-                              angle: value * 2 * 3.1415,
-                              child: Icon(Icons.auto_awesome_rounded, color: Colors.white.withOpacity(0.2), size: 120),
-                            );
-                          },
-                        ),
-                        Container(
-                          padding: const EdgeInsets.all(24),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.check_rounded, color: Colors.white, size: 64),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 32),
-                    const Text(
-                      'SABEDORIA\nALCANÇADA!',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 28, 
-                        fontWeight: FontWeight.w900, 
-                        color: Colors.white,
-                        letterSpacing: 2,
-                        height: 1.1,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Parabéns! Você acaba de concluir mais um passo na sua jornada espiritual.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 16, 
-                        color: Colors.white.withOpacity(0.9),
-                        height: 1.5,
-                      ),
-                    ),
-                    const SizedBox(height: 40),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: const Color(0xFF1B5E20),
-                          padding: const EdgeInsets.symmetric(vertical: 18),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        ),
-                        onPressed: () {
-                          Navigator.of(context, rootNavigator: true).pop();
-                          context.go('/home', extra: {'index': 1, 'showConfetti': true});
-                        },
-                        child: const Text(
-                          'VER MEU PROGRESSO',
-                          style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
-        transitionBuilder: (context, animation, secondaryAnimation, child) {
-          final curve = CurvedAnimation(parent: animation, curve: Curves.elasticOut);
-          return ScaleTransition(
-            scale: Tween<double>(begin: 0.5, end: 1.0).animate(curve),
-            child: FadeTransition(opacity: animation, child: child),
-          );
+        title: 'SABEDORIA ALCANÇADA!',
+        message: 'Você completou a leitura de hoje e iluminou sua mente com a palavra. Continue firme na sua jornada!',
+        confirmText: 'VER PROGRESSO',
+        icon: Icons.auto_awesome_rounded,
+        iconColor: Colors.green.shade700,
+        onConfirm: () {
+          context.go('/home', extra: {'index': 1, 'showConfetti': true});
         },
       );
-
-      // Aguarda a animação
-      await Future.delayed(const Duration(milliseconds: 2800));
-      
-      if (mounted) {
-        // Fecha o dialog de parabéns usando rootNavigator para evitar conflitos com GoRouter
-        Navigator.of(context, rootNavigator: true).pop(); 
-      }
-
-      // Aguarda um pequeno momento para o Navigator destravar
-      await Future.delayed(const Duration(milliseconds: 100));
-
-      if (mounted) {
-        // Redireciona pra Aba do Meio (Ofensiva) com Confetes
-        context.go('/home', extra: {'index': 1, 'showConfetti': true});
-      }
 
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao salvar a leitura: $e')),
-      );
+      if (mounted) {
+        AppAlerts.showSnackBar(
+          context,
+          message: 'Erro ao salvar a leitura: $e',
+          type: AppAlertType.error,
+        );
+      }
     }
   }
 
@@ -980,37 +841,37 @@ class _ReadingPageState extends State<ReadingPage> {
                           const SliverToBoxAdapter(child: SizedBox(height: 32)),
                           if (canRead)
                             SliverToBoxAdapter(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
-                                child: BounceButton(
-                                  onTap: _markAsRead,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(vertical: 20),
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        colors: [theme.colorScheme.primary, const Color(0xFFD65108)],
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                      ),
-                                      borderRadius: BorderRadius.circular(20),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: const Color(0xFFD65108).withOpacity(0.4),
-                                          blurRadius: 15,
-                                          offset: const Offset(0, 8),
-                                        )
-                                      ],
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
+                              child: BounceButton(
+                                onTap: _markAsRead,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 20),
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [theme.colorScheme.primary, const Color(0xFFD65108)],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
                                     ),
-                                    child: const Center(
-                                      child: Text(
-                                        'Concluir Leitura',
-                                        style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1),
-                                      ),
+                                    borderRadius: BorderRadius.circular(20),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0xFFD65108).withOpacity(0.4),
+                                        blurRadius: 15,
+                                        offset: const Offset(0, 8),
+                                      )
+                                    ],
+                                  ),
+                                  child: const Center(
+                                    child: Text(
+                                      'Concluir Leitura',
+                                      style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1),
                                     ),
                                   ),
                                 ),
                               ),
                             ),
+                          ),
                           SliverToBoxAdapter(
                             child: Padding(
                               padding: const EdgeInsets.fromLTRB(24, 8, 24, 4),

@@ -10,11 +10,8 @@ import 'package:myapp/widgets/bounce_button.dart';
 
 class ReadingPlanPage extends StatefulWidget {
   final bool showConfetti;
-  
-  const ReadingPlanPage({
-    super.key,
-    this.showConfetti = false,
-  });
+
+  const ReadingPlanPage({super.key, this.showConfetti = false});
 
   @override
   State<ReadingPlanPage> createState() => _ReadingPlanPageState();
@@ -27,8 +24,18 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
   @override
   void initState() {
     super.initState();
-    _confettiController = ConfettiController(duration: const Duration(seconds: 4));
+    _confettiController = ConfettiController(
+      duration: const Duration(seconds: 4),
+    );
     if (widget.showConfetti) {
+      _confettiController.play();
+    }
+  }
+
+  @override
+  void didUpdateWidget(ReadingPlanPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.showConfetti && !oldWidget.showConfetti) {
       _confettiController.play();
     }
   }
@@ -63,7 +70,9 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
           return _buildLoadingShimmer(context);
         }
         if (!snapshot.hasData || !snapshot.data!.exists) {
-          return const Center(child: Text("Nenhum dado de usuário encontrado."));
+          return const Center(
+            child: Text("Nenhum dado de usuário encontrado."),
+          );
         }
 
         final user = UserModel.fromFirestore(snapshot.data!);
@@ -78,12 +87,23 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
                   alignment: Alignment.topCenter,
                   child: ConfettiWidget(
                     confettiController: _confettiController,
-                    blastDirection: pi / 2, // down
-                    maxBlastForce: 5,
-                    minBlastForce: 2,
-                    emissionFrequency: 0.05,
-                    numberOfParticles: 20,
-                    gravity: 0.1,
+                    blastDirection: pi / 2, // para baixo
+                    maxBlastForce: 15,
+                    minBlastForce: 5,
+                    emissionFrequency: 0.1,
+                    numberOfParticles: 40, // Dobro de partículas
+                    gravity: 0.2,
+                    colors: const [
+                      Colors.green,
+                      Colors.blue,
+                      Colors.pink,
+                      Colors.orange,
+                      Colors.purple,
+                      Colors.amber,
+                    ], // Cores mais vibrantes
+                    shouldLoop: false,
+                    strokeWidth: 1,
+                    strokeColor: Colors.white,
                   ),
                 ),
             ],
@@ -101,7 +121,10 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
         children: [
           BounceButton(
             onTap: () {
-              final randomQuote = _motivationalQuotes[Random().nextInt(_motivationalQuotes.length)];
+              final randomQuote =
+                  _motivationalQuotes[Random().nextInt(
+                    _motivationalQuotes.length,
+                  )];
               AppAlerts.showSnackBar(
                 context,
                 message: randomQuote,
@@ -110,24 +133,29 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
             },
             child: Text(
               'SEU PROGRESSO',
-              style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 32),
+              style: Theme.of(
+                context,
+              ).textTheme.displayLarge?.copyWith(fontSize: 32),
               textAlign: TextAlign.left,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'Mantenha a chama da leitura acesa!',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey.shade600),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(color: Colors.grey.shade600),
             textAlign: TextAlign.left,
           ),
           const SizedBox(height: 24),
-          
+
           // Destaque Principal (Ofensiva)
           BounceButton(
             onTap: () {
               AppAlerts.showSnackBar(
                 context,
-                message: 'Sua ofensiva aumentará caso você leia o provérbio de hoje! 🔥',
+                message:
+                    'Sua ofensiva aumentará caso você leia o provérbio de hoje! 🔥',
                 type: AppAlertType.success,
               );
             },
@@ -145,18 +173,40 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
               Expanded(
                 child: BounceButton(
                   onTap: () {
-                    _showInfoDialog(context, 'Maior Ofensiva', 'Seu recorde histórico! A maior quantidade de dias seguidos que você manteve o ritmo sem falhar. Você já chegou a ${user.longestStreak} dias!', Icons.emoji_events_rounded);
+                    _showInfoDialog(
+                      context,
+                      'Maior Ofensiva',
+                      'Seu recorde histórico! A maior quantidade de dias seguidos que você manteve o ritmo sem falhar. Você já chegou a ${user.longestStreak} dias!',
+                      Icons.emoji_events_rounded,
+                    );
                   },
-                  child: _buildSecondaryStat(context, 'Maior Ofensiva', '${user.longestStreak} dias', Icons.emoji_events_rounded, Colors.amber),
+                  child: _buildSecondaryStat(
+                    context,
+                    'Maior Ofensiva',
+                    '${user.longestStreak} dias',
+                    Icons.emoji_events_rounded,
+                    Colors.amber,
+                  ),
                 ),
               ),
               const SizedBox(width: 16),
               Expanded(
                 child: BounceButton(
                   onTap: () {
-                    _showInfoDialog(context, 'Total Lido', 'Número de dias totais já completados desde que você começou sua jornada! São ${user.completedDays.length} dias iluminados pela leitura.', Icons.menu_book_rounded);
+                    _showInfoDialog(
+                      context,
+                      'Total Lido',
+                      'Número de dias totais já completados desde que você começou sua jornada! São ${user.completedDays.length} dias iluminados pela leitura.',
+                      Icons.menu_book_rounded,
+                    );
                   },
-                  child: _buildSecondaryStat(context, 'Total Lido', '${user.completedDays.length} dias', Icons.menu_book_rounded, Colors.blueAccent),
+                  child: _buildSecondaryStat(
+                    context,
+                    'Total Lido',
+                    '${user.completedDays.length} dias',
+                    Icons.menu_book_rounded,
+                    Colors.blueAccent,
+                  ),
                 ),
               ),
             ],
@@ -166,7 +216,10 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
           // Nova Função: Conquistas
           Text(
             'CONQUISTAS',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, letterSpacing: 1.2),
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.2,
+            ),
           ),
           const SizedBox(height: 16),
           _buildAchievementsList(context, user),
@@ -175,7 +228,12 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
     );
   }
 
-  void _showInfoDialog(BuildContext context, String title, String desc, IconData icon) {
+  void _showInfoDialog(
+    BuildContext context,
+    String title,
+    String desc,
+    IconData icon,
+  ) {
     AppAlerts.showCustomDialog(
       context: context,
       title: title,
@@ -201,13 +259,16 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
       context: context,
       barrierDismissible: true,
       barrierLabel: 'Fechar conquista',
-      barrierColor: Colors.black.withOpacity(0.5),
-      transitionDuration: const Duration(milliseconds: 400),
+      barrierColor: Colors.black.withOpacity(0.7),
+      transitionDuration: const Duration(milliseconds: 500),
       pageBuilder: (context, _, __) => const SizedBox(),
       transitionBuilder: (context, animation, __, child) {
-        final curve = CurvedAnimation(parent: animation, curve: Curves.easeOutBack);
+        final curve = CurvedAnimation(
+          parent: animation,
+          curve: Curves.elasticOut,
+        );
         return ScaleTransition(
-          scale: Tween<double>(begin: 0.9, end: 1.0).animate(curve),
+          scale: Tween<double>(begin: 0.8, end: 1.0).animate(curve),
           child: FadeTransition(
             opacity: animation,
             child: Center(
@@ -218,118 +279,195 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
                   padding: const EdgeInsets.all(32),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(32),
+                    borderRadius: BorderRadius.circular(40),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 30,
-                        offset: const Offset(0, 10),
-                      )
+                        color: isUnlocked
+                            ? color.withOpacity(0.2)
+                            : Colors.black.withOpacity(0.1),
+                        blurRadius: 40,
+                        offset: const Offset(0, 20),
+                      ),
                     ],
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          color: isUnlocked ? color.withOpacity(0.12) : Colors.grey.shade100,
-                          shape: BoxShape.circle,
-                          boxShadow: isUnlocked ? [
-                            BoxShadow(
-                              color: color.withOpacity(0.2),
-                              blurRadius: 20,
-                              spreadRadius: 2,
-                            )
-                          ] : null,
-                        ),
-                        child: Icon(
-                          isUnlocked ? iconData : Icons.lock_rounded,
-                          color: isUnlocked ? color : Colors.grey.shade400,
-                          size: 56,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      Text(
-                        achievement['title'] as String,
-                        style: const TextStyle(
-                          fontSize: 24, 
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: -0.5,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        achievement['desc'] as String,
-                        style: TextStyle(
-                          color: isUnlocked ? color : Colors.grey.shade600,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        isUnlocked
-                            ? 'Conquista desbloqueada! Você já alcançou esse marco de sabedoria.'
-                            : 'Falta pouco! Continue sua jornada diária.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.grey.shade700, height: 1.6, fontSize: 15),
-                      ),
-                      const SizedBox(height: 24),
-                      Column(
+                      // Badge Header
+                      Stack(
+                        alignment: Alignment.center,
                         children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Progresso',
-                                style: TextStyle(
-                                  fontSize: 12, 
-                                  fontWeight: FontWeight.w900, 
-                                  color: Colors.grey.shade400,
-                                  letterSpacing: 1,
-                                ),
-                              ),
-                              Text(
-                                '$currentValue/$threshold',
-                                style: TextStyle(
-                                  fontSize: 12, 
-                                  fontWeight: FontWeight.bold, 
-                                  color: color,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
-                            child: LinearProgressIndicator(
-                              value: (currentValue / threshold).clamp(0, 1).toDouble(),
-                              minHeight: 10,
-                              backgroundColor: Colors.grey.shade100,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                isUnlocked ? color : Theme.of(context).colorScheme.primary,
-                              ),
+                          Container(
+                            width: 120,
+                            height: 120,
+                            decoration: BoxDecoration(
+                              color: isUnlocked
+                                  ? color.withOpacity(0.1)
+                                  : Colors.grey.shade50,
+                              shape: BoxShape.circle,
                             ),
                           ),
+                          Icon(
+                            isUnlocked ? iconData : Icons.lock_rounded,
+                            color: isUnlocked ? color : Colors.grey.shade300,
+                            size: 64,
+                          ),
+                          if (isUnlocked)
+                            TweenAnimationBuilder<double>(
+                              tween: Tween(begin: 0.0, end: 1.0),
+                              duration: const Duration(milliseconds: 800),
+                              builder: (context, val, child) {
+                                return Transform.rotate(
+                                  angle: val * 2 * pi,
+                                  child: Icon(
+                                    Icons.auto_awesome_rounded,
+                                    color: color.withOpacity(0.4),
+                                    size: 140,
+                                  ),
+                                );
+                              },
+                            ),
                         ],
                       ),
                       const SizedBox(height: 32),
+                      Text(
+                        achievement['title'] as String,
+                        style: const TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -1,
+                          color: Colors.black87,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isUnlocked
+                              ? color.withOpacity(0.1)
+                              : Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(100),
+                        ),
+                        child: Text(
+                          achievement['desc'] as String,
+                          style: TextStyle(
+                            color: isUnlocked ? color : Colors.grey.shade600,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 12,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+
+                      // Progress Section
+                      if (!isUnlocked) ...[
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'PROGRESSO ATUAL',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.grey.shade400,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                            Text(
+                              '$currentValue / $threshold',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w900,
+                                color: color,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(100),
+                          child: LinearProgressIndicator(
+                            value: (currentValue / threshold)
+                                .clamp(0, 1)
+                                .toDouble(),
+                            minHeight: 10,
+                            backgroundColor: Colors.grey.shade100,
+                            valueColor: AlwaysStoppedAnimation<Color>(color),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        Text(
+                          'Continue firme! A sabedoria é uma jornada diária.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.grey.shade500,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ] else ...[
+                        const Icon(
+                          Icons.stars_rounded,
+                          color: Colors.amber,
+                          size: 32,
+                        ),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'MARCO ALCANÇADO!',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.amber,
+                            letterSpacing: 2,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Sua dedicação aos Provérbios está gerando frutos eternos.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            height: 1.5,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+
+                      const SizedBox(height: 40),
+
                       SizedBox(
                         width: double.infinity,
-                        child: FilledButton(
-                          style: FilledButton.styleFrom(
-                            backgroundColor: isUnlocked ? color : Colors.grey.shade800,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                          ),
-                          onPressed: () => Navigator.pop(context),
-                          child: Text(
-                            isUnlocked ? 'GLÓRIA A DEUS!' : 'CONTINUAR JORNADA',
-                            style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1),
+                        height: 60,
+                        child: BounceButton(
+                          onTap: () => Navigator.pop(context),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: isUnlocked ? color : Colors.black87,
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: (isUnlocked ? color : Colors.black)
+                                      .withOpacity(0.3),
+                                  blurRadius: 15,
+                                  offset: const Offset(0, 8),
+                                ),
+                              ],
+                            ),
+                            child: Center(
+                              child: Text(
+                                isUnlocked ? 'GLÓRIA A DEUS!' : 'ENTENDI',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 1.5,
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -359,7 +497,7 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
             color: const Color(0xFFD65108).withOpacity(0.4),
             blurRadius: 20,
             offset: const Offset(0, 10),
-          )
+          ),
         ],
       ),
       child: Column(
@@ -368,7 +506,9 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
           const SizedBox(height: 16),
           TweenAnimationBuilder<int>(
             tween: IntTween(
-              begin: widget.showConfetti ? max(0, user.readingStreak - 1) : user.readingStreak,
+              begin: widget.showConfetti
+                  ? max(0, user.readingStreak - 1)
+                  : user.readingStreak,
               end: user.readingStreak,
             ),
             duration: const Duration(milliseconds: 1500),
@@ -387,7 +527,9 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
           ),
           const SizedBox(height: 4),
           Text(
-            user.readingStreak > 0 ? 'Ofensiva atual 🔥' : 'Comece a ler hoje mesmo!',
+            user.readingStreak > 0
+                ? 'Ofensiva atual 🔥'
+                : 'Comece a ler hoje mesmo!',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w500,
@@ -399,7 +541,13 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
     );
   }
 
-  Widget _buildSecondaryStat(BuildContext context, String title, String value, IconData icon, Color color) {
+  Widget _buildSecondaryStat(
+    BuildContext context,
+    String title,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -410,7 +558,7 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
             color: Colors.black.withOpacity(0.04),
             blurRadius: 10,
             offset: const Offset(0, 4),
-          )
+          ),
         ],
       ),
       child: Column(
@@ -428,7 +576,12 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
           TweenAnimationBuilder<int>(
             tween: IntTween(
               // If we are celebrating, animate from N-1 to N
-              begin: widget.showConfetti ? max(0, int.parse(value.replaceAll(RegExp(r'[^0-9]'), '')) - 1) : int.parse(value.replaceAll(RegExp(r'[^0-9]'), '')),
+              begin: widget.showConfetti
+                  ? max(
+                      0,
+                      int.parse(value.replaceAll(RegExp(r'[^0-9]'), '')) - 1,
+                    )
+                  : int.parse(value.replaceAll(RegExp(r'[^0-9]'), '')),
               end: int.parse(value.replaceAll(RegExp(r'[^0-9]'), '')),
             ),
             duration: const Duration(milliseconds: 1500),
@@ -436,30 +589,45 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
             builder: (context, val, child) {
               return Text(
                 '$val dias',
-                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87),
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
               );
             },
           ),
           const SizedBox(height: 4),
           Text(
             title,
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.grey.shade600),
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey.shade600,
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildWeeklyProgressCard(BuildContext context, List<DateTime> completedDays) {
+  Widget _buildWeeklyProgressCard(
+    BuildContext context,
+    List<DateTime> completedDays,
+  ) {
     final today = DateTime.now();
-    final weekStart = today.subtract(Duration(days: today.weekday - 1)); // Segunda-feira
+    final weekStart = today.subtract(
+      Duration(days: today.weekday - 1),
+    ); // Segunda-feira
     final weekDays = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
-    
+
     // Calcular progresso semanal
     int completedThisWeek = 0;
     for (int i = 0; i < 7; i++) {
       final day = weekStart.add(Duration(days: i));
-      if (completedDays.any((d) => d.year == day.year && d.month == day.month && d.day == day.day)) {
+      if (completedDays.any(
+        (d) => d.year == day.year && d.month == day.month && d.day == day.day,
+      )) {
         completedThisWeek++;
       }
     }
@@ -475,7 +643,7 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
             color: Colors.black.withOpacity(0.04),
             blurRadius: 15,
             offset: const Offset(0, 6),
-          )
+          ),
         ],
       ),
       child: Column(
@@ -489,12 +657,20 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
                 children: [
                   Text(
                     'Jornada Semanal',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey.shade900),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey.shade900,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     '$completedThisWeek de 7 dias concluídos',
-                    style: TextStyle(fontSize: 13, color: Colors.grey.shade500, fontWeight: FontWeight.w500),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey.shade500,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ],
               ),
@@ -526,7 +702,9 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
               value: weekPercent,
               minHeight: 8,
               backgroundColor: Colors.grey.shade100,
-              valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary),
+              valueColor: AlwaysStoppedAnimation<Color>(
+                Theme.of(context).colorScheme.primary,
+              ),
             ),
           ),
           const SizedBox(height: 24),
@@ -534,12 +712,17 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: List.generate(7, (index) {
               final day = weekStart.add(Duration(days: index));
-              final isCompleted = completedDays.any((completedDay) =>
-                  completedDay.year == day.year &&
-                  completedDay.month == day.month &&
-                  completedDay.day == day.day);
+              final isCompleted = completedDays.any(
+                (completedDay) =>
+                    completedDay.year == day.year &&
+                    completedDay.month == day.month &&
+                    completedDay.day == day.day,
+              );
 
-              final isToday = day.year == today.year && day.month == today.month && day.day == today.day;
+              final isToday =
+                  day.year == today.year &&
+                  day.month == today.month &&
+                  day.day == today.day;
               final formattedDate = DateFormat('dd/MM').format(day);
               final primaryColor = Theme.of(context).colorScheme.primary;
 
@@ -548,21 +731,28 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
                   onTap: () {
                     String message = '';
                     AppAlertType type = AppAlertType.info;
-                    
+
                     if (isCompleted) {
-                      message = 'Dia $formattedDate concluído! Sabedoria garantida. 🎉';
+                      message =
+                          'Dia $formattedDate concluído! Sabedoria garantida. 🎉';
                       type = AppAlertType.success;
                     } else if (day.isAfter(today)) {
-                      message = 'Prepare-se! O dia $formattedDate ainda chegará.';
+                      message =
+                          'Prepare-se! O dia $formattedDate ainda chegará.';
                     } else if (isToday) {
                       message = 'Hoje é dia de ler! Não perca sua ofensiva. 🔥';
                       type = AppAlertType.warning;
                     } else {
-                      message = 'Ops! Você perdeu a leitura no dia $formattedDate.';
+                      message =
+                          'Ops! Você perdeu a leitura no dia $formattedDate.';
                       type = AppAlertType.error;
                     }
-                    
-                    AppAlerts.showSnackBar(context, message: message, type: type);
+
+                    AppAlerts.showSnackBar(
+                      context,
+                      message: message,
+                      type: type,
+                    );
                   },
                   child: Column(
                     children: [
@@ -570,7 +760,9 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
                         weekDays[index],
                         style: TextStyle(
                           fontSize: 11,
-                          fontWeight: isToday ? FontWeight.w900 : FontWeight.w600,
+                          fontWeight: isToday
+                              ? FontWeight.w900
+                              : FontWeight.w600,
                           color: isToday ? primaryColor : Colors.grey.shade400,
                         ),
                       ),
@@ -580,27 +772,37 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
                         width: 38,
                         height: 38,
                         decoration: BoxDecoration(
-                          color: isCompleted 
-                              ? primaryColor 
-                              : (isToday ? primaryColor.withOpacity(0.08) : Colors.transparent),
+                          color: isCompleted
+                              ? primaryColor
+                              : (isToday
+                                    ? primaryColor.withOpacity(0.08)
+                                    : Colors.transparent),
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: isCompleted 
-                                ? primaryColor 
-                                : (isToday ? primaryColor : Colors.grey.shade200),
+                            color: isCompleted
+                                ? primaryColor
+                                : (isToday
+                                      ? primaryColor
+                                      : Colors.grey.shade200),
                             width: 2,
                           ),
-                          boxShadow: isCompleted ? [
-                            BoxShadow(
-                              color: primaryColor.withOpacity(0.3),
-                              blurRadius: 8,
-                              offset: const Offset(0, 3),
-                            )
-                          ] : null,
+                          boxShadow: isCompleted
+                              ? [
+                                  BoxShadow(
+                                    color: primaryColor.withOpacity(0.3),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ]
+                              : null,
                         ),
                         child: Icon(
-                          isCompleted ? Icons.check_rounded : (isToday ? Icons.timer_outlined : null),
-                          color: isCompleted ? Colors.white : (isToday ? primaryColor : Colors.transparent),
+                          isCompleted
+                              ? Icons.check_rounded
+                              : (isToday ? Icons.timer_outlined : null),
+                          color: isCompleted
+                              ? Colors.white
+                              : (isToday ? primaryColor : Colors.transparent),
                           size: 18,
                         ),
                       ),
@@ -630,36 +832,176 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
     final totalReadDays = user.completedDays.length;
 
     final achievements = [
-      {'title': 'Formiga Diligente', 'desc': '1 dia de ofensiva', 'threshold': 1, 'metric': 'streak', 'unit': 'dias', 'icon': Icons.emoji_nature_rounded, 'color': const Color(0xFF8D6E63)},
-      {'title': 'Temor do Senhor', 'desc': '3 dias de ofensiva', 'threshold': 3, 'metric': 'streak', 'unit': 'dias', 'icon': Icons.auto_awesome_rounded, 'color': const Color(0xFF5C6BC0)},
-      {'title': 'Caminho Reto', 'desc': '7 dias de ofensiva', 'threshold': 7, 'metric': 'streak', 'unit': 'dias', 'icon': Icons.alt_route_rounded, 'color': const Color(0xFF66BB6A)},
-      {'title': 'Língua Mansa', 'desc': '14 dias de ofensiva', 'threshold': 14, 'metric': 'streak', 'unit': 'dias', 'icon': Icons.record_voice_over_rounded, 'color': const Color(0xFF26A69A)},
-      {'title': 'Ferro Afiado', 'desc': '21 dias de ofensiva', 'threshold': 21, 'metric': 'streak', 'unit': 'dias', 'icon': Icons.handyman_rounded, 'color': const Color(0xFF78909C)},
-      {'title': 'Torre Forte', 'desc': '60 dias de ofensiva', 'threshold': 60, 'metric': 'streak', 'unit': 'dias', 'icon': Icons.castle_rounded, 'color': const Color(0xFFBDBDBD)},
-      {'title': 'Coroa de Sábio', 'desc': '100 dias de ofensiva', 'threshold': 100, 'metric': 'streak', 'unit': 'dias', 'icon': Icons.military_tech_rounded, 'color': const Color(0xFFFBC02D)},
-      {'title': 'Muralha Inabalável', 'desc': '180 dias de ofensiva', 'threshold': 180, 'metric': 'streak', 'unit': 'dias', 'icon': Icons.fort_rounded, 'color': const Color(0xFF7E57C2)},
-      {'title': 'Guardião de Provérbios', 'desc': '265 dias de ofensiva', 'threshold': 265, 'metric': 'streak', 'unit': 'dias', 'icon': Icons.shield_moon_rounded, 'color': const Color(0xFF3949AB)},
-      {'title': 'Peregrino Fiel', 'desc': '365 dias de ofensiva', 'threshold': 365, 'metric': 'streak', 'unit': 'dias', 'icon': Icons.travel_explore_rounded, 'color': const Color(0xFF00695C)},
-      {'title': 'Lâmpada para os Pés', 'desc': '30 leituras totais', 'threshold': 30, 'metric': 'total', 'unit': 'leituras', 'icon': Icons.lightbulb_circle_rounded, 'color': const Color(0xFFFF7043)},
-      {'title': 'Fonte de Vida', 'desc': '90 leituras totais', 'threshold': 90, 'metric': 'total', 'unit': 'leituras', 'icon': Icons.waves_rounded, 'color': const Color(0xFF42A5F5)},
-      {'title': 'Rubi Precioso', 'desc': '180 leituras totais', 'threshold': 180, 'metric': 'total', 'unit': 'leituras', 'icon': Icons.diamond_rounded, 'color': const Color(0xFFD81B60)},
-      {'title': 'Sábio Experiente', 'desc': '265 leituras totais', 'threshold': 265, 'metric': 'total', 'unit': 'leituras', 'icon': Icons.psychology_alt_rounded, 'color': const Color(0xFF8E24AA)},
-      {'title': 'Árvore da Vida', 'desc': '365 leituras totais', 'threshold': 365, 'metric': 'total', 'unit': 'leituras', 'icon': Icons.eco_rounded, 'color': const Color(0xFF2E7D32)},
-      {'title': 'Escriba da Sabedoria', 'desc': '500 leituras totais', 'threshold': 500, 'metric': 'total', 'unit': 'leituras', 'icon': Icons.menu_book_rounded, 'color': const Color(0xFF5D4037)},
-      {'title': 'Aliança de Ouro', 'desc': '730 leituras totais (2 anos)', 'threshold': 730, 'metric': 'total', 'unit': 'leituras', 'icon': Icons.workspace_premium_rounded, 'color': const Color(0xFFFFC107)},
+      {
+        'title': 'Formiga Diligente',
+        'desc': '1 dia de ofensiva',
+        'threshold': 1,
+        'metric': 'streak',
+        'unit': 'dias',
+        'icon': Icons.emoji_nature_rounded,
+        'color': const Color(0xFF8D6E63),
+      },
+      {
+        'title': 'Temor do Senhor',
+        'desc': '3 dias de ofensiva',
+        'threshold': 3,
+        'metric': 'streak',
+        'unit': 'dias',
+        'icon': Icons.auto_awesome_rounded,
+        'color': const Color(0xFF5C6BC0),
+      },
+      {
+        'title': 'Caminho Reto',
+        'desc': '7 dias de ofensiva',
+        'threshold': 7,
+        'metric': 'streak',
+        'unit': 'dias',
+        'icon': Icons.alt_route_rounded,
+        'color': const Color(0xFF66BB6A),
+      },
+      {
+        'title': 'Língua Mansa',
+        'desc': '14 dias de ofensiva',
+        'threshold': 14,
+        'metric': 'streak',
+        'unit': 'dias',
+        'icon': Icons.record_voice_over_rounded,
+        'color': const Color(0xFF26A69A),
+      },
+      {
+        'title': 'Ferro Afiado',
+        'desc': '21 dias de ofensiva',
+        'threshold': 21,
+        'metric': 'streak',
+        'unit': 'dias',
+        'icon': Icons.handyman_rounded,
+        'color': const Color(0xFF78909C),
+      },
+      {
+        'title': 'Torre Forte',
+        'desc': '60 dias de ofensiva',
+        'threshold': 60,
+        'metric': 'streak',
+        'unit': 'dias',
+        'icon': Icons.castle_rounded,
+        'color': const Color(0xFFBDBDBD),
+      },
+      {
+        'title': 'Coroa de Sábio',
+        'desc': '100 dias de ofensiva',
+        'threshold': 100,
+        'metric': 'streak',
+        'unit': 'dias',
+        'icon': Icons.military_tech_rounded,
+        'color': const Color(0xFFFBC02D),
+      },
+      {
+        'title': 'Muralha Inabalável',
+        'desc': '180 dias de ofensiva',
+        'threshold': 180,
+        'metric': 'streak',
+        'unit': 'dias',
+        'icon': Icons.fort_rounded,
+        'color': const Color(0xFF7E57C2),
+      },
+      {
+        'title': 'Guardião de Provérbios',
+        'desc': '265 dias de ofensiva',
+        'threshold': 265,
+        'metric': 'streak',
+        'unit': 'dias',
+        'icon': Icons.shield_moon_rounded,
+        'color': const Color(0xFF3949AB),
+      },
+      {
+        'title': 'Peregrino Fiel',
+        'desc': '365 dias de ofensiva',
+        'threshold': 365,
+        'metric': 'streak',
+        'unit': 'dias',
+        'icon': Icons.travel_explore_rounded,
+        'color': const Color(0xFF00695C),
+      },
+      {
+        'title': 'Lâmpada para os Pés',
+        'desc': '30 leituras totais',
+        'threshold': 30,
+        'metric': 'total',
+        'unit': 'leituras',
+        'icon': Icons.lightbulb_circle_rounded,
+        'color': const Color(0xFFFF7043),
+      },
+      {
+        'title': 'Fonte de Vida',
+        'desc': '90 leituras totais',
+        'threshold': 90,
+        'metric': 'total',
+        'unit': 'leituras',
+        'icon': Icons.waves_rounded,
+        'color': const Color(0xFF42A5F5),
+      },
+      {
+        'title': 'Rubi Precioso',
+        'desc': '180 leituras totais',
+        'threshold': 180,
+        'metric': 'total',
+        'unit': 'leituras',
+        'icon': Icons.diamond_rounded,
+        'color': const Color(0xFFD81B60),
+      },
+      {
+        'title': 'Sábio Experiente',
+        'desc': '265 leituras totais',
+        'threshold': 265,
+        'metric': 'total',
+        'unit': 'leituras',
+        'icon': Icons.psychology_alt_rounded,
+        'color': const Color(0xFF8E24AA),
+      },
+      {
+        'title': 'Árvore da Vida',
+        'desc': '365 leituras totais',
+        'threshold': 365,
+        'metric': 'total',
+        'unit': 'leituras',
+        'icon': Icons.eco_rounded,
+        'color': const Color(0xFF2E7D32),
+      },
+      {
+        'title': 'Escriba da Sabedoria',
+        'desc': '500 leituras totais',
+        'threshold': 500,
+        'metric': 'total',
+        'unit': 'leituras',
+        'icon': Icons.menu_book_rounded,
+        'color': const Color(0xFF5D4037),
+      },
+      {
+        'title': 'Aliança de Ouro',
+        'desc': '730 leituras totais (2 anos)',
+        'threshold': 730,
+        'metric': 'total',
+        'unit': 'leituras',
+        'icon': Icons.workspace_premium_rounded,
+        'color': const Color(0xFFFFC107),
+      },
     ];
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       clipBehavior: Clip.none,
+      physics: const BouncingScrollPhysics(),
       child: Row(
         children: achievements.map((a) {
           final metric = a['metric'] as String;
           final threshold = a['threshold'] as int;
-          final currentValue = metric == 'total' ? totalReadDays : longestStreak;
+          final currentValue = metric == 'total'
+              ? totalReadDays
+              : longestStreak;
           final isUnlocked = currentValue >= threshold;
           final color = a['color'] as Color;
-          
+          final progress = (currentValue / threshold).clamp(0.0, 1.0);
+
           return BounceButton(
             onTap: () => _showAchievementDialog(
               context: context,
@@ -667,49 +1009,107 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
               isUnlocked: isUnlocked,
               currentValue: currentValue,
             ),
-            child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 500),
-              opacity: isUnlocked ? 1.0 : 0.4,
-              child: Container(
-                width: 110,
-                margin: const EdgeInsets.only(right: 16),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: isUnlocked ? color.withOpacity(0.1) : Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: isUnlocked ? color.withOpacity(0.5) : Colors.transparent,
-                    width: 2,
-                  )
+            child: Container(
+              width: 130,
+              margin: const EdgeInsets.only(right: 16, bottom: 8),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: isUnlocked
+                      ? color.withOpacity(0.3)
+                      : Colors.grey.shade100,
+                  width: 2,
                 ),
-                child: Column(
-                  children: [
-                    Icon(
-                      isUnlocked ? (a['icon'] as IconData) : Icons.lock_rounded, 
-                      color: isUnlocked ? color : Colors.grey.shade400, 
-                      size: 36
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      a['title'] as String,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: isUnlocked ? Colors.black87 : Colors.grey.shade600,
+                boxShadow: [
+                  BoxShadow(
+                    color: isUnlocked
+                        ? color.withOpacity(0.15)
+                        : Colors.black.withOpacity(0.05),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: isUnlocked
+                              ? color.withOpacity(0.1)
+                              : Colors.grey.shade50,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          isUnlocked
+                              ? (a['icon'] as IconData)
+                              : Icons.lock_rounded,
+                          color: isUnlocked ? color : Colors.grey.shade300,
+                          size: 32,
+                        ),
                       ),
-                      textAlign: TextAlign.center,
+                      if (isUnlocked)
+                        Positioned(
+                          right: -2,
+                          top: -2,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                              color: Colors.green,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.check,
+                              color: Colors.white,
+                              size: 10,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    a['title'] as String,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                      color: isUnlocked ? Colors.black87 : Colors.grey.shade400,
+                      letterSpacing: -0.2,
                     ),
-                    const SizedBox(height: 4),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 8),
+                  if (!isUnlocked)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: LinearProgressIndicator(
+                        value: progress,
+                        minHeight: 4,
+                        backgroundColor: Colors.grey.shade100,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          color.withOpacity(0.5),
+                        ),
+                      ),
+                    )
+                  else
                     Text(
-                      a['desc'] as String,
+                      'CONCLUÍDO',
                       style: TextStyle(
-                        fontSize: 12,
-                        color: isUnlocked ? color.withOpacity(0.8) : Colors.grey.shade500,
-                        fontWeight: FontWeight.w600
+                        fontSize: 9,
+                        fontWeight: FontWeight.w900,
+                        color: color,
+                        letterSpacing: 1,
                       ),
                     ),
-                  ],
-                ),
+                ],
               ),
             ),
           );
@@ -761,7 +1161,8 @@ class GlowingFireIcon extends StatefulWidget {
   State<GlowingFireIcon> createState() => _GlowingFireIconState();
 }
 
-class _GlowingFireIconState extends State<GlowingFireIcon> with SingleTickerProviderStateMixin {
+class _GlowingFireIconState extends State<GlowingFireIcon>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
 
   @override
@@ -826,7 +1227,8 @@ class _ShimmerRect extends StatefulWidget {
   State<_ShimmerRect> createState() => _ShimmerRectState();
 }
 
-class _ShimmerRectState extends State<_ShimmerRect> with SingleTickerProviderStateMixin {
+class _ShimmerRectState extends State<_ShimmerRect>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
 
   @override

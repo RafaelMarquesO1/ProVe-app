@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:myapp/providers/reading_settings_provider.dart';
 
@@ -12,16 +13,21 @@ class ReadingSettingsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final settings = ReadingSettingsProvider.instance;
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(
           'Ajustes de Leitura',
-          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w900,
+            letterSpacing: -0.5,
+          ),
         ),
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
           onPressed: () {
             if (Navigator.of(context).canPop()) {
               Navigator.of(context).pop();
@@ -30,89 +36,188 @@ class ReadingSettingsPage extends StatelessWidget {
             }
           },
         ),
-        backgroundColor: theme.scaffoldBackgroundColor,
+        backgroundColor: Colors.transparent,
         elevation: 0,
       ),
       body: AnimatedBuilder(
         animation: settings,
         builder: (context, child) {
-          // Estado para o SegmentedButton
           final Set<VoiceType> voiceSelection = {settings.voiceType};
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 32, 16, 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'AJUSTES',
-                  style: theme.textTheme.displayLarge,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Personalize sua experiência de leitura',
-                  style: theme.textTheme.titleMedium,
-                ),
-                const SizedBox(height: 32),
-                
-                _buildSectionTitle(context, 'APARÊNCIA DO TEXTO'),
-                Card(
-                  elevation: 0,
+          return ListView(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            children: [
+              // --- LIVE PREVIEW ---
+              _buildLivePreview(context, settings),
+              
+              const SizedBox(height: 32),
+              
+              // --- TEXT SECTION ---
+              _buildSectionTitle(context, 'VISUAL DO TEXTO'),
+              const SizedBox(height: 12),
+              Container(
+                decoration: BoxDecoration(
                   color: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: BorderSide(color: Colors.grey.shade200),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: Column(
-                    children: [
-                      _buildFontSizeSlider(context, settings),
-                      const Divider(height: 1, indent: 24, endIndent: 24),
-                      _buildBackgroundColorSelector(context, settings),
-                    ],
-                  ),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: Colors.grey.shade100),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.03),
+                      blurRadius: 15,
+                      offset: const Offset(0, 5),
+                    )
+                  ],
                 ),
-                const SizedBox(height: 24),
-                _buildSectionTitle(context, 'PREFERÊNCIAS DE ÁUDIO'),
-                Card(
-                  elevation: 0,
+                child: Column(
+                  children: [
+                    _buildFontSizeSlider(context, settings),
+                    Divider(height: 1, indent: 24, endIndent: 24, color: Colors.grey.shade50),
+                    _buildBackgroundColorSelector(context, settings),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 32),
+              
+              // --- AUDIO SECTION ---
+              _buildSectionTitle(context, 'VOZ E VELOCIDADE'),
+              const SizedBox(height: 12),
+              Container(
+                decoration: BoxDecoration(
                   color: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: BorderSide(color: Colors.grey.shade200),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: Column(
-                    children: [
-                      _buildSpeechRateSlider(context, settings),
-                      const Divider(height: 1, indent: 24, endIndent: 24),
-                      _buildVoiceSelector(context, settings, voiceSelection),
-                    ],
-                  ),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: Colors.grey.shade100),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.03),
+                      blurRadius: 15,
+                      offset: const Offset(0, 5),
+                    )
+                  ],
                 ),
-              ],
-            ),
+                child: Column(
+                  children: [
+                    _buildSpeechRateSlider(context, settings),
+                    Divider(height: 1, indent: 24, endIndent: 24, color: Colors.grey.shade50),
+                    _buildVoiceSelector(context, settings, voiceSelection),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(height: 40),
+              
+              // Botão de Reset
+              TextButton.icon(
+                onPressed: () {
+                  // Lógica de reset poderia ser adicionada ao provider
+                  settings.setFontSize(18.0);
+                  settings.setBackgroundColor(const Color(0xFFFFF9F0));
+                  settings.setSpeechRate(1.0);
+                  settings.setVoiceType(VoiceType.feminina);
+                },
+                icon: const Icon(Icons.refresh_rounded, size: 18),
+                label: const Text('Restaurar padrões'),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.grey,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+              ),
+            ],
           );
         },
       ),
     );
   }
 
+  Widget _buildLivePreview(BuildContext context, ReadingSettingsProvider settings) {
+    final theme = Theme.of(context);
+    final isDark = settings.backgroundColor.computeLuminance() < 0.4;
+    final textColor = isDark ? Colors.white : Colors.black87;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle(context, 'PRÉ-VISUALIZAÇÃO'),
+        const SizedBox(height: 12),
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          width: double.infinity,
+          height: 160,
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: settings.backgroundColor,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: isDark ? Colors.white10 : Colors.grey.shade200,
+              width: 2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: settings.backgroundColor.withOpacity(0.2),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              )
+            ],
+          ),
+          child: Center(
+            child: SingleChildScrollView(
+              physics: const NeverScrollableScrollPhysics(),
+              child: Text(
+                'Provérbios 3:5\nConfia no Senhor de todo o teu coração e não te estribes no teu próprio entendimento.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: settings.fontSize,
+                  color: textColor,
+                  height: 1.5,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildFontSizeSlider(BuildContext context, ReadingSettingsProvider settings) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Tamanho da Fonte', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-          Slider(
-            value: settings.fontSize,
-            min: 12.0,
-            max: 32.0,
-            divisions: 10,
-            label: settings.fontSize.round().toString(),
-            onChanged: (value) => settings.setFontSize(value),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Tamanho da Fonte', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${settings.fontSize.round()}px',
+                  style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold, fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Icon(Icons.text_fields_rounded, size: 16, color: Colors.grey),
+              Expanded(
+                child: Slider(
+                  value: settings.fontSize,
+                  min: 14.0,
+                  max: 30.0,
+                  divisions: 8,
+                  onChanged: (value) => settings.setFontSize(value),
+                ),
+              ),
+              const Icon(Icons.text_fields_rounded, size: 24, color: Colors.grey),
+            ],
           ),
         ],
       ),
@@ -122,18 +227,18 @@ class ReadingSettingsPage extends StatelessWidget {
   Widget _buildBackgroundColorSelector(BuildContext context, ReadingSettingsProvider settings) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Cor de Fundo', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+          Text('Cor de Fundo', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildColorChip(context, const Color(0xFFFFF9F0), 'Padrão'),
-              _buildColorChip(context, Colors.white, 'Branco'),
-              _buildColorChip(context, const Color(0xFF212121), 'Noturno'),
+              _buildColorChip(context, const Color(0xFFFFF9F0), 'Sépia'),
+              _buildColorChip(context, Colors.white, 'Claro'),
+              _buildColorChip(context, const Color(0xFF121212), 'Escuro'),
             ],
           ),
         ],
@@ -144,18 +249,42 @@ class ReadingSettingsPage extends StatelessWidget {
   Widget _buildSpeechRateSlider(BuildContext context, ReadingSettingsProvider settings) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Velocidade da Leitura', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-          Slider(
-            value: settings.speechRate,
-            min: 0.5,
-            max: 1.5, 
-            divisions: 10,
-            label: '${(settings.speechRate * 100).toInt()}%',
-            onChanged: (value) => settings.setSpeechRate(value),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Velocidade da Leitura', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${(settings.speechRate * 10).toInt() / 10}x',
+                  style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold, fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Icon(Icons.speed_rounded, size: 16, color: Colors.grey),
+              Expanded(
+                child: Slider(
+                  value: settings.speechRate,
+                  min: 0.5,
+                  max: 1.5, 
+                  divisions: 10,
+                  onChanged: (value) => settings.setSpeechRate(value),
+                ),
+              ),
+              const Icon(Icons.bolt_rounded, size: 24, color: Colors.grey),
+            ],
           ),
         ],
       ),
@@ -165,26 +294,43 @@ class ReadingSettingsPage extends StatelessWidget {
   Widget _buildVoiceSelector(BuildContext context, ReadingSettingsProvider settings, Set<VoiceType> selection) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Voz', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+          Text('Voz da Narração', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
-          SizedBox(
+          Container(
             width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(16),
+            ),
             child: SegmentedButton<VoiceType>(
               segments: const <ButtonSegment<VoiceType>>[
-                ButtonSegment(value: VoiceType.masculina, label: Text('Masculina'), icon: Icon(Icons.male)),
-                ButtonSegment(value: VoiceType.feminina, label: Text('Feminina'), icon: Icon(Icons.female)),
+                ButtonSegment(
+                  value: VoiceType.masculina, 
+                  label: Text('Masculina', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)), 
+                  icon: Icon(Icons.male_rounded, size: 18)
+                ),
+                ButtonSegment(
+                  value: VoiceType.feminina, 
+                  label: Text('Feminina', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)), 
+                  icon: Icon(Icons.female_rounded, size: 18)
+                ),
               ],
               selected: selection,
+              showSelectedIcon: false,
               onSelectionChanged: (newSelection) {
+                HapticFeedback.lightImpact();
                 settings.setVoiceType(newSelection.first);
               },
               style: SegmentedButton.styleFrom(
-                selectedBackgroundColor: theme.colorScheme.primary.withOpacity(0.2),
-                selectedForegroundColor: theme.colorScheme.primary,
+                backgroundColor: Colors.transparent,
+                selectedBackgroundColor: theme.colorScheme.primary,
+                selectedForegroundColor: Colors.white,
+                side: BorderSide.none,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               ),
             ),
           ),
@@ -195,44 +341,63 @@ class ReadingSettingsPage extends StatelessWidget {
 
   Widget _buildColorChip(BuildContext context, Color color, String label) {
     final settings = ReadingSettingsProvider.instance;
-    final bool isSelected = settings.backgroundColor == color;
+    final bool isSelected = settings.backgroundColor.value == color.value;
     final bool isDark = color.computeLuminance() < 0.4;
     final theme = Theme.of(context);
 
     return GestureDetector(
-      onTap: () => settings.setBackgroundColor(color),
+      onTap: () {
+        HapticFeedback.selectionClick();
+        settings.setBackgroundColor(color);
+      },
       child: Column(
         children: [
-          Container(
-            width: 60,
-            height: 60,
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: 54,
+            height: 54,
             decoration: BoxDecoration(
               color: color,
               shape: BoxShape.circle,
               border: Border.all(
-                color: isSelected ? theme.colorScheme.primary : (isDark ? Colors.white54 : Colors.black26),
+                color: isSelected ? theme.colorScheme.primary : Colors.grey.shade200,
                 width: isSelected ? 3.0 : 1.5,
               ),
+              boxShadow: isSelected ? [
+                BoxShadow(
+                  color: theme.colorScheme.primary.withOpacity(0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                )
+              ] : null,
             ),
-            child: isSelected ? Icon(Icons.check, color: isDark ? Colors.white : Colors.black) : null,
+            child: isSelected 
+              ? Icon(Icons.check_rounded, color: isDark ? Colors.white : theme.colorScheme.primary, size: 24) 
+              : null,
           ),
           const SizedBox(height: 8),
-          Text(label, style: theme.textTheme.bodyMedium?.copyWith(color: isSelected ? theme.colorScheme.primary : theme.textTheme.bodySmall?.color)),
+          Text(
+            label, 
+            style: TextStyle(
+              fontSize: 11, 
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+              color: isSelected ? theme.colorScheme.primary : Colors.grey.shade600,
+            )
+          ),
         ],
       ),
     );
   }
 
-  Padding _buildSectionTitle(BuildContext context, String title) {
+  Widget _buildSectionTitle(BuildContext context, String title) {
     final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(left: 8.0, bottom: 8.0, top: 8.0),
-      child: Text(
-        title,
-        style: theme.textTheme.labelLarge?.copyWith(
-          color: theme.textTheme.bodySmall?.color,
-          fontWeight: FontWeight.bold,
-        ),
+    return Text(
+      title,
+      style: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w900,
+        color: theme.colorScheme.primary.withOpacity(0.8),
+        letterSpacing: 1.5,
       ),
     );
   }
