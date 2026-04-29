@@ -27,6 +27,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
   String? _storedPhotoUrl;
   bool _removeCurrentPhoto = false;
   bool _isLoading = false;
+  bool _showCurrentPassword = false;
+  bool _showNewPassword = false;
 
   @override
   void initState() {
@@ -290,6 +292,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
+    final displayName = _nameController.text.trim().isEmpty
+        ? (_currentUser?.displayName ?? 'Usuário')
+        : _nameController.text.trim();
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -313,18 +318,21 @@ class _EditProfilePageState extends State<EditProfilePage> {
               const SizedBox(height: 8),
               Text(
                 'Mantenha seus dados sempre atualizados',
-                style: textTheme.titleMedium?.copyWith(color: Colors.grey.shade600),
+                style: textTheme.titleMedium?.copyWith(
+                  color: colorScheme.onSurface.withOpacity(0.7),
+                ),
               ),
-              const SizedBox(height: 40),
-              _buildAvatar(context, colorScheme),
-              const SizedBox(height: 40),
-              
+              const SizedBox(height: 20),
+              _buildProfileHeader(context, colorScheme, displayName),
+              const SizedBox(height: 28),
+
               _buildSectionTitle(context, 'INFORMAÇÕES BÁSICAS'),
               _buildInfoContainer(
                 child: Column(
                   children: [
                     TextFormField(
                       controller: _nameController,
+                      onChanged: (_) => setState(() {}),
                       style: const TextStyle(fontWeight: FontWeight.w600),
                       decoration: const InputDecoration(
                         labelText: 'Nome Completo',
@@ -336,7 +344,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     TextFormField(
                       initialValue: _currentUser?.email,
                       enabled: false,
-                      style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w500),
+                      style: TextStyle(
+                        color: colorScheme.onSurface.withOpacity(0.7),
+                        fontWeight: FontWeight.w500,
+                      ),
                       decoration: const InputDecoration(
                         labelText: 'E-mail',
                         prefixIcon: Icon(Icons.email_outlined),
@@ -359,25 +370,61 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     const SizedBox(height: 4),
                     Text(
                       'Preencha apenas se desejar alterar sua senha atual.',
-                      style: textTheme.bodySmall?.copyWith(color: Colors.grey.shade500),
+                      style: textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurface.withOpacity(0.65),
+                      ),
                     ),
                     const SizedBox(height: 20),
                     TextFormField(
                       controller: _currentPasswordController,
-                      obscureText: true,
-                      decoration: const InputDecoration(
+                      obscureText: !_showCurrentPassword,
+                      decoration: InputDecoration(
                         labelText: 'Senha Atual',
-                        prefixIcon: Icon(Icons.lock_outline_rounded),
+                        prefixIcon: const Icon(Icons.lock_outline_rounded),
+                        suffixIcon: IconButton(
+                          onPressed: () {
+                            setState(() {
+                              _showCurrentPassword = !_showCurrentPassword;
+                            });
+                          },
+                          icon: Icon(
+                            _showCurrentPassword
+                                ? Icons.visibility_off_rounded
+                                : Icons.visibility_rounded,
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: _newPasswordController,
-                      obscureText: true,
-                      decoration: const InputDecoration(
+                      obscureText: !_showNewPassword,
+                      decoration: InputDecoration(
                         labelText: 'Nova Senha',
-                        prefixIcon: Icon(Icons.lock_reset_rounded),
+                        prefixIcon: const Icon(Icons.lock_reset_rounded),
+                        suffixIcon: IconButton(
+                          onPressed: () {
+                            setState(() {
+                              _showNewPassword = !_showNewPassword;
+                            });
+                          },
+                          icon: Icon(
+                            _showNewPassword
+                                ? Icons.visibility_off_rounded
+                                : Icons.visibility_rounded,
+                          ),
+                        ),
                       ),
+                      validator: (value) {
+                        if ((value ?? '').isEmpty) return null;
+                        if ((value ?? '').length < 6) {
+                          return 'A nova senha precisa ter pelo menos 6 caracteres';
+                        }
+                        if (_currentPasswordController.text.isEmpty) {
+                          return 'Informe a senha atual para definir uma nova';
+                        }
+                        return null;
+                      },
                     ),
                   ],
                 ),
@@ -438,7 +485,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
           fontWeight: FontWeight.bold,
           letterSpacing: 1.2,
           fontSize: 14,
-          color: Colors.grey.shade800,
+          color: Theme.of(context).colorScheme.onSurface,
         ),
       ),
     );
@@ -448,7 +495,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
@@ -478,7 +525,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
             child: Hero(
               tag: 'profile_avatar',
               child: CircleAvatar(
-                radius: 64,
+                radius: 56,
                 backgroundImage: _imageFile != null
                     ? FileImage(_imageFile!)
                     : (photoURL != null ? NetworkImage(photoURL) : null),
@@ -486,7 +533,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 child: _imageFile == null && photoURL == null
                     ? Text(
                         displayName.substring(0, 1).toUpperCase(),
-                        style: TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: colorScheme.primary),
+                        style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: colorScheme.primary),
                       )
                     : null,
               ),
@@ -502,7 +549,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 decoration: BoxDecoration(
                   color: colorScheme.primary,
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 3),
+                  border: Border.all(color: Theme.of(context).cardColor, width: 3),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.2),
@@ -513,6 +560,64 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 ),
                 child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 20),
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileHeader(
+    BuildContext context,
+    ColorScheme colorScheme,
+    String displayName,
+  ) {
+    final email = _currentUser?.email ?? 'Sem e-mail';
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colorScheme.primary.withOpacity(0.14)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          _buildAvatar(context, colorScheme),
+          const SizedBox(height: 12),
+          Text(
+            displayName,
+            style: TextStyle(
+              color: colorScheme.onSurface,
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            email,
+            style: TextStyle(
+              color: colorScheme.onSurface.withOpacity(0.7),
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: _showImageSourceSheet,
+            icon: const Icon(Icons.photo_camera_outlined, size: 18),
+            label: const Text('Trocar foto'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: colorScheme.primary,
+              side: BorderSide(color: colorScheme.primary.withOpacity(0.28)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             ),
           ),
         ],

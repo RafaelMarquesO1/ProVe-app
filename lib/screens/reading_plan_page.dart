@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:confetti/confetti.dart';
 import 'package:myapp/widgets/app_alerts.dart';
 import 'package:myapp/widgets/bounce_button.dart';
+import 'package:myapp/utils/theme_colors.dart';
 
 class ReadingPlanPage extends StatefulWidget {
   final bool showConfetti;
@@ -142,9 +143,9 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
           const SizedBox(height: 8),
           Text(
             'Mantenha a chama da leitura acesa!',
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(color: Colors.grey.shade600),
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+            ),
             textAlign: TextAlign.left,
           ),
           const SizedBox(height: 24),
@@ -278,7 +279,7 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
                   margin: const EdgeInsets.symmetric(horizontal: 24),
                   padding: const EdgeInsets.all(32),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context).cardColor,
                     borderRadius: BorderRadius.circular(40),
                     boxShadow: [
                       BoxShadow(
@@ -551,7 +552,7 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
@@ -636,7 +637,7 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
@@ -1259,11 +1260,7 @@ class _ShimmerRectState extends State<_ShimmerRect>
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(widget.borderRadius),
               gradient: LinearGradient(
-                colors: [
-                  Colors.grey.shade200,
-                  Colors.grey.shade100,
-                  Colors.grey.shade200,
-                ],
+                colors: ThemeColors.getShimmerColors(context),
                 stops: const [0.0, 0.5, 1.0],
                 begin: Alignment(-1.0 + 2 * _controller.value, 0),
                 end: Alignment(1.0 + 2 * _controller.value, 0),

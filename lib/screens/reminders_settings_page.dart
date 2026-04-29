@@ -123,10 +123,10 @@ class _RemindersSettingsPageState extends State<RemindersSettingsPage> {
       SnackBar(
         content: Text(msg),
         backgroundColor: isError
-            ? Colors.red.shade700
+            ? Theme.of(context).colorScheme.error
             : isSuccess
-                ? Colors.green.shade700
-                : Colors.grey.shade800,
+                ? const Color(0xFF2E7D32)
+                : Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         margin: const EdgeInsets.all(16),
@@ -211,7 +211,7 @@ class _RemindersSettingsPageState extends State<RemindersSettingsPage> {
                               : 'Ative para não esquecer de ler o provérbio do dia',
                           textAlign: TextAlign.center,
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: Colors.grey.shade700,
+                            color: colorScheme.onSurface.withOpacity(0.72),
                             height: 1.5,
                           ),
                         ),
@@ -224,10 +224,10 @@ class _RemindersSettingsPageState extends State<RemindersSettingsPage> {
                   // Card principal de configuração
                   Card(
                     elevation: 0,
-                    color: Colors.white,
+                    color: theme.cardColor,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
-                      side: BorderSide(color: Colors.grey.shade200),
+                      side: BorderSide(color: theme.dividerColor),
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -246,7 +246,7 @@ class _RemindersSettingsPageState extends State<RemindersSettingsPage> {
                             subtitle: Text(
                               'Receba um aviso diário para ler seu Provérbio',
                               style: theme.textTheme.bodySmall
-                                  ?.copyWith(color: Colors.grey.shade600),
+                                  ?.copyWith(color: colorScheme.onSurface.withOpacity(0.7)),
                             ),
                             value: _areRemindersEnabled,
                             onChanged: _isSaving ? null : _toggleReminders,
@@ -256,7 +256,7 @@ class _RemindersSettingsPageState extends State<RemindersSettingsPage> {
                           ),
                         ),
 
-                        Divider(height: 1, color: Colors.grey.shade200),
+                        Divider(height: 1, color: theme.dividerColor),
 
                         // Seletor de horário
                         AnimatedOpacity(
@@ -283,7 +283,7 @@ class _RemindersSettingsPageState extends State<RemindersSettingsPage> {
                             subtitle: Text(
                               'Toque para alterar',
                               style: theme.textTheme.bodySmall
-                                  ?.copyWith(color: Colors.grey.shade500),
+                                  ?.copyWith(color: colorScheme.onSurface.withOpacity(0.65)),
                             ),
                             trailing: _isSaving
                                 ? const SizedBox(
@@ -328,7 +328,7 @@ class _RemindersSettingsPageState extends State<RemindersSettingsPage> {
                           child: Text(
                             'O lembrete será enviado todos os dias no horário configurado. Certifique-se de que as notificações do ProVê estejam permitidas nas configurações do seu dispositivo.',
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: Colors.grey.shade700,
+                              color: colorScheme.onSurface.withOpacity(0.72),
                               height: 1.5,
                             ),
                           ),

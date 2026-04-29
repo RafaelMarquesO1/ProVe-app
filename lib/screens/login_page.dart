@@ -73,7 +73,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(errorMessage),
-            backgroundColor: Colors.redAccent,
+            backgroundColor: Theme.of(context).colorScheme.error,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
@@ -90,7 +90,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Insira seu e-mail para recuperar a senha.'),
-          backgroundColor: Colors.orangeAccent,
+          backgroundColor: Color(0xFFD17A00),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -183,7 +183,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                       'Entre para continuar sua jornada',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.lato(
-                        color: Colors.grey.shade600,
+                        color: colorScheme.onSurface.withOpacity(0.7),
                         fontSize: 16,
                         letterSpacing: 0.5,
                       ),
@@ -212,7 +212,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                         suffixIcon: IconButton(
                           icon: Icon(
                             _obscurePassword ? Icons.visibility_off_rounded : Icons.visibility_rounded,
-                            color: Colors.grey.shade400,
+                            color: colorScheme.onSurface.withOpacity(0.55),
                           ),
                           onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                         ),

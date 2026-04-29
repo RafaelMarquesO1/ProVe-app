@@ -146,7 +146,7 @@ class _NotePageState extends State<NotePage> {
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: theme.cardColor,
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
@@ -163,7 +163,7 @@ class _NotePageState extends State<NotePage> {
               fontSize: 15,
               height: 1.6,
               fontStyle: FontStyle.italic,
-              color: Colors.grey.shade800,
+              color: theme.colorScheme.onSurface.withOpacity(0.8),
             ),
           ),
         ),
@@ -197,8 +197,11 @@ class _NotePageState extends State<NotePage> {
           style: GoogleFonts.lato(fontSize: 16),
           decoration: InputDecoration(
             hintText: 'O que o Espírito Santo te falou através desse versículo?',
-            hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
-            fillColor: Colors.white,
+            hintStyle: TextStyle(
+              color: theme.colorScheme.onSurface.withOpacity(0.45),
+              fontSize: 14,
+            ),
+            fillColor: theme.cardColor,
             filled: true,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(24),

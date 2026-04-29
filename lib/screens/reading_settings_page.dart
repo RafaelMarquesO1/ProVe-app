@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:myapp/providers/reading_settings_provider.dart';
 
-
 class ReadingSettingsPage extends StatelessWidget {
   final int returnIndex;
 
@@ -49,63 +48,73 @@ class ReadingSettingsPage extends StatelessWidget {
             children: [
               // --- LIVE PREVIEW ---
               _buildLivePreview(context, settings),
-              
+
               const SizedBox(height: 32),
-              
+
               // --- TEXT SECTION ---
               _buildSectionTitle(context, 'VISUAL DO TEXTO'),
               const SizedBox(height: 12),
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: theme.cardColor,
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Colors.grey.shade100),
+                  border: Border.all(color: theme.dividerColor),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.03),
                       blurRadius: 15,
                       offset: const Offset(0, 5),
-                    )
+                    ),
                   ],
                 ),
                 child: Column(
                   children: [
                     _buildFontSizeSlider(context, settings),
-                    Divider(height: 1, indent: 24, endIndent: 24, color: Colors.grey.shade50),
+                    Divider(
+                      height: 1,
+                      indent: 24,
+                      endIndent: 24,
+                      color: theme.dividerColor,
+                    ),
                     _buildBackgroundColorSelector(context, settings),
                   ],
                 ),
               ),
 
               const SizedBox(height: 32),
-              
+
               // --- AUDIO SECTION ---
               _buildSectionTitle(context, 'VOZ E VELOCIDADE'),
               const SizedBox(height: 12),
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: theme.cardColor,
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Colors.grey.shade100),
+                  border: Border.all(color: theme.dividerColor),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.03),
                       blurRadius: 15,
                       offset: const Offset(0, 5),
-                    )
+                    ),
                   ],
                 ),
                 child: Column(
                   children: [
                     _buildSpeechRateSlider(context, settings),
-                    Divider(height: 1, indent: 24, endIndent: 24, color: Colors.grey.shade50),
+                    Divider(
+                      height: 1,
+                      indent: 24,
+                      endIndent: 24,
+                      color: theme.dividerColor,
+                    ),
                     _buildVoiceSelector(context, settings, voiceSelection),
                   ],
                 ),
               ),
-              
+
               const SizedBox(height: 40),
-              
+
               // Botão de Reset
               TextButton.icon(
                 onPressed: () {
@@ -118,7 +127,7 @@ class ReadingSettingsPage extends StatelessWidget {
                 icon: const Icon(Icons.refresh_rounded, size: 18),
                 label: const Text('Restaurar padrões'),
                 style: TextButton.styleFrom(
-                  foregroundColor: Colors.grey,
+                  foregroundColor: colorScheme.onSurface.withOpacity(0.65),
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
               ),
@@ -129,7 +138,10 @@ class ReadingSettingsPage extends StatelessWidget {
     );
   }
 
-  Widget _buildLivePreview(BuildContext context, ReadingSettingsProvider settings) {
+  Widget _buildLivePreview(
+    BuildContext context,
+    ReadingSettingsProvider settings,
+  ) {
     final theme = Theme.of(context);
     final isDark = settings.backgroundColor.computeLuminance() < 0.4;
     final textColor = isDark ? Colors.white : Colors.black87;
@@ -156,7 +168,7 @@ class ReadingSettingsPage extends StatelessWidget {
                 color: settings.backgroundColor.withOpacity(0.2),
                 blurRadius: 20,
                 offset: const Offset(0, 10),
-              )
+              ),
             ],
           ),
           child: Center(
@@ -179,7 +191,10 @@ class ReadingSettingsPage extends StatelessWidget {
     );
   }
 
-  Widget _buildFontSizeSlider(BuildContext context, ReadingSettingsProvider settings) {
+  Widget _buildFontSizeSlider(
+    BuildContext context,
+    ReadingSettingsProvider settings,
+  ) {
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
@@ -189,16 +204,28 @@ class ReadingSettingsPage extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Tamanho da Fonte', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+              Text(
+                'Tamanho da Fonte',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.primary.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
                   '${settings.fontSize.round()}px',
-                  style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold, fontSize: 12),
+                  style: TextStyle(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
                 ),
               ),
             ],
@@ -206,7 +233,11 @@ class ReadingSettingsPage extends StatelessWidget {
           const SizedBox(height: 8),
           Row(
             children: [
-              const Icon(Icons.text_fields_rounded, size: 16, color: Colors.grey),
+              Icon(
+                Icons.text_fields_rounded,
+                size: 16,
+                color: theme.colorScheme.onSurface.withOpacity(0.55),
+              ),
               Expanded(
                 child: Slider(
                   value: settings.fontSize,
@@ -216,7 +247,11 @@ class ReadingSettingsPage extends StatelessWidget {
                   onChanged: (value) => settings.setFontSize(value),
                 ),
               ),
-              const Icon(Icons.text_fields_rounded, size: 24, color: Colors.grey),
+              Icon(
+                Icons.text_fields_rounded,
+                size: 24,
+                color: theme.colorScheme.onSurface.withOpacity(0.55),
+              ),
             ],
           ),
         ],
@@ -224,14 +259,22 @@ class ReadingSettingsPage extends StatelessWidget {
     );
   }
 
-  Widget _buildBackgroundColorSelector(BuildContext context, ReadingSettingsProvider settings) {
+  Widget _buildBackgroundColorSelector(
+    BuildContext context,
+    ReadingSettingsProvider settings,
+  ) {
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Cor de Fundo', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+          Text(
+            'Cor de Fundo',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -246,7 +289,10 @@ class ReadingSettingsPage extends StatelessWidget {
     );
   }
 
-  Widget _buildSpeechRateSlider(BuildContext context, ReadingSettingsProvider settings) {
+  Widget _buildSpeechRateSlider(
+    BuildContext context,
+    ReadingSettingsProvider settings,
+  ) {
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
@@ -256,16 +302,28 @@ class ReadingSettingsPage extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Velocidade da Leitura', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+              Text(
+                'Velocidade da Leitura',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.primary.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
                   '${(settings.speechRate * 10).toInt() / 10}x',
-                  style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold, fontSize: 12),
+                  style: TextStyle(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
                 ),
               ),
             ],
@@ -273,17 +331,25 @@ class ReadingSettingsPage extends StatelessWidget {
           const SizedBox(height: 8),
           Row(
             children: [
-              const Icon(Icons.speed_rounded, size: 16, color: Colors.grey),
+              Icon(
+                Icons.speed_rounded,
+                size: 16,
+                color: theme.colorScheme.onSurface.withOpacity(0.55),
+              ),
               Expanded(
                 child: Slider(
                   value: settings.speechRate,
                   min: 0.5,
-                  max: 1.5, 
+                  max: 1.5,
                   divisions: 10,
                   onChanged: (value) => settings.setSpeechRate(value),
                 ),
               ),
-              const Icon(Icons.bolt_rounded, size: 24, color: Colors.grey),
+              Icon(
+                Icons.bolt_rounded,
+                size: 24,
+                color: theme.colorScheme.onSurface.withOpacity(0.55),
+              ),
             ],
           ),
         ],
@@ -291,32 +357,47 @@ class ReadingSettingsPage extends StatelessWidget {
     );
   }
 
-  Widget _buildVoiceSelector(BuildContext context, ReadingSettingsProvider settings, Set<VoiceType> selection) {
+  Widget _buildVoiceSelector(
+    BuildContext context,
+    ReadingSettingsProvider settings,
+    Set<VoiceType> selection,
+  ) {
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Voz da Narração', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+          Text(
+            'Voz da Narração',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           const SizedBox(height: 16),
           Container(
             width: double.infinity,
             decoration: BoxDecoration(
-              color: Colors.grey.shade50,
+              color: theme.colorScheme.onSurface.withOpacity(0.05),
               borderRadius: BorderRadius.circular(16),
             ),
             child: SegmentedButton<VoiceType>(
               segments: const <ButtonSegment<VoiceType>>[
                 ButtonSegment(
-                  value: VoiceType.masculina, 
-                  label: Text('Masculina', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)), 
-                  icon: Icon(Icons.male_rounded, size: 18)
+                  value: VoiceType.masculina,
+                  label: Text(
+                    'Masculina',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  icon: Icon(Icons.male_rounded, size: 18),
                 ),
                 ButtonSegment(
-                  value: VoiceType.feminina, 
-                  label: Text('Feminina', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)), 
-                  icon: Icon(Icons.female_rounded, size: 18)
+                  value: VoiceType.feminina,
+                  label: Text(
+                    'Feminina',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  icon: Icon(Icons.female_rounded, size: 18),
                 ),
               ],
               selected: selection,
@@ -330,7 +411,9 @@ class ReadingSettingsPage extends StatelessWidget {
                 selectedBackgroundColor: theme.colorScheme.primary,
                 selectedForegroundColor: Colors.white,
                 side: BorderSide.none,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
               ),
             ),
           ),
@@ -360,29 +443,39 @@ class ReadingSettingsPage extends StatelessWidget {
               color: color,
               shape: BoxShape.circle,
               border: Border.all(
-                color: isSelected ? theme.colorScheme.primary : Colors.grey.shade200,
+                color: isSelected
+                    ? theme.colorScheme.primary
+                    : theme.dividerColor,
                 width: isSelected ? 3.0 : 1.5,
               ),
-              boxShadow: isSelected ? [
-                BoxShadow(
-                  color: theme.colorScheme.primary.withOpacity(0.3),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                )
-              ] : null,
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: theme.colorScheme.primary.withOpacity(0.3),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ]
+                  : null,
             ),
-            child: isSelected 
-              ? Icon(Icons.check_rounded, color: isDark ? Colors.white : theme.colorScheme.primary, size: 24) 
-              : null,
+            child: isSelected
+                ? Icon(
+                    Icons.check_rounded,
+                    color: isDark ? Colors.white : theme.colorScheme.primary,
+                    size: 24,
+                  )
+                : null,
           ),
           const SizedBox(height: 8),
           Text(
-            label, 
+            label,
             style: TextStyle(
-              fontSize: 11, 
+              fontSize: 11,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-              color: isSelected ? theme.colorScheme.primary : Colors.grey.shade600,
-            )
+              color: isSelected
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.onSurface.withOpacity(0.7),
+            ),
           ),
         ],
       ),

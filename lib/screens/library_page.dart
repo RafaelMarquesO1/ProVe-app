@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:myapp/services/user_data_service.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:myapp/utils/theme_colors.dart';
 
 class LibraryPage extends StatefulWidget {
   final int initialIndex;
@@ -42,7 +43,10 @@ class _LibraryPageState extends State<LibraryPage> {
               if (Navigator.of(context).canPop()) {
                 Navigator.of(context).pop();
               } else {
-                context.go('/home', extra: {'index': 1}); // Volta para a aba Biblioteca no scaffold
+                context.go(
+                  '/home',
+                  extra: {'index': 1},
+                ); // Volta para a aba Biblioteca no scaffold
               }
             },
           ),
@@ -51,8 +55,12 @@ class _LibraryPageState extends State<LibraryPage> {
             indicatorWeight: 4,
             indicatorSize: TabBarIndicatorSize.label,
             labelColor: theme.colorScheme.primary,
-            unselectedLabelColor: Colors.grey.shade400,
-            labelStyle: GoogleFonts.lato(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 1.2),
+            unselectedLabelColor: theme.colorScheme.onSurface.withOpacity(0.45),
+            labelStyle: GoogleFonts.lato(
+              fontWeight: FontWeight.w900,
+              fontSize: 13,
+              letterSpacing: 1.2,
+            ),
             tabs: const [
               Tab(text: 'FAVORITOS'),
               Tab(text: 'ANOTAÇÕES'),
@@ -60,10 +68,7 @@ class _LibraryPageState extends State<LibraryPage> {
           ),
         ),
         body: TabBarView(
-          children: [
-            _buildFavoritesTab(theme),
-            _buildNotesTab(theme),
-          ],
+          children: [_buildFavoritesTab(theme), _buildNotesTab(theme)],
         ),
       ),
     );
@@ -87,7 +92,8 @@ class _LibraryPageState extends State<LibraryPage> {
           return _buildEmptyState(
             icon: Icons.favorite_border_rounded,
             title: 'Nenhum favorito ainda',
-            message: 'Dê um duplo clique nos versículos da leitura diária para salvá-los aqui.',
+            message:
+                'Dê um duplo clique nos versículos da leitura diária para salvá-los aqui.',
           );
         }
 
@@ -135,7 +141,8 @@ class _LibraryPageState extends State<LibraryPage> {
           return _buildEmptyState(
             icon: Icons.note_alt_outlined,
             title: 'Nenhuma anotação',
-            message: 'Selecione a opção "Anotar" em um versículo para escrever suas reflexões.',
+            message:
+                'Selecione a opção "Anotar" em um versículo para escrever suas reflexões.',
           );
         }
 
@@ -152,16 +159,20 @@ class _LibraryPageState extends State<LibraryPage> {
             return Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: theme.cardColor,
                 borderRadius: BorderRadius.circular(28),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white.withOpacity(0.04)
+                        : Colors.black.withOpacity(0.04),
                     blurRadius: 20,
                     offset: const Offset(0, 10),
                   ),
                 ],
-                border: Border.all(color: theme.colorScheme.primary.withOpacity(0.05)),
+                border: Border.all(
+                  color: theme.colorScheme.primary.withOpacity(0.05),
+                ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -170,7 +181,10 @@ class _LibraryPageState extends State<LibraryPage> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: theme.colorScheme.primary.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(10),
@@ -185,8 +199,13 @@ class _LibraryPageState extends State<LibraryPage> {
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.delete_outline_rounded, color: Colors.grey, size: 22),
-                        onPressed: () => _userDataService.deleteNote(docs[index].id),
+                        icon: Icon(
+                          Icons.delete_outline_rounded,
+                          color: theme.colorScheme.onSurface.withOpacity(0.55),
+                          size: 22,
+                        ),
+                        onPressed: () =>
+                            _userDataService.deleteNote(docs[index].id),
                         constraints: const BoxConstraints(),
                         padding: EdgeInsets.zero,
                       ),
@@ -197,15 +216,15 @@ class _LibraryPageState extends State<LibraryPage> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade50,
+                      color: theme.colorScheme.onSurface.withOpacity(0.04),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.grey.shade100),
+                      border: Border.all(color: theme.dividerColor),
                     ),
                     child: Text(
                       verseText,
                       style: GoogleFonts.lato(
                         fontStyle: FontStyle.italic,
-                        color: Colors.grey.shade600,
+                        color: theme.colorScheme.onSurface.withOpacity(0.7),
                         fontSize: 14,
                         height: 1.5,
                       ),
@@ -217,7 +236,7 @@ class _LibraryPageState extends State<LibraryPage> {
                     style: GoogleFonts.lato(
                       height: 1.6,
                       fontSize: 15,
-                      color: Colors.black87,
+                      color: theme.colorScheme.onSurface,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -227,13 +246,21 @@ class _LibraryPageState extends State<LibraryPage> {
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton.icon(
-                      onPressed: () => Share.share('Reflexão sobre $reference:\n\n$noteText\n\nVersículo: "$verseText"'),
+                      onPressed: () => Share.share(
+                        'Reflexão sobre $reference:\n\n$noteText\n\nVersículo: "$verseText"',
+                      ),
                       icon: const Icon(Icons.share_rounded, size: 18),
                       label: const Text('COMPARTILHAR'),
                       style: TextButton.styleFrom(
                         foregroundColor: theme.colorScheme.primary,
-                        textStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        textStyle: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 12,
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
                       ),
                     ),
                   ),
@@ -246,15 +273,25 @@ class _LibraryPageState extends State<LibraryPage> {
     );
   }
 
-  Widget _buildLibraryCard(ThemeData theme, {required String title, required String content, required IconData icon, required Color iconColor, required VoidCallback onDelete, required VoidCallback onShare}) {
+  Widget _buildLibraryCard(
+    ThemeData theme, {
+    required String title,
+    required String content,
+    required IconData icon,
+    required Color iconColor,
+    required VoidCallback onDelete,
+    required VoidCallback onShare,
+  }) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.cardColor,
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.white.withOpacity(0.04)
+                : Colors.black.withOpacity(0.04),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -271,11 +308,18 @@ class _LibraryPageState extends State<LibraryPage> {
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 16,
+                  ),
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.delete_outline_rounded, color: Colors.grey, size: 22),
+                icon: Icon(
+                  Icons.delete_outline_rounded,
+                  color: theme.colorScheme.onSurface.withOpacity(0.55),
+                  size: 22,
+                ),
                 onPressed: onDelete,
                 constraints: const BoxConstraints(),
                 padding: EdgeInsets.zero,
@@ -286,7 +330,7 @@ class _LibraryPageState extends State<LibraryPage> {
           Text(
             content,
             style: GoogleFonts.lato(
-              color: Colors.grey.shade700,
+              color: theme.colorScheme.onSurface.withOpacity(0.75),
               fontStyle: FontStyle.italic,
               fontSize: 15,
               height: 1.6,
@@ -303,8 +347,14 @@ class _LibraryPageState extends State<LibraryPage> {
               label: const Text('COMPARTILHAR'),
               style: TextButton.styleFrom(
                 foregroundColor: theme.colorScheme.primary,
-                textStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                textStyle: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 12,
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
               ),
             ),
           ),
@@ -313,7 +363,11 @@ class _LibraryPageState extends State<LibraryPage> {
     );
   }
 
-  Widget _buildEmptyState({required IconData icon, required String title, required String message}) {
+  Widget _buildEmptyState({
+    required IconData icon,
+    required String title,
+    required String message,
+  }) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(40.0),
@@ -323,29 +377,45 @@ class _LibraryPageState extends State<LibraryPage> {
             Container(
               padding: const EdgeInsets.all(32),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).cardColor,
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white.withOpacity(0.05)
+                        : Colors.black.withOpacity(0.05),
                     blurRadius: 20,
                     offset: const Offset(0, 10),
                   ),
                 ],
               ),
-              child: Icon(icon, size: 48, color: Colors.grey.shade300),
+              child: Icon(
+                icon,
+                size: 48,
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
+              ),
             ),
             const SizedBox(height: 32),
             Text(
               title,
               textAlign: TextAlign.center,
-              style: GoogleFonts.oswald(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87),
+              style: GoogleFonts.oswald(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
             ),
             const SizedBox(height: 16),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: GoogleFonts.lato(fontSize: 15, color: Colors.grey.shade500, height: 1.6),
+              style: GoogleFonts.lato(
+                fontSize: 15,
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withOpacity(0.65),
+                height: 1.6,
+              ),
             ),
           ],
         ),
@@ -358,9 +428,16 @@ class _LibraryPageState extends State<LibraryPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 48),
+          Icon(
+            Icons.error_outline_rounded,
+            color: Theme.of(context).colorScheme.error,
+            size: 48,
+          ),
           const SizedBox(height: 16),
-          Text(message, style: const TextStyle(color: Colors.redAccent)),
+          Text(
+            message,
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
         ],
       ),
     );

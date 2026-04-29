@@ -65,6 +65,9 @@ class _MainScaffoldState extends State<MainScaffold> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surfaceColor = Theme.of(context).cardColor;
+    final unselectedColor = colorScheme.onSurface.withOpacity(0.68);
 
     return Scaffold(
       body: PageView(
@@ -79,10 +82,10 @@ class _MainScaffoldState extends State<MainScaffold> {
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: surfaceColor,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.06),
+              color: Colors.black.withOpacity(isDark ? 0.22 : 0.06),
               blurRadius: 20,
               offset: const Offset(0, -4),
             ),
@@ -92,7 +95,7 @@ class _MainScaffoldState extends State<MainScaffold> {
           selectedIndex: _selectedIndex,
           onDestinationSelected: _onItemTapped,
           elevation: 0,
-          backgroundColor: Colors.white,
+          backgroundColor: surfaceColor,
           surfaceTintColor: Colors.transparent,
           indicatorColor: colorScheme.primary.withOpacity(0.12),
           labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
@@ -100,17 +103,17 @@ class _MainScaffoldState extends State<MainScaffold> {
           height: 70,
           destinations: [
             NavigationDestination(
-              icon: Icon(Icons.home_outlined, color: Colors.grey.shade600),
+              icon: Icon(Icons.home_outlined, color: unselectedColor),
               selectedIcon: Icon(Icons.home_rounded, color: colorScheme.primary),
               label: 'Início',
             ),
             NavigationDestination(
-              icon: Icon(Icons.local_fire_department_outlined, color: Colors.grey.shade600),
+              icon: Icon(Icons.local_fire_department_outlined, color: unselectedColor),
               selectedIcon: Icon(Icons.local_fire_department_rounded, color: colorScheme.primary),
               label: 'Ofensiva',
             ),
             NavigationDestination(
-              icon: Icon(Icons.person_outline_rounded, color: Colors.grey.shade600),
+              icon: Icon(Icons.person_outline_rounded, color: unselectedColor),
               selectedIcon: Icon(Icons.person_rounded, color: colorScheme.primary),
               label: 'Menu',
             ),

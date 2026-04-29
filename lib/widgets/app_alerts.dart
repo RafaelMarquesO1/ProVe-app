@@ -98,7 +98,8 @@ class AppAlerts {
                   width: MediaQuery.of(context).size.width * 0.85,
                   clipBehavior: Clip.antiAlias,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context).dialogTheme.backgroundColor ??
+                        Theme.of(context).cardColor,
                     borderRadius: BorderRadius.circular(32),
                     boxShadow: [
                       BoxShadow(
@@ -131,7 +132,8 @@ class AppAlerts {
                         child: Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: Theme.of(context).dialogTheme.backgroundColor ??
+                                Theme.of(context).cardColor,
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
@@ -162,11 +164,11 @@ class AppAlerts {
                             Text(
                               title,
                               textAlign: TextAlign.center,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 22,
                                 fontWeight: FontWeight.w900,
                                 letterSpacing: -0.5,
-                                color: Colors.black,
+                                color: Theme.of(context).colorScheme.onSurface,
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -175,7 +177,10 @@ class AppAlerts {
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: 15,
-                                color: Colors.grey.shade600,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurface
+                                    .withOpacity(0.72),
                                 height: 1.5,
                               ),
                             ),
@@ -190,13 +195,18 @@ class AppAlerts {
                                         padding: const EdgeInsets.symmetric(vertical: 16),
                                         shape: RoundedRectangleBorder(
                                           borderRadius: BorderRadius.circular(16),
-                                          side: BorderSide(color: Colors.grey.shade200),
+                                          side: BorderSide(
+                                            color: Theme.of(context).dividerColor,
+                                          ),
                                         ),
                                       ),
                                       child: Text(
                                         cancelText,
                                         style: TextStyle(
-                                          color: Colors.grey.shade500,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurface
+                                              .withOpacity(0.75),
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),

@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:myapp/providers/reading_settings_provider.dart';
 import 'package:myapp/services/progress_service.dart';
+import 'package:myapp/utils/theme_colors.dart';
 import 'package:myapp/services/user_data_service.dart';
 import 'package:myapp/widgets/bounce_button.dart';
 import 'package:flutter_tts/flutter_tts.dart';
@@ -37,14 +38,14 @@ class _ReadingPageState extends State<ReadingPage> {
   bool _isHeartAnimating = false;
   int _currentlySpeakingVerse = -1;
   Completer<void>? _speechCompleter;
-  
+
   // Guardamos os offsets de caractere para cada versículo na string completa
   List<int> _verseStartOffsets = [];
   // Chaves para identificar a posição de cada versículo na tela
   final List<GlobalKey> _verseKeys = [];
-  
+
   // Controle de Seleção e Favoritos
-  final List<Map<String, dynamic>> _selectedVerses = []; 
+  final List<Map<String, dynamic>> _selectedVerses = [];
   final Set<String> _favoriteVerses = {};
   StreamSubscription? _favoritesSubscription;
 
@@ -68,14 +69,16 @@ class _ReadingPageState extends State<ReadingPage> {
   void _listenToFavorites(List<int> chapters) {
     // Escuta favoritos em tempo real para os capítulos carregados
     _favoritesSubscription?.cancel();
-    _favoritesSubscription = _userDataService.getFavoritesStream().listen((snapshot) {
+    _favoritesSubscription = _userDataService.getFavoritesStream().listen((
+      snapshot,
+    ) {
       if (!mounted) return;
       final newFavorites = <String>{};
       for (var doc in snapshot.docs) {
         final data = doc.data() as Map<String, dynamic>;
         final chapter = data['chapter'] ?? '';
         final verseNumber = data['verseNumber'] ?? '';
-        
+
         // Verifica se o favorito pertence a um dos capítulos abertos
         if (chapters.contains(int.tryParse(chapter))) {
           newFavorites.add('${chapter}_$verseNumber');
@@ -118,7 +121,12 @@ class _ReadingPageState extends State<ReadingPage> {
     });
 
     // Sincronização de progresso para a leitura conjunta
-    _flutterTts.setProgressHandler((String text, int start, int end, String word) {
+    _flutterTts.setProgressHandler((
+      String text,
+      int start,
+      int end,
+      String word,
+    ) {
       if (!mounted || _verseStartOffsets.isEmpty) return;
 
       // Encontra a qual versículo o offset atual pertence
@@ -171,8 +179,10 @@ class _ReadingPageState extends State<ReadingPage> {
       // 2. Seleção de Voz (O motor pode resetar rate/pitch ao trocar de voz)
       final dynamic voicesResult = await _flutterTts.getVoices;
       if (voicesResult is List) {
-        final voices = voicesResult.map((v) => Map<String, dynamic>.from(v as Map)).toList();
-        
+        final voices = voicesResult
+            .map((v) => Map<String, dynamic>.from(v as Map))
+            .toList();
+
         var ptVoices = voices.where((v) {
           final locale = (v['locale'] as String?)?.toLowerCase() ?? '';
           return locale == 'pt-br' || locale == 'pt_br';
@@ -182,19 +192,45 @@ class _ReadingPageState extends State<ReadingPage> {
           var filteredVoices = ptVoices.where((v) {
             final name = (v['name'] as String?)?.toLowerCase() ?? '';
             final genderField = v['gender']?.toString().toLowerCase() ?? '';
-            
+
             if (isMale) {
               if (name.contains('female')) return false;
               if (name.contains('male')) return true;
-              if (name.contains('pbc-local') || name.contains('ptd-local') || name.contains('ptl-local')) return true;
-              if (name.contains('-b-') || name.endsWith('-b') || name.contains('-d-') || name.endsWith('-d')) return true;
-              if (genderField == 'male' || genderField == '1' || genderField == 'man') return true;
+              if (name.contains('pbc-local') ||
+                  name.contains('ptd-local') ||
+                  name.contains('ptl-local'))
+                return true;
+              if (name.contains('-b-') ||
+                  name.endsWith('-b') ||
+                  name.contains('-d-') ||
+                  name.endsWith('-d'))
+                return true;
+              if (genderField == 'male' ||
+                  genderField == '1' ||
+                  genderField == 'man')
+                return true;
             } else {
-              if (name.contains('male') || name.contains('ptd-local') || name.contains('pbc-local')) return false;
+              if (name.contains('male') ||
+                  name.contains('ptd-local') ||
+                  name.contains('pbc-local'))
+                return false;
               if (name.contains('female')) return true;
-              if (name.contains('pba-local') || name.contains('ptc-local') || name.contains('pts-local') || name.contains('ptr-local')) return true;
-              if (name.contains('-a-') || name.endsWith('-a') || name.contains('-c-') || name.endsWith('-c') || name.contains('-e-') || name.endsWith('-e')) return true;
-              if (genderField == 'female' || genderField == '2' || genderField == 'woman') return true;
+              if (name.contains('pba-local') ||
+                  name.contains('ptc-local') ||
+                  name.contains('pts-local') ||
+                  name.contains('ptr-local'))
+                return true;
+              if (name.contains('-a-') ||
+                  name.endsWith('-a') ||
+                  name.contains('-c-') ||
+                  name.endsWith('-c') ||
+                  name.contains('-e-') ||
+                  name.endsWith('-e'))
+                return true;
+              if (genderField == 'female' ||
+                  genderField == '2' ||
+                  genderField == 'woman')
+                return true;
             }
             return false;
           }).toList();
@@ -202,7 +238,8 @@ class _ReadingPageState extends State<ReadingPage> {
           if (filteredVoices.isEmpty) {
             filteredVoices = ptVoices.where((v) {
               final name = (v['name'] as String?)?.toLowerCase() ?? '';
-              if (isMale) return !name.contains('female') && !name.contains('pba');
+              if (isMale)
+                return !name.contains('female') && !name.contains('pba');
               return !name.contains('male') && !name.contains('ptd');
             }).toList();
           }
@@ -216,13 +253,16 @@ class _ReadingPageState extends State<ReadingPage> {
                 if (name.contains('wavenet')) return 500;
                 return 0;
               }
+
               return score(nameB).compareTo(score(nameA));
             });
 
-            final selectedVoice = !isMale && filteredVoices.length > 1 ? filteredVoices.last : filteredVoices.first;
+            final selectedVoice = !isMale && filteredVoices.length > 1
+                ? filteredVoices.last
+                : filteredVoices.first;
             await _flutterTts.setVoice({
-              'name': selectedVoice['name'] as String, 
-              'locale': selectedVoice['locale'] as String
+              'name': selectedVoice['name'] as String,
+              'locale': selectedVoice['locale'] as String,
             });
           }
         }
@@ -235,7 +275,7 @@ class _ReadingPageState extends State<ReadingPage> {
       } else if (Platform.isAndroid) {
         // No Android, a escala varia entre motores, mas o Google TTS costuma usar 0.5 a 1.0 como faixa ideal
         // Mantemos a proporção direta mas garantimos que 1.0 seja uma velocidade natural
-        rate = rate * 0.5; 
+        rate = rate * 0.5;
       }
       await _flutterTts.setSpeechRate(rate);
 
@@ -244,7 +284,6 @@ class _ReadingPageState extends State<ReadingPage> {
       } else {
         await _flutterTts.setPitch(1.05);
       }
-
     } catch (e) {
       debugPrint("Erro ao aplicar configurações de TTS: $e");
     }
@@ -254,15 +293,14 @@ class _ReadingPageState extends State<ReadingPage> {
     final chapterData = await _progressService.getChapterForToday();
     final chapters = List<int>.from(chapterData['chapters']);
     final content = await _loadChaptersContent(chapters);
-    return {
-      ...chapterData,
-      'content': content,
-    };
+    return {...chapterData, 'content': content};
   }
 
   Future<List<String>> _loadChaptersContent(List<int> chapters) async {
     final List<String> allLines = [];
-    final jsonString = await rootBundle.loadString('assets/proverbiosBibliaLivre.json');
+    final jsonString = await rootBundle.loadString(
+      'assets/proverbiosBibliaLivre.json',
+    );
     final jsonData = json.decode(jsonString) as List<dynamic>;
 
     for (int chapter in chapters) {
@@ -270,18 +308,21 @@ class _ReadingPageState extends State<ReadingPage> {
         allLines.add('HEAD Capítulo $chapter');
       }
       final chapterObject = jsonData[chapter - 1] as Map<String, dynamic>;
-      final versesMap = chapterObject[chapter.toString()] as Map<String, dynamic>;
-      
-      final verses = versesMap.entries.map((e) => '${e.key} ${e.value}').toList();
+      final versesMap =
+          chapterObject[chapter.toString()] as Map<String, dynamic>;
+
+      final verses = versesMap.entries
+          .map((e) => '${e.key} ${e.value}')
+          .toList();
       allLines.addAll(verses);
     }
-    
+
     // Inicializa as chaves para rolagem automática
     _verseKeys.clear();
     for (int i = 0; i < allLines.length; i++) {
       _verseKeys.add(GlobalKey());
     }
-    
+
     return allLines;
   }
 
@@ -295,7 +336,8 @@ class _ReadingPageState extends State<ReadingPage> {
       AppAlerts.showCustomDialog(
         context: context,
         title: 'SABEDORIA ALCANÇADA!',
-        message: 'Você completou a leitura de hoje e iluminou sua mente com a palavra. Continue firme na sua jornada!',
+        message:
+            'Você completou a leitura de hoje e iluminou sua mente com a palavra. Continue firme na sua jornada!',
         confirmText: 'VER PROGRESSO',
         icon: Icons.auto_awesome_rounded,
         iconColor: Colors.green.shade700,
@@ -303,7 +345,6 @@ class _ReadingPageState extends State<ReadingPage> {
           context.go('/home', extra: {'index': 1, 'showConfetti': true});
         },
       );
-
     } catch (e) {
       if (mounted) {
         AppAlerts.showSnackBar(
@@ -325,7 +366,7 @@ class _ReadingPageState extends State<ReadingPage> {
       });
     } else {
       if (!mounted) return;
-      
+
       // Prepara a string conjunta para uma leitura mais natural
       final StringBuffer fullTextBuffer = StringBuffer();
       _verseStartOffsets = [];
@@ -336,7 +377,7 @@ class _ReadingPageState extends State<ReadingPage> {
 
       for (int i = 0; i < content.length; i++) {
         String line = content[i];
-        
+
         // Se for um cabeçalho, registramos o offset mas não lemos ou lemos como título
         if (line.startsWith('HEAD ')) {
           _verseStartOffsets.add(fullTextBuffer.length);
@@ -350,11 +391,13 @@ class _ReadingPageState extends State<ReadingPage> {
         if (parts.length > 1 && int.tryParse(parts.first) != null) {
           cleanedText = parts.sublist(1).join(' ');
         }
-        
+
         // Registra o offset de início deste versículo no texto concatenado
         _verseStartOffsets.add(fullTextBuffer.length);
         fullTextBuffer.write(cleanedText);
-        fullTextBuffer.write(" "); // Pequena pausa natural entre versículos pela pontuação
+        fullTextBuffer.write(
+          " ",
+        ); // Pequena pausa natural entre versículos pela pontuação
       }
 
       setState(() {
@@ -390,11 +433,15 @@ class _ReadingPageState extends State<ReadingPage> {
     });
   }
 
-
   Widget _buildSelectionActionBar(ThemeData theme) {
     if (_selectedVerses.isEmpty) return const SizedBox.shrink();
-    
-    final String shareText = _selectedVerses.map((v) => '"${v['text']}"\n— Provérbios ${v['chapter']}:${v['verseNumber']}').join('\n\n');
+
+    final String shareText = _selectedVerses
+        .map(
+          (v) =>
+              '"${v['text']}"\n— Provérbios ${v['chapter']}:${v['verseNumber']}',
+        )
+        .join('\n\n');
 
     return Positioned(
       bottom: 20 + MediaQuery.of(context).padding.bottom,
@@ -452,7 +499,11 @@ class _ReadingPageState extends State<ReadingPage> {
                         onTap: () {
                           Clipboard.setData(ClipboardData(text: shareText));
                           setState(() => _selectedVerses.clear());
-                          AppAlerts.showSnackBar(context, message: 'Copiado para a área de transferência!', type: AppAlertType.success);
+                          AppAlerts.showSnackBar(
+                            context,
+                            message: 'Copiado para a área de transferência!',
+                            type: AppAlertType.success,
+                          );
                         },
                       ),
                       _buildActionIconButton(
@@ -479,9 +530,13 @@ class _ReadingPageState extends State<ReadingPage> {
                             _selectedVerses.clear();
                             _isHeartAnimating = true;
                           });
-                          Future.delayed(const Duration(milliseconds: 1000), () {
-                            if (mounted) setState(() => _isHeartAnimating = false);
-                          });
+                          Future.delayed(
+                            const Duration(milliseconds: 1000),
+                            () {
+                              if (mounted)
+                                setState(() => _isHeartAnimating = false);
+                            },
+                          );
                         },
                       ),
                       _buildActionIconButton(
@@ -495,8 +550,13 @@ class _ReadingPageState extends State<ReadingPage> {
                       const SizedBox(width: 4),
                       Container(width: 1, height: 24, color: Colors.white24),
                       IconButton(
-                        icon: const Icon(Icons.close_rounded, color: Colors.white, size: 24),
-                        onPressed: () => setState(() => _selectedVerses.clear()),
+                        icon: const Icon(
+                          Icons.close_rounded,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                        onPressed: () =>
+                            setState(() => _selectedVerses.clear()),
                         tooltip: 'Limpar seleção',
                       ),
                     ],
@@ -510,7 +570,11 @@ class _ReadingPageState extends State<ReadingPage> {
     );
   }
 
-  Widget _buildActionIconButton({required IconData icon, required String label, required VoidCallback onTap}) {
+  Widget _buildActionIconButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
     return BounceButton(
       onTap: onTap,
       child: Padding(
@@ -535,8 +599,11 @@ class _ReadingPageState extends State<ReadingPage> {
     );
   }
 
-
-  Widget _buildReadingShimmer(BuildContext context, Color textColor, Color subtleTextColor) {
+  Widget _buildReadingShimmer(
+    BuildContext context,
+    Color textColor,
+    Color subtleTextColor,
+  ) {
     final theme = Theme.of(context);
     return CustomScrollView(
       physics: const NeverScrollableScrollPhysics(),
@@ -581,16 +648,16 @@ class _ReadingPageState extends State<ReadingPage> {
           ),
         ),
         SliverList(
-          delegate: SliverChildBuilderDelegate(
-            (context, index) {
-              final widthFactor = 0.6 + (index % 4) * 0.1;
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
-                child: _ShimmerLine(widthFactor: widthFactor),
-              );
-            },
-            childCount: 12,
-          ),
+          delegate: SliverChildBuilderDelegate((context, index) {
+            final widthFactor = 0.6 + (index % 4) * 0.1;
+            return Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24.0,
+                vertical: 8.0,
+              ),
+              child: _ShimmerLine(widthFactor: widthFactor),
+            );
+          }, childCount: 12),
         ),
       ],
     );
@@ -603,9 +670,14 @@ class _ReadingPageState extends State<ReadingPage> {
     return AnimatedBuilder(
       animation: _settings,
       builder: (context, child) {
-        final bool isDarkBackground = _settings.backgroundColor.computeLuminance() < 0.5;
-        final textColor = isDarkBackground ? Colors.white.withOpacity(0.9) : Colors.black87;
-        final subtleTextColor = isDarkBackground ? Colors.white54 : Colors.grey.shade600;
+        final bool isDarkBackground =
+            _settings.backgroundColor.computeLuminance() < 0.5;
+        final textColor = isDarkBackground
+            ? Colors.white.withOpacity(0.9)
+            : Colors.black87;
+        final subtleTextColor = isDarkBackground
+            ? Colors.white54
+            : Colors.grey.shade600;
 
         return Scaffold(
           backgroundColor: _settings.backgroundColor,
@@ -614,315 +686,443 @@ class _ReadingPageState extends State<ReadingPage> {
               SafeArea(
                 child: FutureBuilder<Map<String, dynamic>>(
                   future: _readingData,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return _buildReadingShimmer(context, textColor, subtleTextColor);
-                }
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return _buildReadingShimmer(
+                        context,
+                        textColor,
+                        subtleTextColor,
+                      );
+                    }
 
-                if (snapshot.hasError) {
-                  return Center(child: Text('Erro: ${snapshot.error}', style: TextStyle(color: textColor)));
-                }
+                    if (snapshot.hasError) {
+                      return Center(
+                        child: Text(
+                          'Erro: ${snapshot.error}',
+                          style: TextStyle(color: textColor),
+                        ),
+                      );
+                    }
 
-                if (!snapshot.hasData) {
-                  return Center(child: Text('Nenhum dado disponível.', style: TextStyle(color: textColor)));
-                }
+                    if (!snapshot.hasData) {
+                      return Center(
+                        child: Text(
+                          'Nenhum dado disponível.',
+                          style: TextStyle(color: textColor),
+                        ),
+                      );
+                    }
 
-                final data = snapshot.data!;
-                final List<int> chapters = List<int>.from(data['chapters']);
-                final bool canRead = data['canRead'];
-                final List<String> content = data['content'];
+                    final data = snapshot.data!;
+                    final List<int> chapters = List<int>.from(data['chapters']);
+                    final bool canRead = data['canRead'];
+                    final List<String> content = data['content'];
 
-                String chapterTitle = chapters.length > 1 
-                  ? '${chapters.first} - ${chapters.last}' 
-                  : chapters.first.toString();
+                    String chapterTitle = chapters.length > 1
+                        ? '${chapters.first} - ${chapters.last}'
+                        : chapters.first.toString();
 
-                return Column(
-                  children: [
-                    Expanded(
-                      child: CustomScrollView(
-                        controller: _scrollController,
-                        physics: const BouncingScrollPhysics(),
-                        slivers: [
-                          SliverAppBar(
-                            backgroundColor: _settings.backgroundColor.withOpacity(0.95),
-                            pinned: true,
-                            elevation: 0,
-                            leading: IconButton(
-                              icon: Icon(Icons.arrow_back_ios_new_rounded, color: theme.colorScheme.primary),
-                              onPressed: () {
-                                if (Navigator.of(context).canPop()) {
-                                  Navigator.of(context).pop();
-                                } else {
-                                  context.go('/home');
-                                }
-                              },
-                            ),
-                            actions: [
-                              IconButton(
-                                icon: Icon(Icons.bookmarks_rounded, color: theme.colorScheme.primary),
-                                tooltip: 'Minha Biblioteca',
-                                onPressed: () => context.push('/library'),
-                              ),
-                              IconButton(
-                                icon: Icon(Icons.tune_rounded, color: theme.colorScheme.primary),
-                                tooltip: 'Ajustes de Leitura',
-                                onPressed: () => context.push('/settings/reading'),
-                              ),
-                              IconButton(
-                                icon: Icon(
-                                  _isReading ? Icons.pause_circle_filled_rounded : Icons.play_circle_fill_rounded,
-                                  color: theme.colorScheme.primary,
-                                  size: 32,
-                                ),
-                                tooltip: 'Ouvir Capítulo',
-                                onPressed: () => _toggleReading(content),
-                              ),
-                              const SizedBox(width: 8),
-                            ],
-                          ),
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(24, 24, 24, 48),
-                              child: Column(
-                                children: [
-                                  Text(
-                                    'PROVÉRBIOS',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: 16, 
-                                      letterSpacing: 4, 
-                                      fontWeight: FontWeight.bold, 
-                                      color: subtleTextColor
-                                    ),
+                    return Column(
+                      children: [
+                        Expanded(
+                          child: CustomScrollView(
+                            controller: _scrollController,
+                            physics: const BouncingScrollPhysics(),
+                            slivers: [
+                              SliverAppBar(
+                                backgroundColor: _settings.backgroundColor
+                                    .withOpacity(0.95),
+                                pinned: true,
+                                elevation: 0,
+                                leading: IconButton(
+                                  icon: Icon(
+                                    Icons.arrow_back_ios_new_rounded,
+                                    color: theme.colorScheme.primary,
                                   ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    chapterTitle,
-                                    textAlign: TextAlign.center,
-                                    style: theme.textTheme.displayLarge?.copyWith(
-                                      fontSize: chapters.length > 1 ? 48 : 64,
-                                      fontWeight: FontWeight.w900,
-                                      color: textColor,
-                                      height: 1.0,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Container(
-                                    width: 60,
-                                    height: 4,
-                                    decoration: BoxDecoration(
-                                      color: theme.colorScheme.primary,
-                                      borderRadius: BorderRadius.circular(2),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          SliverList(
-                            delegate: SliverChildBuilderDelegate(
-                              (context, index) {
-                                final line = content[index];
-                                final isSpeaking = index == _currentlySpeakingVerse;
-                                
-                                if (line.startsWith('HEAD ')) {
-                                  final title = line.replaceFirst('HEAD ', '');
-                                  return Container(
-                                    key: index < _verseKeys.length ? _verseKeys[index] : null,
-                                    padding: const EdgeInsets.fromLTRB(24, 40, 24, 16),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          title.toUpperCase(),
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w900,
-                                            letterSpacing: 2,
-                                            color: theme.colorScheme.primary,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Container(
-                                          width: 40,
-                                          height: 2,
-                                          color: theme.colorScheme.primary.withOpacity(0.3),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                }
-
-                                final parts = line.split(' ');
-                                final verseNumber = parts.first;
-                                final verseText = parts.sublist(1).join(' ');
-
-                                final isSelected = _selectedVerses.any((v) => v['key'] == '${chapterTitle}_$verseNumber');
-                                final isFavorited = _favoriteVerses.contains('${chapterTitle}_$verseNumber');
-
-                                return GestureDetector(
-                                  onTap: () => _handleVerseTap({
-                                    'key': '${chapterTitle}_$verseNumber',
-                                    'chapter': chapterTitle,
-                                    'verseNumber': verseNumber,
-                                    'text': verseText,
-                                  }),
-                                  onDoubleTap: () async {
-                                    HapticFeedback.lightImpact();
-                                    await _userDataService.toggleFavorite(
-                                      chapter: chapterTitle,
-                                      verseNumber: verseNumber,
-                                      verseText: verseText,
-                                    );
-                                    if (mounted) {
-                                      setState(() => _isHeartAnimating = true);
-                                      Future.delayed(const Duration(milliseconds: 800), () {
-                                        if (mounted) setState(() => _isHeartAnimating = false);
-                                      });
+                                  onPressed: () {
+                                    if (Navigator.of(context).canPop()) {
+                                      Navigator.of(context).pop();
+                                    } else {
+                                      context.go('/home');
                                     }
                                   },
-                                  child: AnimatedContainer(
-                                    key: index < _verseKeys.length ? _verseKeys[index] : null,
-                                    duration: const Duration(milliseconds: 300),
-                                    padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
-                                    margin: const EdgeInsets.only(bottom: 8.0),
-                                    decoration: BoxDecoration(
-                                      color: isSelected 
-                                          ? theme.colorScheme.primary.withOpacity(0.08)
-                                          : (isSpeaking ? theme.colorScheme.primary.withOpacity(0.15) : Colors.transparent),
-                                      borderRadius: BorderRadius.circular(16),
+                                ),
+                                actions: [
+                                  IconButton(
+                                    icon: Icon(
+                                      Icons.bookmarks_rounded,
+                                      color: theme.colorScheme.primary,
                                     ),
-                                    child: RichText(
-                                      textAlign: TextAlign.justify,
-                                      text: TextSpan(
-                                        style: theme.textTheme.bodyLarge?.copyWith(
-                                          fontSize: _settings.fontSize,
-                                          height: 1.6,
-                                          color: textColor,
-                                          decoration: isSelected ? TextDecoration.underline : TextDecoration.none,
-                                          decorationColor: theme.colorScheme.primary.withOpacity(0.5),
+                                    tooltip: 'Minha Biblioteca',
+                                    onPressed: () => context.push('/library'),
+                                  ),
+                                  IconButton(
+                                    icon: Icon(
+                                      Icons.tune_rounded,
+                                      color: theme.colorScheme.primary,
+                                    ),
+                                    tooltip: 'Ajustes de Leitura',
+                                    onPressed: () =>
+                                        context.push('/settings/reading'),
+                                  ),
+                                  IconButton(
+                                    icon: Icon(
+                                      _isReading
+                                          ? Icons.pause_circle_filled_rounded
+                                          : Icons.play_circle_fill_rounded,
+                                      color: theme.colorScheme.primary,
+                                      size: 32,
+                                    ),
+                                    tooltip: 'Ouvir Capítulo',
+                                    onPressed: () => _toggleReading(content),
+                                  ),
+                                  const SizedBox(width: 8),
+                                ],
+                              ),
+                              SliverToBoxAdapter(
+                                child: Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    24,
+                                    24,
+                                    24,
+                                    48,
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      Text(
+                                        'PROVÉRBIOS',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          letterSpacing: 4,
+                                          fontWeight: FontWeight.bold,
+                                          color: subtleTextColor,
                                         ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        chapterTitle,
+                                        textAlign: TextAlign.center,
+                                        style: theme.textTheme.displayLarge
+                                            ?.copyWith(
+                                              fontSize: chapters.length > 1
+                                                  ? 48
+                                                  : 64,
+                                              fontWeight: FontWeight.w900,
+                                              color: textColor,
+                                              height: 1.0,
+                                            ),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Container(
+                                        width: 60,
+                                        height: 4,
+                                        decoration: BoxDecoration(
+                                          color: theme.colorScheme.primary,
+                                          borderRadius: BorderRadius.circular(
+                                            2,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              SliverList(
+                                delegate: SliverChildBuilderDelegate((
+                                  context,
+                                  index,
+                                ) {
+                                  final line = content[index];
+                                  final isSpeaking =
+                                      index == _currentlySpeakingVerse;
+
+                                  if (line.startsWith('HEAD ')) {
+                                    final title = line.replaceFirst(
+                                      'HEAD ',
+                                      '',
+                                    );
+                                    return Container(
+                                      key: index < _verseKeys.length
+                                          ? _verseKeys[index]
+                                          : null,
+                                      padding: const EdgeInsets.fromLTRB(
+                                        24,
+                                        40,
+                                        24,
+                                        16,
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
-                                          WidgetSpan(
-                                            alignment: PlaceholderAlignment.top,
-                                            child: Transform.translate(
-                                              offset: const Offset(0, 2),
-                                              child: Padding(
-                                                padding: const EdgeInsets.only(right: 6.0),
-                                                child: Text(
-                                                  verseNumber,
-                                                  style: TextStyle(
-                                                    fontWeight: FontWeight.w900, 
-                                                    fontSize: _settings.fontSize * 0.6,
-                                                    color: theme.colorScheme.primary,
+                                          Text(
+                                            title.toUpperCase(),
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w900,
+                                              letterSpacing: 2,
+                                              color: theme.colorScheme.primary,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Container(
+                                            width: 40,
+                                            height: 2,
+                                            color: theme.colorScheme.primary
+                                                .withOpacity(0.3),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }
+
+                                  final parts = line.split(' ');
+                                  final verseNumber = parts.first;
+                                  final verseText = parts.sublist(1).join(' ');
+
+                                  final isSelected = _selectedVerses.any(
+                                    (v) =>
+                                        v['key'] ==
+                                        '${chapterTitle}_$verseNumber',
+                                  );
+                                  final isFavorited = _favoriteVerses.contains(
+                                    '${chapterTitle}_$verseNumber',
+                                  );
+
+                                  return GestureDetector(
+                                    onTap: () => _handleVerseTap({
+                                      'key': '${chapterTitle}_$verseNumber',
+                                      'chapter': chapterTitle,
+                                      'verseNumber': verseNumber,
+                                      'text': verseText,
+                                    }),
+                                    onDoubleTap: () async {
+                                      HapticFeedback.lightImpact();
+                                      await _userDataService.toggleFavorite(
+                                        chapter: chapterTitle,
+                                        verseNumber: verseNumber,
+                                        verseText: verseText,
+                                      );
+                                      if (mounted) {
+                                        setState(
+                                          () => _isHeartAnimating = true,
+                                        );
+                                        Future.delayed(
+                                          const Duration(milliseconds: 800),
+                                          () {
+                                            if (mounted)
+                                              setState(
+                                                () => _isHeartAnimating = false,
+                                              );
+                                          },
+                                        );
+                                      }
+                                    },
+                                    child: AnimatedContainer(
+                                      key: index < _verseKeys.length
+                                          ? _verseKeys[index]
+                                          : null,
+                                      duration: const Duration(
+                                        milliseconds: 300,
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 24.0,
+                                        vertical: 12.0,
+                                      ),
+                                      margin: const EdgeInsets.only(
+                                        bottom: 8.0,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: isSelected
+                                            ? theme.colorScheme.primary
+                                                  .withOpacity(0.08)
+                                            : (isSpeaking
+                                                  ? theme.colorScheme.primary
+                                                        .withOpacity(0.15)
+                                                  : Colors.transparent),
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      child: RichText(
+                                        textAlign: TextAlign.justify,
+                                        text: TextSpan(
+                                          style: theme.textTheme.bodyLarge
+                                              ?.copyWith(
+                                                fontSize: _settings.fontSize,
+                                                height: 1.6,
+                                                color: textColor,
+                                                decoration: isSelected
+                                                    ? TextDecoration.underline
+                                                    : TextDecoration.none,
+                                                decorationColor: theme
+                                                    .colorScheme
+                                                    .primary
+                                                    .withOpacity(0.5),
+                                              ),
+                                          children: [
+                                            WidgetSpan(
+                                              alignment:
+                                                  PlaceholderAlignment.top,
+                                              child: Transform.translate(
+                                                offset: const Offset(0, 2),
+                                                child: Padding(
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                        right: 6.0,
+                                                      ),
+                                                  child: Text(
+                                                    verseNumber,
+                                                    style: TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.w900,
+                                                      fontSize:
+                                                          _settings.fontSize *
+                                                          0.6,
+                                                      color: theme
+                                                          .colorScheme
+                                                          .primary,
+                                                    ),
                                                   ),
                                                 ),
                                               ),
                                             ),
-                                          ),
-                                          TextSpan(text: verseText),
-                                          if (isFavorited)
-                                            WidgetSpan(
-                                              alignment: PlaceholderAlignment.middle,
-                                              child: Padding(
-                                                padding: const EdgeInsets.only(left: 6.0),
-                                                child: Icon(Icons.favorite_rounded, size: _settings.fontSize * 0.8, color: Colors.pink),
+                                            TextSpan(text: verseText),
+                                            if (isFavorited)
+                                              WidgetSpan(
+                                                alignment:
+                                                    PlaceholderAlignment.middle,
+                                                child: Padding(
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                        left: 6.0,
+                                                      ),
+                                                  child: Icon(
+                                                    Icons.favorite_rounded,
+                                                    size:
+                                                        _settings.fontSize *
+                                                        0.8,
+                                                    color: Colors.pink,
+                                                  ),
+                                                ),
                                               ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }, childCount: content.length),
+                              ),
+                              const SliverToBoxAdapter(
+                                child: SizedBox(height: 32),
+                              ),
+                              if (canRead)
+                                SliverToBoxAdapter(
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 24.0,
+                                      vertical: 32.0,
+                                    ),
+                                    child: BounceButton(
+                                      onTap: _markAsRead,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 20,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(
+                                            colors: [
+                                              theme.colorScheme.primary,
+                                              const Color(0xFFD65108),
+                                            ],
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: const Color(
+                                                0xFFD65108,
+                                              ).withOpacity(0.4),
+                                              blurRadius: 15,
+                                              offset: const Offset(0, 8),
                                             ),
-                                        ],
+                                          ],
+                                        ),
+                                        child: const Center(
+                                          child: Text(
+                                            'Concluir Leitura',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                              letterSpacing: 1,
+                                            ),
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ),
-                                );
-                              },
-                              childCount: content.length,
-                            ),
-                          ),
-                          const SliverToBoxAdapter(child: SizedBox(height: 32)),
-                          if (canRead)
-                            SliverToBoxAdapter(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
-                              child: BounceButton(
-                                onTap: _markAsRead,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 20),
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: [theme.colorScheme.primary, const Color(0xFFD65108)],
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                    ),
-                                    borderRadius: BorderRadius.circular(20),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: const Color(0xFFD65108).withOpacity(0.4),
-                                        blurRadius: 15,
-                                        offset: const Offset(0, 8),
-                                      )
-                                    ],
+                                ),
+                              SliverToBoxAdapter(
+                                child: Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    24,
+                                    8,
+                                    24,
+                                    4,
                                   ),
-                                  child: const Center(
-                                    child: Text(
-                                      'Concluir Leitura',
-                                      style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1),
+                                  child: Text(
+                                    _bibleVersion,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: subtleTextColor,
+                                      fontSize: 12,
+                                      fontStyle: FontStyle.italic,
                                     ),
                                   ),
                                 ),
                               ),
-                            ),
-                          ),
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(24, 8, 24, 4),
-                              child: Text(
-                                _bibleVersion,
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: subtleTextColor,
-                                  fontSize: 12,
-                                  fontStyle: FontStyle.italic,
-                                ),
+                              const SliverToBoxAdapter(
+                                child: SizedBox(height: 48),
                               ),
-                            ),
+                            ],
                           ),
-                          const SliverToBoxAdapter(child: SizedBox(height: 48)),
-                        ],
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
-          // Heart Animation Overlay
-          if (_isHeartAnimating)
-            Center(
-              child: TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0.5, end: 1.5),
-                duration: const Duration(milliseconds: 400),
-                curve: Curves.elasticOut,
-                builder: (context, scale, child) {
-                  return AnimatedOpacity(
-                    opacity: _isHeartAnimating ? 1.0 : 0.0,
-                    duration: const Duration(milliseconds: 300),
-                    child: Transform.scale(
-                      scale: scale,
-                      child: const Icon(
-                        Icons.favorite_rounded,
-                        color: Colors.pink,
-                        size: 120,
-                      ),
-                    ),
-                  );
-                },
+                        ),
+                      ],
+                    );
+                  },
+                ),
               ),
-            ),
-          // Selection Action Bar (Floating)
-          _buildSelectionActionBar(theme),
-        ],
-      ),
-    );
+              // Heart Animation Overlay
+              if (_isHeartAnimating)
+                Center(
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0.5, end: 1.5),
+                    duration: const Duration(milliseconds: 400),
+                    curve: Curves.elasticOut,
+                    builder: (context, scale, child) {
+                      return AnimatedOpacity(
+                        opacity: _isHeartAnimating ? 1.0 : 0.0,
+                        duration: const Duration(milliseconds: 300),
+                        child: Transform.scale(
+                          scale: scale,
+                          child: const Icon(
+                            Icons.favorite_rounded,
+                            color: Colors.pink,
+                            size: 120,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              // Selection Action Bar (Floating)
+              _buildSelectionActionBar(theme),
+            ],
+          ),
+        );
       },
     );
   }
@@ -936,7 +1136,8 @@ class _ShimmerLine extends StatefulWidget {
   State<_ShimmerLine> createState() => _ShimmerLineState();
 }
 
-class _ShimmerLineState extends State<_ShimmerLine> with SingleTickerProviderStateMixin {
+class _ShimmerLineState extends State<_ShimmerLine>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
 
   @override
@@ -967,11 +1168,7 @@ class _ShimmerLineState extends State<_ShimmerLine> with SingleTickerProviderSta
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
               gradient: LinearGradient(
-                colors: [
-                  Colors.grey.shade300,
-                  Colors.grey.shade100,
-                  Colors.grey.shade300,
-                ],
+                colors: ThemeColors.getShimmerColors(context),
                 stops: const [0.0, 0.5, 1.0],
                 begin: Alignment(-1.0 + 2 * _controller.value, 0),
                 end: Alignment(1.0 + 2 * _controller.value, 0),

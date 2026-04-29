@@ -78,7 +78,7 @@ class _SignUpPageState extends State<SignUpPage> with SingleTickerProviderStateM
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: const Text('Não foi possível enviar o código de verificação.'),
-                backgroundColor: Colors.redAccent,
+                backgroundColor: Theme.of(context).colorScheme.error,
                 behavior: SnackBarBehavior.floating,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
@@ -139,7 +139,7 @@ class _SignUpPageState extends State<SignUpPage> with SingleTickerProviderStateM
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(errorMessage),
-            backgroundColor: Colors.redAccent,
+            backgroundColor: Theme.of(context).colorScheme.error,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -204,7 +204,7 @@ class _SignUpPageState extends State<SignUpPage> with SingleTickerProviderStateM
                       'Junte-se a nós nesta jornada de sabedoria',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.lato(
-                        color: Colors.grey.shade600,
+                        color: colorScheme.onSurface.withOpacity(0.7),
                         fontSize: 15,
                       ),
                     ),

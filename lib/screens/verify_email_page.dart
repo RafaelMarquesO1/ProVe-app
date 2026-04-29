@@ -16,7 +16,8 @@ class VerifyEmailPage extends StatefulWidget {
   State<VerifyEmailPage> createState() => _VerifyEmailPageState();
 }
 
-class _VerifyEmailPageState extends State<VerifyEmailPage> with SingleTickerProviderStateMixin {
+class _VerifyEmailPageState extends State<VerifyEmailPage>
+    with SingleTickerProviderStateMixin {
   static const int _maxAttempts = 5;
   static const Duration _otpExpiration = Duration(minutes: 10);
 
@@ -33,7 +34,10 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> with SingleTickerProv
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     );
-    _fadeAnimation = CurvedAnimation(parent: _fadeController, curve: Curves.easeOut);
+    _fadeAnimation = CurvedAnimation(
+      parent: _fadeController,
+      curve: Curves.easeOut,
+    );
     _fadeController.forward();
   }
 
@@ -52,14 +56,15 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> with SingleTickerProv
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Limite de tentativas atingido.'),
-          backgroundColor: Colors.orangeAccent,
+          backgroundColor: Color(0xFFD17A00),
           behavior: SnackBarBehavior.floating,
         ),
       );
       return;
     }
 
-    final int createdAtMillis = widget.registrationData!['otpCreatedAt'] as int? ?? 0;
+    final int createdAtMillis =
+        widget.registrationData!['otpCreatedAt'] as int? ?? 0;
     final bool isExpired = DateTime.now().isAfter(
       DateTime.fromMillisecondsSinceEpoch(createdAtMillis).add(_otpExpiration),
     );
@@ -67,7 +72,7 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> with SingleTickerProv
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Código expirado. Solicite um novo.'),
-          backgroundColor: Colors.orangeAccent,
+          backgroundColor: Color(0xFFD17A00),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -98,7 +103,7 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> with SingleTickerProv
                 ? 'Código incorreto. Restam $remainingAttempts tentativas.'
                 : 'Limite de tentativas atingido.',
           ),
-          backgroundColor: Colors.redAccent,
+          backgroundColor: Theme.of(context).colorScheme.error,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -112,10 +117,8 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> with SingleTickerProv
       final String email = widget.registrationData!['email'];
       final String password = widget.registrationData!['password'];
 
-      UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      UserCredential userCredential = await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(email: email, password: password);
 
       User? user = userCredential.user;
 
@@ -144,7 +147,7 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> with SingleTickerProv
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(e.message ?? 'Erro ao criar conta.'),
-            backgroundColor: Colors.redAccent,
+            backgroundColor: Theme.of(context).colorScheme.error,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -172,12 +175,13 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> with SingleTickerProv
     setState(() => _isLoading = false);
     if (sent) {
       widget.registrationData!['code'] = newCode;
-      widget.registrationData!['otpCreatedAt'] = DateTime.now().millisecondsSinceEpoch;
+      widget.registrationData!['otpCreatedAt'] =
+          DateTime.now().millisecondsSinceEpoch;
       widget.registrationData!['otpAttempts'] = 0;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Novo código enviado!'),
-          backgroundColor: Colors.green,
+          backgroundColor: Color(0xFF2E7D32),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -203,8 +207,12 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> with SingleTickerProv
     final colorScheme = theme.colorScheme;
     final String email = widget.registrationData!['email'];
     final int attempts = widget.registrationData!['otpAttempts'] as int? ?? 0;
-    final int remainingAttempts = (_maxAttempts - attempts).clamp(0, _maxAttempts);
-    final int createdAtMillis = widget.registrationData!['otpCreatedAt'] as int? ?? 0;
+    final int remainingAttempts = (_maxAttempts - attempts).clamp(
+      0,
+      _maxAttempts,
+    );
+    final int createdAtMillis =
+        widget.registrationData!['otpCreatedAt'] as int? ?? 0;
     final bool isExpired = DateTime.now().isAfter(
       DateTime.fromMillisecondsSinceEpoch(createdAtMillis).add(_otpExpiration),
     );
@@ -244,25 +252,38 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> with SingleTickerProv
                       color: colorScheme.primary.withOpacity(0.1),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(Icons.mark_email_read_outlined, size: 64, color: colorScheme.primary),
+                    child: Icon(
+                      Icons.mark_email_read_outlined,
+                      size: 64,
+                      color: colorScheme.primary,
+                    ),
                   ),
                   const SizedBox(height: 32),
                   Text(
                     'VALIDAR E-MAIL',
                     textAlign: TextAlign.center,
-                    style: theme.textTheme.displayLarge?.copyWith(fontSize: 32, letterSpacing: 2),
+                    style: theme.textTheme.displayLarge?.copyWith(
+                      fontSize: 32,
+                      letterSpacing: 2,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Text(
                     'Digite o código de 6 dígitos que enviamos para:',
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.lato(color: Colors.grey.shade600, fontSize: 15),
+                    style: GoogleFonts.lato(
+                      color: colorScheme.onSurface.withOpacity(0.7),
+                      fontSize: 15,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     email,
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.lato(fontWeight: FontWeight.bold, color: Colors.black87),
+                    style: GoogleFonts.lato(
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.onSurface,
+                    ),
                   ),
                   const SizedBox(height: 40),
                   TextField(
@@ -271,56 +292,96 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> with SingleTickerProv
                       hintText: '000000',
                       counterText: '',
                       filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                      fillColor: theme.cardColor,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
+                      ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide(color: colorScheme.primary.withOpacity(0.1)),
+                        borderSide: BorderSide(
+                          color: colorScheme.primary.withOpacity(0.1),
+                        ),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide(color: colorScheme.primary, width: 2),
+                        borderSide: BorderSide(
+                          color: colorScheme.primary,
+                          width: 2,
+                        ),
                       ),
                     ),
                     keyboardType: TextInputType.number,
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.oswald(fontSize: 32, letterSpacing: 12, fontWeight: FontWeight.bold, color: colorScheme.primary),
+                    style: GoogleFonts.oswald(
+                      fontSize: 32,
+                      letterSpacing: 12,
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.primary,
+                    ),
                     maxLength: 6,
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    isExpired ? 'O código expirou.' : 'Tentativas restantes: $remainingAttempts',
+                    isExpired
+                        ? 'O código expirou.'
+                        : 'Tentativas restantes: $remainingAttempts',
                     style: TextStyle(
-                      color: isExpired ? Colors.redAccent : Colors.grey.shade600,
+                      color: isExpired
+                          ? colorScheme.error
+                          : colorScheme.onSurface.withOpacity(0.7),
                       fontWeight: FontWeight.bold,
                       fontSize: 13,
                     ),
                   ),
                   const SizedBox(height: 40),
                   BounceButton(
-                    onTap: _isLoading || !canValidate ? () {} : _verifyAndRegister,
+                    onTap: _isLoading || !canValidate
+                        ? () {}
+                        : _verifyAndRegister,
                     child: Container(
                       height: 56,
                       width: double.infinity,
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: canValidate 
+                          colors: canValidate
                               ? [colorScheme.primary, const Color(0xFFD65108)]
-                              : [Colors.grey.shade400, Colors.grey.shade500],
+                              : [
+                                  colorScheme.onSurface.withOpacity(0.35),
+                                  colorScheme.onSurface.withOpacity(0.5),
+                                ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
                         borderRadius: BorderRadius.circular(16),
-                        boxShadow: canValidate ? [
-                          BoxShadow(color: colorScheme.primary.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 6)),
-                        ] : [],
+                        boxShadow: canValidate
+                            ? [
+                                BoxShadow(
+                                  color: colorScheme.primary.withOpacity(0.3),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ]
+                            : [],
                       ),
                       child: Center(
                         child: _isLoading
-                            ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
+                            ? const SizedBox(
+                                height: 24,
+                                width: 24,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 3,
+                                ),
+                              )
                             : const Text(
                                 'CADASTRAR E ENTRAR',
-                                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.5),
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.5,
+                                ),
                               ),
                       ),
                     ),
@@ -330,10 +391,17 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> with SingleTickerProv
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       TextButton(
-                        onPressed: EmailService.isConfigured && !_isLoading ? _resendCode : null,
+                        onPressed: EmailService.isConfigured && !_isLoading
+                            ? _resendCode
+                            : null,
                         child: const Text('Reenviar código'),
                       ),
-                      const Text('|', style: TextStyle(color: Colors.grey)),
+                      Text(
+                        '|',
+                        style: TextStyle(
+                          color: colorScheme.onSurface.withOpacity(0.45),
+                        ),
+                      ),
                       TextButton(
                         onPressed: () => context.go('/signup'),
                         child: const Text('Voltar'),
