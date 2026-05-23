@@ -602,7 +602,7 @@ class _HomePageState extends State<HomePage>
                 child: Text(
                   '$monthPercent%',
                   style: TextStyle(
-                    color: colorScheme.onSurface,
+                    color: colorScheme.onPrimary, // Corrigido
                     fontWeight: FontWeight.bold,
                     fontSize: 13,
                   ),
@@ -805,7 +805,7 @@ class _HomePageState extends State<HomePage>
                         child: isCompleted
                             ? Icon(
                                 Icons.check_rounded,
-                                color: colorScheme.onSurface,
+                                color: colorScheme.onPrimary, // Corrigido
                                 size: 18,
                               )
                             : Text(
