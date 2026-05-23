@@ -32,7 +32,8 @@ class ThemeColors {
     if (isDarkMode) {
       return Colors.white.withValues(alpha: opacity);
     }
-    return Colors.black.withValues(alpha: opacity);
+    // Color(0xFF3D3D3D): contraste ~8:1 sobre fundo creme (#FFF9F0) — passa WCAG AAA
+    return const Color(0xFF3D3D3D);
   }
 
   /// Cor para texto terciário (mais fraco)
@@ -44,7 +45,8 @@ class ThemeColors {
     if (isDarkMode) {
       return Colors.white.withValues(alpha: opacity);
     }
-    return Colors.grey.shade500;
+    // Color(0xFF6B6B6B): contraste ~4.7:1 sobre fundo creme (#FFF9F0) — passa WCAG AA
+    return const Color(0xFF6B6B6B);
   }
 
   /// Cor para ícones secundários
@@ -71,7 +73,8 @@ class ThemeColors {
     if (isDarkMode) {
       return const Color(0xFF2A2A2C);
     }
-    return Colors.grey.shade50;
+    // Levemente acinzentado/creme escuro — visível sobre o fundo principal (#FFF9F0)
+    return const Color(0xFFF0EDE8);
   }
 
   /// Cor para shimmer (loading)

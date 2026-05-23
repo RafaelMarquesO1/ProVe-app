@@ -708,7 +708,7 @@ class _HomePageState extends State<HomePage>
               formatButtonVisible: false,
               titleTextStyle: textTheme.titleMedium!.copyWith(
                 fontWeight: FontWeight.w900,
-                color: Colors.black87,
+                color: colorScheme.onSurface,
               ),
               leftChevronIcon: Icon(
                 Icons.chevron_left_rounded,
@@ -815,7 +815,7 @@ class _HomePageState extends State<HomePage>
                                       ? colorScheme.primary
                                       : (!isFuture && !isCompleted
                                             ? Colors.red.shade200
-                                            : Colors.black87),
+                                            : colorScheme.onSurface),
                                   fontWeight:
                                       isToday || isCompleted || isSelected
                                       ? FontWeight.w900
@@ -840,7 +840,7 @@ class _HomePageState extends State<HomePage>
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(32),
               border: monthPercent >= 100
                   ? Border.all(color: Colors.amber.shade300, width: 2)

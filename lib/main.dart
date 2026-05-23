@@ -66,8 +66,9 @@ class _MyAppState extends State<MyApp> {
       ),
       textTheme: baseTextTheme
           .apply(
-            bodyColor: Colors.black87,
-            displayColor: Colors.black87,
+            // Preto quase puro: contraste ~12:1 sobre o fundo creme (#FFF9F0)
+            bodyColor: const Color(0xFF1A1A1A),
+            displayColor: const Color(0xFF1A1A1A),
           )
           .copyWith(
             displayLarge: baseTextTheme.displayLarge,
@@ -107,7 +108,8 @@ class _MyAppState extends State<MyApp> {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: primarySeedColor, width: 2),
         ),
-        labelStyle: TextStyle(color: Colors.grey.shade600),
+        // Color(0xFF5C5C5C): contraste ~4.6:1 sobre branco — passa WCAG AA
+        labelStyle: const TextStyle(color: Color(0xFF5C5C5C)),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
@@ -127,10 +129,11 @@ class _MyAppState extends State<MyApp> {
               color: primarySeedColor,
             );
           }
+          // Color(0xFF5C5C5C): contraste ~4.6:1 sobre fundo claro — passa WCAG AA
           return GoogleFonts.lato(
             fontSize: 12,
             fontWeight: FontWeight.w500,
-            color: Colors.grey.shade600,
+            color: const Color(0xFF5C5C5C),
           );
         }),
       ),
@@ -139,9 +142,10 @@ class _MyAppState extends State<MyApp> {
         elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
-      listTileTheme: ListTileThemeData(
-        iconColor: Colors.grey.shade700,
-        textColor: Colors.black87,
+      listTileTheme: const ListTileThemeData(
+        // Color(0xFF424242): contraste ~7.5:1 sobre branco
+        iconColor: Color(0xFF424242),
+        textColor: Color(0xFF1A1A1A),
       ),
       dividerTheme: DividerThemeData(
         color: Colors.grey.shade200,

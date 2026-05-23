@@ -304,13 +304,15 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
                             decoration: BoxDecoration(
                               color: isUnlocked
                                   ? color.withOpacity(0.1)
-                                  : Colors.grey.shade50,
+                                  : ThemeColors.getLightBackground(context),
                               shape: BoxShape.circle,
                             ),
                           ),
                           Icon(
                             isUnlocked ? iconData : Icons.lock_rounded,
-                            color: isUnlocked ? color : Colors.grey.shade300,
+                            color: isUnlocked
+                                ? color
+                                : ThemeColors.getDisabledColor(context),
                             size: 64,
                           ),
                           if (isUnlocked)
@@ -333,11 +335,11 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
                       const SizedBox(height: 32),
                       Text(
                         achievement['title'] as String,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.w900,
                           letterSpacing: -1,
-                          color: Colors.black87,
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -350,13 +352,15 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
                         decoration: BoxDecoration(
                           color: isUnlocked
                               ? color.withOpacity(0.1)
-                              : Colors.grey.shade100,
+                              : ThemeColors.getLightBackground(context),
                           borderRadius: BorderRadius.circular(100),
                         ),
                         child: Text(
                           achievement['desc'] as String,
                           style: TextStyle(
-                            color: isUnlocked ? color : Colors.grey.shade600,
+                            color: isUnlocked
+                                ? color
+                                : ThemeColors.getSecondaryTextColor(context),
                             fontWeight: FontWeight.w900,
                             fontSize: 12,
                             letterSpacing: 1,
@@ -375,7 +379,9 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w900,
-                                color: Colors.grey.shade400,
+                                color: ThemeColors.getTertiaryTextColor(
+                                  context,
+                                ),
                                 letterSpacing: 1,
                               ),
                             ),
@@ -397,7 +403,7 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
                                 .clamp(0, 1)
                                 .toDouble(),
                             minHeight: 10,
-                            backgroundColor: Colors.grey.shade100,
+                            backgroundColor: Theme.of(context).dividerColor,
                             valueColor: AlwaysStoppedAnimation<Color>(color),
                           ),
                         ),
@@ -406,7 +412,7 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
                           'Continue firme! A sabedoria é uma jornada diária.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            color: Colors.grey.shade500,
+                            color: ThemeColors.getSecondaryTextColor(context),
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
                           ),
@@ -432,7 +438,7 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
                           'Sua dedicação aos Provérbios está gerando frutos eternos.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            color: Colors.grey.shade600,
+                            color: ThemeColors.getSecondaryTextColor(context),
                             height: 1.5,
                             fontSize: 14,
                           ),
@@ -448,12 +454,19 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
                           onTap: () => Navigator.pop(context),
                           child: Container(
                             decoration: BoxDecoration(
-                              color: isUnlocked ? color : Colors.black87,
+                              color: isUnlocked
+                                  ? color
+                                  : Theme.of(context).colorScheme.primary,
                               borderRadius: BorderRadius.circular(20),
                               boxShadow: [
                                 BoxShadow(
-                                  color: (isUnlocked ? color : Colors.black)
-                                      .withOpacity(0.3),
+                                  color:
+                                      (isUnlocked
+                                              ? color
+                                              : Theme.of(
+                                                  context,
+                                                ).colorScheme.primary)
+                                          .withOpacity(0.3),
                                   blurRadius: 15,
                                   offset: const Offset(0, 8),
                                 ),
@@ -590,10 +603,10 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
             builder: (context, val, child) {
               return Text(
                 '$val dias',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               );
             },
@@ -604,7 +617,7 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,
-              color: Colors.grey.shade600,
+              color: ThemeColors.getSecondaryTextColor(context),
             ),
           ),
         ],
@@ -661,7 +674,7 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: Colors.grey.shade900,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -669,7 +682,7 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
                     '$completedThisWeek de 7 dias concluídos',
                     style: TextStyle(
                       fontSize: 13,
-                      color: Colors.grey.shade500,
+                      color: ThemeColors.getSecondaryTextColor(context),
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -702,7 +715,7 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
             child: LinearProgressIndicator(
               value: weekPercent,
               minHeight: 8,
-              backgroundColor: Colors.grey.shade100,
+              backgroundColor: Theme.of(context).dividerColor,
               valueColor: AlwaysStoppedAnimation<Color>(
                 Theme.of(context).colorScheme.primary,
               ),
@@ -764,7 +777,9 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
                           fontWeight: isToday
                               ? FontWeight.w900
                               : FontWeight.w600,
-                          color: isToday ? primaryColor : Colors.grey.shade400,
+                          color: isToday
+                              ? primaryColor
+                              : ThemeColors.getTertiaryTextColor(context),
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -784,7 +799,7 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
                                 ? primaryColor
                                 : (isToday
                                       ? primaryColor
-                                      : Colors.grey.shade200),
+                                      : ThemeColors.getDividerColor(context)),
                             width: 2,
                           ),
                           boxShadow: isCompleted
@@ -1015,19 +1030,21 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
               margin: const EdgeInsets.only(right: 16, bottom: 8),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).cardColor,
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(
                   color: isUnlocked
                       ? color.withOpacity(0.3)
-                      : Colors.grey.shade100,
+                      : ThemeColors.getDividerColor(context),
                   width: 2,
                 ),
                 boxShadow: [
                   BoxShadow(
                     color: isUnlocked
                         ? color.withOpacity(0.15)
-                        : Colors.black.withOpacity(0.05),
+                        : (Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white.withOpacity(0.05)
+                              : Colors.black.withOpacity(0.05)),
                     blurRadius: 12,
                     offset: const Offset(0, 4),
                   ),
@@ -1044,14 +1061,16 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
                         decoration: BoxDecoration(
                           color: isUnlocked
                               ? color.withOpacity(0.1)
-                              : Colors.grey.shade50,
+                              : ThemeColors.getLightBackground(context),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
                           isUnlocked
                               ? (a['icon'] as IconData)
                               : Icons.lock_rounded,
-                          color: isUnlocked ? color : Colors.grey.shade300,
+                          color: isUnlocked
+                              ? color
+                              : ThemeColors.getDisabledColor(context),
                           size: 32,
                         ),
                       ),
@@ -1080,7 +1099,9 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w900,
-                      color: isUnlocked ? Colors.black87 : Colors.grey.shade400,
+                      color: isUnlocked
+                          ? Theme.of(context).colorScheme.onSurface
+                          : ThemeColors.getTertiaryTextColor(context),
                       letterSpacing: -0.2,
                     ),
                     textAlign: TextAlign.center,
@@ -1094,7 +1115,7 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
                       child: LinearProgressIndicator(
                         value: progress,
                         minHeight: 4,
-                        backgroundColor: Colors.grey.shade100,
+                        backgroundColor: Theme.of(context).dividerColor,
                         valueColor: AlwaysStoppedAnimation<Color>(
                           color.withOpacity(0.5),
                         ),

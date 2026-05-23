@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AppThemeController extends ChangeNotifier {
   AppThemeController._internal();
@@ -22,6 +23,20 @@ class AppThemeController extends ChangeNotifier {
     if (_initialized) return;
     _initialized = true;
 
+    // Carrega do SharedPreferences local primeiro para evitar piscadas
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final localTheme = prefs.getString('themeMode');
+      if (localTheme != null) {
+        final mode = _modeFromString(localTheme);
+        if (mode != null) {
+          _updateThemeMode(mode);
+        }
+      }
+    } catch (e) {
+      debugPrint('Erro ao carregar tema local inicial: $e');
+    }
+
     _authSubscription = _auth.userChanges().listen((user) {
       _loadThemeForUser(user);
     });
@@ -31,22 +46,45 @@ class AppThemeController extends ChangeNotifier {
 
   Future<void> _loadThemeForUser(User? user) async {
     if (user == null) {
-      _updateThemeMode(ThemeMode.light);
+      // Se não houver usuário logado, mantém o tema do SharedPreferences local
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final localTheme = prefs.getString('themeMode');
+        final mode = _modeFromString(localTheme) ?? ThemeMode.light;
+        _updateThemeMode(mode);
+      } catch (e) {
+        _updateThemeMode(ThemeMode.light);
+      }
       return;
     }
 
     try {
       final doc = await _firestore.collection('users').doc(user.uid).get();
-      final rawTheme = doc.data()?['themeMode'] as String?;
-      final mode = _modeFromString(rawTheme) ?? ThemeMode.light;
-      _updateThemeMode(mode);
+      if (doc.exists) {
+        final rawTheme = doc.data()?['themeMode'] as String?;
+        final mode = _modeFromString(rawTheme);
+        if (mode != null) {
+          _updateThemeMode(mode);
+          // Sincroniza com o SharedPreferences local
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('themeMode', _modeToString(mode));
+        }
+      }
     } catch (e) {
-      debugPrint('Erro ao carregar tema do usuário: $e');
+      debugPrint('Erro ao carregar tema do usuário do Firestore: $e');
     }
   }
 
   Future<void> setThemeMode(ThemeMode mode) async {
     _updateThemeMode(mode);
+
+    // Salva localmente no SharedPreferences
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('themeMode', _modeToString(mode));
+    } catch (e) {
+      debugPrint('Erro ao salvar tema localmente: $e');
+    }
 
     final user = _auth.currentUser;
     if (user == null) return;
@@ -56,7 +94,7 @@ class AppThemeController extends ChangeNotifier {
         'themeMode': _modeToString(mode),
       }, SetOptions(merge: true));
     } catch (e) {
-      debugPrint('Erro ao salvar tema do usuário: $e');
+      debugPrint('Erro ao salvar tema do usuário no Firestore: $e');
     }
   }
 

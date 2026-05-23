@@ -276,7 +276,9 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                       children: [
                         Text(
                           'Ainda não tem conta? ',
-                          style: GoogleFonts.lato(color: Colors.grey.shade600),
+                          style: GoogleFonts.lato(
+                            color: theme.colorScheme.onSurface.withOpacity(0.65),
+                          ),
                         ),
                         GestureDetector(
                           onTap: () => context.go('/signup'),

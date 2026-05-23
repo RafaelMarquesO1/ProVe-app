@@ -297,7 +297,9 @@ class _SignUpPageState extends State<SignUpPage> with SingleTickerProviderStateM
                       children: [
                         Text(
                           'Já possui uma conta? ',
-                          style: GoogleFonts.lato(color: Colors.grey.shade600),
+                          style: GoogleFonts.lato(
+                            color: theme.colorScheme.onSurface.withOpacity(0.65),
+                          ),
                         ),
                         GestureDetector(
                           onTap: () => context.go('/'),
