@@ -73,7 +73,7 @@ class _NotePageState extends State<NotePage> {
       if (mounted) {
         AppAlerts.showSnackBar(
           context,
-          message: 'Erro ao salvar no Firebase. Verifique sua conexão.',
+          message: 'Erro ao salvar a anotacao local.',
           type: AppAlertType.error,
         );
       }

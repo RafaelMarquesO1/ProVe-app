@@ -1,6 +1,4 @@
 import 'dart:math';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:myapp/models/user_model.dart';
 import 'package:intl/intl.dart';
@@ -8,6 +6,7 @@ import 'package:confetti/confetti.dart';
 import 'package:myapp/widgets/app_alerts.dart';
 import 'package:myapp/widgets/bounce_button.dart';
 import 'package:myapp/utils/theme_colors.dart';
+import 'package:myapp/services/progress_service.dart';
 
 class ReadingPlanPage extends StatefulWidget {
   final bool showConfetti;
@@ -19,7 +18,7 @@ class ReadingPlanPage extends StatefulWidget {
 }
 
 class _ReadingPlanPageState extends State<ReadingPlanPage> {
-  final User? _currentUser = FirebaseAuth.instance.currentUser;
+  final ProgressService _progressService = ProgressService();
   late ConfettiController _confettiController;
 
   @override
@@ -57,26 +56,19 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (_currentUser == null) {
-      return const Center(child: Text('Faça login para ver seu progresso.'));
-    }
-
-    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(_currentUser!.uid)
-          .snapshots(),
+    return StreamBuilder<UserModel?>(
+      stream: _progressService.userStream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return _buildLoadingShimmer(context);
         }
-        if (!snapshot.hasData || !snapshot.data!.exists) {
+        if (!snapshot.hasData || snapshot.data == null) {
           return const Center(
             child: Text("Nenhum dado de usuário encontrado."),
           );
         }
 
-        final user = UserModel.fromFirestore(snapshot.data!);
+        final user = snapshot.data!;
 
         return Scaffold(
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -254,7 +246,6 @@ class _ReadingPlanPageState extends State<ReadingPlanPage> {
     final color = achievement['color'] as Color;
     final iconData = achievement['icon'] as IconData;
     final threshold = achievement['threshold'] as int;
-    final unit = achievement['unit'] as String;
 
     await showGeneralDialog(
       context: context,
@@ -1293,3 +1284,4 @@ class _ShimmerRectState extends State<_ShimmerRect>
     );
   }
 }
+

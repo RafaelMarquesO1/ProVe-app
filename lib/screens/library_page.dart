@@ -1,10 +1,8 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:myapp/services/user_data_service.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:myapp/utils/theme_colors.dart';
 
 class LibraryPage extends StatefulWidget {
   final int initialIndex;
@@ -75,7 +73,7 @@ class _LibraryPageState extends State<LibraryPage> {
   }
 
   Widget _buildFavoritesTab(ThemeData theme) {
-    return StreamBuilder<QuerySnapshot>(
+    return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _userDataService.getFavoritesStream(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
@@ -86,7 +84,7 @@ class _LibraryPageState extends State<LibraryPage> {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final docs = snapshot.data?.docs ?? [];
+        final docs = snapshot.data ?? [];
 
         if (docs.isEmpty) {
           return _buildEmptyState(
@@ -102,9 +100,9 @@ class _LibraryPageState extends State<LibraryPage> {
           itemCount: docs.length,
           separatorBuilder: (context, index) => const SizedBox(height: 16),
           itemBuilder: (context, index) {
-            final data = docs[index].data() as Map<String, dynamic>;
+            final data = docs[index];
             final chapter = data['chapter'] ?? '';
-            final verseNumber = data['verseNumber'] ?? '';
+            final verseNumber = data['verse_number'] ?? '';
             final text = data['text'] ?? '';
             final reference = 'Provérbios $chapter:$verseNumber';
 
@@ -114,7 +112,7 @@ class _LibraryPageState extends State<LibraryPage> {
               content: text,
               icon: Icons.favorite_rounded,
               iconColor: Colors.pinkAccent,
-              onDelete: () => _userDataService.deleteFavorite(docs[index].id),
+              onDelete: () => _userDataService.deleteFavorite(data['id'] as String),
               onShare: () => Share.share('"$text"\n— $reference'),
             );
           },
@@ -124,7 +122,7 @@ class _LibraryPageState extends State<LibraryPage> {
   }
 
   Widget _buildNotesTab(ThemeData theme) {
-    return StreamBuilder<QuerySnapshot>(
+    return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _userDataService.getNotesStream(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
@@ -135,7 +133,7 @@ class _LibraryPageState extends State<LibraryPage> {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final docs = snapshot.data?.docs ?? [];
+        final docs = snapshot.data ?? [];
 
         if (docs.isEmpty) {
           return _buildEmptyState(
@@ -151,10 +149,10 @@ class _LibraryPageState extends State<LibraryPage> {
           itemCount: docs.length,
           separatorBuilder: (context, index) => const SizedBox(height: 16),
           itemBuilder: (context, index) {
-            final data = docs[index].data() as Map<String, dynamic>;
+            final data = docs[index];
             final reference = data['reference'] ?? '';
-            final verseText = data['verseText'] ?? '';
-            final noteText = data['noteText'] ?? '';
+            final verseText = data['verse_text'] ?? '';
+            final noteText = data['note_text'] ?? '';
 
             return Container(
               padding: const EdgeInsets.all(24),
@@ -205,7 +203,7 @@ class _LibraryPageState extends State<LibraryPage> {
                           size: 22,
                         ),
                         onPressed: () =>
-                            _userDataService.deleteNote(docs[index].id),
+                            _userDataService.deleteNote(data['id'] as String),
                         constraints: const BoxConstraints(),
                         padding: EdgeInsets.zero,
                       ),

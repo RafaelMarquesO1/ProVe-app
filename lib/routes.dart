@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:myapp/screens/login_page.dart';
@@ -10,8 +9,9 @@ import 'package:myapp/screens/note_page.dart';
 import 'package:myapp/screens/reminders_settings_page.dart';
 import 'package:myapp/screens/edit_profile_page.dart';
 import 'package:myapp/screens/reading_settings_page.dart';
-import 'package:myapp/screens/verify_email_page.dart';
 import 'package:myapp/screens/library_page.dart';
+import 'package:myapp/services/local_auth_service.dart';
+import 'package:myapp/screens/splash_screen.dart';
 
 CustomTransitionPage buildPageWithDefaultTransition<T>({
   required BuildContext context,
@@ -28,11 +28,12 @@ CustomTransitionPage buildPageWithDefaultTransition<T>({
 }
 
 class GoRouterRefreshStream extends ChangeNotifier {
-  late final StreamSubscription<User?> _subscription;
+  late final StreamSubscription<bool> _subscription;
 
   GoRouterRefreshStream() {
-    _subscription = FirebaseAuth.instance.authStateChanges().listen(
-      (User? user) {
+    LocalAuthService.instance.init();
+    _subscription = LocalAuthService.instance.authStateChanges.listen(
+      (_) {
         notifyListeners();
       },
     );
@@ -53,24 +54,32 @@ final GoRouter router = GoRouter(
   initialLocation: '/',
   refreshListenable: GoRouterRefreshStream(),
   redirect: (BuildContext context, GoRouterState state) async {
-    final user = FirebaseAuth.instance.currentUser;
-    final bool loggedIn = user != null;
+    await LocalAuthService.instance.init();
+    final bool loggedIn = LocalAuthService.instance.isSignedIn;
     final String location = state.matchedLocation;
-    const publicRoutes = {'/', '/signup', '/verify-email'};
+    const publicRoutes = {'/', '/signup', '/splash'};
     final bool isAuthRoute = publicRoutes.contains(location);
 
     if (!loggedIn) {
       return isAuthRoute ? null : '/';
     }
 
-    // Se já estiver logado e tentar entrar em / ou /signup, manda pra home
-    if (isAuthRoute) {
-      return '/home';
+    // Se já estiver logado e tentar entrar em / ou /signup, manda pra splash que logo irá pra home
+    if (location == '/' || location == '/signup') {
+      return '/splash';
     }
 
     return null;
   },
   routes: [
+    GoRoute(
+      path: '/splash',
+      pageBuilder: (context, state) => buildPageWithDefaultTransition(
+        context: context,
+        state: state,
+        child: const SplashScreen(),
+      ),
+    ),
     GoRoute(
       path: '/',
       pageBuilder: (context, state) => buildPageWithDefaultTransition(
@@ -86,17 +95,6 @@ final GoRouter router = GoRouter(
         state: state,
         child: const SignUpPage(),
       ),
-    ),
-    GoRoute(
-      path: '/verify-email',
-      pageBuilder: (context, state) {
-        final registrationData = state.extra as Map<String, dynamic>?;
-        return buildPageWithDefaultTransition(
-          context: context,
-          state: state,
-          child: VerifyEmailPage(registrationData: registrationData),
-        );
-      },
     ),
     ShellRoute(
       navigatorKey: _shellNavigatorKey,

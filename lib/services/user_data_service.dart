@@ -1,28 +1,79 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
+import 'package:myapp/services/database_service.dart';
 
 class UserDataService {
   UserDataService._internal();
   static final UserDataService instance = UserDataService._internal();
   factory UserDataService() => instance;
 
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  // Usar StreamControllers broadcast simples — sem async* generators
+  // para evitar Bad State ao re-subscrever em navegações
+  final _favoritesController =
+      StreamController<List<Map<String, dynamic>>>.broadcast();
+  final _notesController =
+      StreamController<List<Map<String, dynamic>>>.broadcast();
 
-  String? get _uid => _auth.currentUser?.uid;
+  // Último valor conhecido (cache em memória)
+  List<Map<String, dynamic>>? _lastFavorites;
+  List<Map<String, dynamic>>? _lastNotes;
 
-  Future<void> _ensureAuth() async {
-    if (_auth.currentUser == null) {
-      try {
-        await _auth.signInAnonymously();
-      } catch (e) {
-        debugPrint('Error signing in anonymously: $e');
+  /// Retorna um Stream que emite imediatamente o valor atual e depois
+  /// emite atualizações subsequentes via broadcast.
+  Stream<List<Map<String, dynamic>>> getFavoritesStream() {
+    final controller = StreamController<List<Map<String, dynamic>>>.broadcast();
+    StreamSubscription? sub;
+    controller.onListen = () {
+      final initial = _lastFavorites;
+      if (initial != null) {
+        controller.add(initial);
+      } else {
+        DatabaseService.instance.getFavorites().then((val) {
+          _lastFavorites = val;
+          if (!controller.isClosed) controller.add(val);
+        });
       }
-    }
+      sub = _favoritesController.stream.listen(
+        (val) {
+          if (!controller.isClosed) controller.add(val);
+        },
+        onError: controller.addError,
+        onDone: controller.close,
+      );
+    };
+    controller.onCancel = () {
+      sub?.cancel();
+    };
+    return controller.stream;
   }
 
-  // --- FAVORITES ---
+  Stream<List<Map<String, dynamic>>> getNotesStream() {
+    final controller = StreamController<List<Map<String, dynamic>>>.broadcast();
+    StreamSubscription? sub;
+    controller.onListen = () {
+      final initial = _lastNotes;
+      if (initial != null) {
+        controller.add(initial);
+      } else {
+        DatabaseService.instance.getNotes().then((val) {
+          _lastNotes = val;
+          if (!controller.isClosed) controller.add(val);
+        });
+      }
+      sub = _notesController.stream.listen(
+        (val) {
+          if (!controller.isClosed) controller.add(val);
+        },
+        onError: controller.addError,
+        onDone: controller.close,
+      );
+    };
+    controller.onCancel = () {
+      sub?.cancel();
+    };
+    return controller.stream;
+  }
 
   Future<void> toggleFavorite({
     required String chapter,
@@ -30,62 +81,34 @@ class UserDataService {
     required String verseText,
   }) async {
     try {
-      await _ensureAuth();
-      if (_uid == null) return;
-      
-      final docId = '${chapter}_$verseNumber';
-      final docRef = _firestore.collection('users').doc(_uid).collection('favorites').doc(docId);
-      
-      final docSnap = await docRef.get();
-      if (docSnap.exists) {
-        await docRef.delete();
-      } else {
-        await docRef.set({
-          'chapter': chapter,
-          'verseNumber': verseNumber,
-          'text': verseText,
-          'timestamp': FieldValue.serverTimestamp(),
-        });
-      }
+      await DatabaseService.instance.toggleFavorite(
+        chapter: chapter,
+        verseNumber: verseNumber,
+        verseText: verseText,
+      );
+      await refreshFavorites();
     } catch (e) {
-      debugPrint('Error toggling favorite: $e');
+      debugPrint('Erro ao alternar favorito local: $e');
       rethrow;
     }
   }
 
-  Future<bool> isFavorite(String chapter, String verseNumber) async {
-    if (_uid == null) return false;
-    try {
-      final docId = '${chapter}_$verseNumber';
-      final docSnap = await _firestore.collection('users').doc(_uid).collection('favorites').doc(docId).get();
-      return docSnap.exists;
-    } catch (e) {
-      debugPrint('Error checking favorite: $e');
-      return false;
+  Future<bool> isFavorite(String chapter, String verseNumber) {
+    return DatabaseService.instance.isFavorite(chapter, verseNumber);
+  }
+
+  Future<void> refreshFavorites() async {
+    final favorites = await DatabaseService.instance.getFavorites();
+    _lastFavorites = favorites;
+    if (!_favoritesController.isClosed) {
+      _favoritesController.add(favorites);
     }
   }
 
-  Stream<QuerySnapshot> getFavoritesStream() {
-    if (_uid == null) return const Stream.empty();
-    return _firestore
-        .collection('users')
-        .doc(_uid)
-        .collection('favorites')
-        .orderBy('timestamp', descending: true)
-        .snapshots();
+  Future<void> deleteFavorite(String id) async {
+    await DatabaseService.instance.deleteFavorite(id);
+    await refreshFavorites();
   }
-
-  Future<void> deleteFavorite(String docId) async {
-    if (_uid == null) return;
-    try {
-      await _firestore.collection('users').doc(_uid).collection('favorites').doc(docId).delete();
-    } catch (e) {
-      debugPrint('Error deleting favorite: $e');
-      rethrow;
-    }
-  }
-
-  // --- NOTES ---
 
   Future<void> saveNote({
     required String reference,
@@ -93,38 +116,28 @@ class UserDataService {
     required String noteText,
   }) async {
     try {
-      await _ensureAuth();
-      if (_uid == null) return;
-      
-      await _firestore.collection('users').doc(_uid).collection('notes').add({
-        'reference': reference,
-        'verseText': verseText,
-        'noteText': noteText,
-        'timestamp': FieldValue.serverTimestamp(),
-      });
+      await DatabaseService.instance.saveNote(
+        reference: reference,
+        verseText: verseText,
+        noteText: noteText,
+      );
+      await refreshNotes();
     } catch (e) {
-      debugPrint('Error saving note: $e');
+      debugPrint('Erro ao salvar anotacao local: $e');
       rethrow;
     }
   }
 
-  Stream<QuerySnapshot> getNotesStream() {
-    if (_uid == null) return const Stream.empty();
-    return _firestore
-        .collection('users')
-        .doc(_uid)
-        .collection('notes')
-        .orderBy('timestamp', descending: true)
-        .snapshots();
+  Future<void> refreshNotes() async {
+    final notes = await DatabaseService.instance.getNotes();
+    _lastNotes = notes;
+    if (!_notesController.isClosed) {
+      _notesController.add(notes);
+    }
   }
 
-  Future<void> deleteNote(String docId) async {
-    if (_uid == null) return;
-    try {
-      await _firestore.collection('users').doc(_uid).collection('notes').doc(docId).delete();
-    } catch (e) {
-      debugPrint('Error deleting note: $e');
-      rethrow;
-    }
+  Future<void> deleteNote(String id) async {
+    await DatabaseService.instance.deleteNote(id);
+    await refreshNotes();
   }
 }

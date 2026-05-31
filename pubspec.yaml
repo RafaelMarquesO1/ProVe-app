@@ -21,11 +21,7 @@ dependencies:
   confetti: any
   intl: ^0.20.2
   flutter_staggered_grid_view: any
-  firebase_core: any
-  firebase_auth: any
-  cloud_firestore: any
   image_picker: any
-  firebase_storage: any
   provider: ^6.1.5+1
   shared_preferences: ^2.5.4
   flutter_tts: ^4.2.5
@@ -33,8 +29,8 @@ dependencies:
   timezone: ^0.11.0
   flutter_timezone: ^5.0.2
   url_launcher: ^6.3.1
-  http: ^1.3.0
   sqflite: ^2.4.2
+  path: ^1.9.1
   path_provider: ^2.1.5
 
 dev_dependencies:
@@ -54,6 +50,6 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: assets/images/app_logo.png
+  image_path: assets/images/app_logo_transparent.png
   adaptive_icon_background: "#FFF9F0"
-  adaptive_icon_foreground: assets/images/app_logo.png
+  adaptive_icon_foreground: assets/images/app_logo_transparent.png

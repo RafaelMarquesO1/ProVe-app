@@ -1,4 +1,3 @@
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:myapp/routes.dart';
@@ -7,18 +6,25 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:myapp/services/app_theme_controller.dart';
 import 'package:myapp/services/notification_service.dart';
 
-import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('pt_BR', null);
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
   // Inicializa o serviço de notificações
   await NotificationService().init();
   
   runApp(const MyApp());
+}
+
+class SmoothScrollBehavior extends ScrollBehavior {
+  const SmoothScrollBehavior();
+
+  @override
+  ScrollPhysics getScrollPhysics(BuildContext context) {
+    return const BouncingScrollPhysics(
+      parent: AlwaysScrollableScrollPhysics(),
+    );
+  }
 }
 
 class MyApp extends StatefulWidget {
@@ -82,11 +88,13 @@ class _MyAppState extends State<MyApp> {
         style: ElevatedButton.styleFrom(
           backgroundColor: primarySeedColor,
           foregroundColor: Colors.white,
+          elevation: 4,
+          shadowColor: primarySeedColor.withOpacity(0.4),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
           ),
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          textStyle: baseTextTheme.labelLarge,
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+          textStyle: baseTextTheme.labelLarge?.copyWith(letterSpacing: 1.2),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -116,7 +124,6 @@ class _MyAppState extends State<MyApp> {
           foregroundColor: primarySeedColor,
           textStyle: const TextStyle(
             fontWeight: FontWeight.bold,
-            decoration: TextDecoration.underline,
           ),
         ),
       ),
@@ -139,8 +146,9 @@ class _MyAppState extends State<MyApp> {
       ),
       cardTheme: CardThemeData(
         color: Colors.white,
-        elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        elevation: 8,
+        shadowColor: Colors.black.withOpacity(0.06),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
       listTileTheme: const ListTileThemeData(
         // Color(0xFF424242): contraste ~7.5:1 sobre branco
@@ -189,11 +197,13 @@ class _MyAppState extends State<MyApp> {
         style: ElevatedButton.styleFrom(
           backgroundColor: primarySeedColor,
           foregroundColor: Colors.white,
+          elevation: 4,
+          shadowColor: primarySeedColor.withOpacity(0.2),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
           ),
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          textStyle: baseTextTheme.labelLarge,
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+          textStyle: baseTextTheme.labelLarge?.copyWith(letterSpacing: 1.2),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -222,7 +232,6 @@ class _MyAppState extends State<MyApp> {
           foregroundColor: primarySeedColor,
           textStyle: const TextStyle(
             fontWeight: FontWeight.bold,
-            decoration: TextDecoration.underline,
           ),
         ),
       ),
@@ -244,8 +253,9 @@ class _MyAppState extends State<MyApp> {
       ),
       cardTheme: CardThemeData(
         color: const Color(0xFF1C1C1E),
-        elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        elevation: 8,
+        shadowColor: Colors.black.withOpacity(0.4),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
       listTileTheme: const ListTileThemeData(
         iconColor: Colors.white70,
@@ -270,6 +280,7 @@ class _MyAppState extends State<MyApp> {
       animation: _themeController,
       builder: (context, _) {
         return MaterialApp.router(
+          scrollBehavior: const SmoothScrollBehavior(),
           debugShowCheckedModeBanner: false,
           title: 'ProVê',
           theme: lightTheme,

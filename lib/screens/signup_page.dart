@@ -1,12 +1,13 @@
-import 'dart:math';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:myapp/services/email_service.dart';
-import 'package:myapp/widgets/app_logo.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:myapp/services/local_auth_service.dart';
+import 'package:myapp/widgets/app_alerts.dart';
 import 'package:myapp/widgets/bounce_button.dart';
+import 'package:myapp/widgets/photo_reframer.dart';
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
@@ -15,133 +16,155 @@ class SignUpPage extends StatefulWidget {
   State<SignUpPage> createState() => _SignUpPageState();
 }
 
-class _SignUpPageState extends State<SignUpPage> with SingleTickerProviderStateMixin {
+class _SignUpPageState extends State<SignUpPage>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
   final _nameController = TextEditingController();
-  bool _isLoading = false;
-  bool _obscurePassword = true;
-  String? _nameErrorText;
-  String? _emailErrorText;
-  String? _passwordErrorText;
+  final ImagePicker _picker = ImagePicker();
 
-  late final AnimationController _fadeController;
+  File? _imageFile;
+  bool _isLoading = false;
+  String? _nameErrorText;
+
+  late final AnimationController _animController;
   late final Animation<double> _fadeAnimation;
+  late final Animation<Offset> _slideAnimation;
 
   @override
   void initState() {
     super.initState();
-    _fadeController = AnimationController(
+    _animController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1000),
+      duration: const Duration(milliseconds: 700),
     );
-    _fadeAnimation = CurvedAnimation(parent: _fadeController, curve: Curves.easeOut);
-    _fadeController.forward();
+    _fadeAnimation = CurvedAnimation(
+      parent: _animController,
+      curve: Curves.easeOut,
+    );
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.06),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _animController, curve: Curves.easeOut));
+    _animController.forward();
   }
 
   @override
   void dispose() {
-    _fadeController.dispose();
-    _emailController.dispose();
-    _passwordController.dispose();
+    _animController.dispose();
     _nameController.dispose();
     super.dispose();
   }
 
+  Future<void> _pickImage(ImageSource source) async {
+    final pickedFile = await _picker.pickImage(
+      source: source,
+      imageQuality: 90,
+      maxWidth: 1600,
+      maxHeight: 1600,
+    );
+    if (pickedFile != null && mounted) {
+      final cropped = await PhotoReframer.reframe(
+        context: context,
+        imageFile: File(pickedFile.path),
+      );
+      if (cropped != null && mounted) {
+        setState(() => _imageFile = cropped);
+      }
+    }
+  }
+
+  Future<void> _showImageSourceSheet() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Theme.of(context).cardColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Handle
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).dividerColor,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                ListTile(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  leading: const Icon(Icons.photo_library_outlined),
+                  title: const Text('Escolher da galeria'),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await _pickImage(ImageSource.gallery);
+                  },
+                ),
+                ListTile(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  leading: const Icon(Icons.photo_camera_outlined),
+                  title: const Text('Usar câmera'),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await _pickImage(ImageSource.camera);
+                  },
+                ),
+                if (_imageFile != null)
+                  ListTile(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    leading: Icon(
+                      Icons.delete_outline_rounded,
+                      color: Colors.red.shade400,
+                    ),
+                    title: Text(
+                      'Remover foto',
+                      style: TextStyle(color: Colors.red.shade400),
+                    ),
+                    onTap: () {
+                      Navigator.pop(context);
+                      setState(() => _imageFile = null);
+                    },
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _signUp() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!(_formKey.currentState?.validate() ?? false)) return;
 
     setState(() {
       _isLoading = true;
       _nameErrorText = null;
-      _emailErrorText = null;
-      _passwordErrorText = null;
     });
 
     try {
-      final bool emailVerificationEnabled = EmailService.isConfigured;
-      final String verificationCode = _generateSixDigitCode();
-      final String userName = _nameController.text.trim();
-      final String userEmail = _emailController.text.trim();
-      final String userPassword = _passwordController.text.trim();
-
-      if (emailVerificationEnabled) {
-        final bool sent = await EmailService.sendOTP(
-          userName: userName,
-          userEmail: userEmail,
-          otpCode: verificationCode,
-        );
-
-        if (!sent) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text('Não foi possível enviar o código de verificação.'),
-                backgroundColor: Theme.of(context).colorScheme.error,
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-            );
-          }
-          return;
-        }
-
-        if (mounted) {
-          context.go('/verify-email', extra: {
-            'name': userName,
-            'email': userEmail,
-            'password': userPassword,
-            'code': verificationCode,
-            'otpCreatedAt': DateTime.now().millisecondsSinceEpoch,
-            'otpAttempts': 0,
-          });
-        }
-        return;
-      }
-
-      UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: userEmail,
-        password: userPassword,
+      await LocalAuthService.instance.createProfile(
+        name: _nameController.text,
+        photoFile: _imageFile,
       );
-
-      User? user = userCredential.user;
-
-      if (user != null) {
-        await user.updateDisplayName(userName);
-
-        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-          'uid': user.uid,
-          'name': userName,
-          'email': userEmail,
-          'readingStreak': 0,
-          'longestStreak': 0,
-          'lastReadDate': null,
-          'createdAt': FieldValue.serverTimestamp(),
-          'completedDays': [],
-          'currentChapter': 1,
-          'isEmailVerified': true,
-        });
-
-        if (mounted) {
-          context.go('/home');
-        }
-      }
-    } on FirebaseAuthException catch (e) {
+      if (mounted) context.go('/home');
+    } catch (e) {
       if (mounted) {
-        String errorMessage = 'Erro ao criar conta.';
-        if (e.code == 'email-already-in-use') {
-          _emailErrorText = 'Este e-mail já está em uso.';
-        } else if (e.code == 'weak-password') {
-          _passwordErrorText = 'Senha muito fraca.';
-        }
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(errorMessage),
-            backgroundColor: Theme.of(context).colorScheme.error,
-            behavior: SnackBarBehavior.floating,
-          ),
+        AppAlerts.showSnackBar(
+          context,
+          message: 'Nao foi possivel criar o perfil.',
+          type: AppAlertType.error,
         );
       }
     } finally {
@@ -149,178 +172,233 @@ class _SignUpPageState extends State<SignUpPage> with SingleTickerProviderStateM
     }
   }
 
-  String _generateSixDigitCode() {
-    final random = Random();
-    return (100000 + random.nextInt(900000)).toString();
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final name = _nameController.text.trim();
+    final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
 
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          icon: Icon(Icons.arrow_back_ios_new_rounded, color: colorScheme.primary),
           onPressed: () => context.go('/'),
         ),
       ),
-      body: Container(
-        height: double.infinity,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              colorScheme.primary.withOpacity(0.05),
-              theme.scaffoldBackgroundColor,
-            ],
-          ),
-        ),
-        child: FadeTransition(
-          opacity: _fadeAnimation,
-          child: GestureDetector(
-            onTap: () => FocusScope.of(context).unfocus(),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 32),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const AppLogo(size: 80),
-                    const SizedBox(height: 24),
-                    Text(
-                      'CRIE SUA CONTA',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.displayLarge?.copyWith(
-                        fontSize: 36,
-                        letterSpacing: 2,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Junte-se a nós nesta jornada de sabedoria',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.lato(
-                        color: colorScheme.onSurface.withOpacity(0.7),
-                        fontSize: 15,
-                      ),
-                    ),
-                    const SizedBox(height: 40),
-                    TextFormField(
-                      controller: _nameController,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                      decoration: InputDecoration(
-                        labelText: 'Nome Completo',
-                        prefixIcon: const Icon(Icons.person_outline_rounded),
-                        errorText: _nameErrorText,
-                      ),
-                      keyboardType: TextInputType.name,
-                      validator: (value) => (value == null || value.trim().isEmpty) ? 'Informe seu nome' : null,
-                    ),
-                    const SizedBox(height: 20),
-                    TextFormField(
-                      controller: _emailController,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                      decoration: InputDecoration(
-                        labelText: 'E-mail',
-                        prefixIcon: const Icon(Icons.email_outlined),
-                        errorText: _emailErrorText,
-                      ),
-                      keyboardType: TextInputType.emailAddress,
-                      validator: (value) => (value == null || !value.contains('@')) ? 'E-mail inválido' : null,
-                    ),
-                    const SizedBox(height: 20),
-                    TextFormField(
-                      controller: _passwordController,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                      obscureText: _obscurePassword,
-                      decoration: InputDecoration(
-                        labelText: 'Senha',
-                        prefixIcon: const Icon(Icons.lock_outline_rounded),
-                        errorText: _passwordErrorText,
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscurePassword ? Icons.visibility_off_rounded : Icons.visibility_rounded,
-                            color: Colors.grey.shade400,
+      body: FadeTransition(
+            opacity: _fadeAnimation,
+            child: SlideTransition(
+              position: _slideAnimation,
+              child: GestureDetector(
+                onTap: () => FocusScope.of(context).unfocus(),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(28, 8, 28, 40),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // ── Cabeçalho ──────────────────────────────────────
+                        Text(
+                          'CRIE SEU\nPERFIL',
+                          style: theme.textTheme.displayLarge?.copyWith(
+                            fontSize: 36,
+                            letterSpacing: 1.5,
+                            height: 1.05,
                           ),
-                          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                         ),
-                      ),
-                      validator: (value) => (value == null || value.length < 6) ? 'Mínimo 6 caracteres' : null,
-                    ),
-                    const SizedBox(height: 32),
-                    BounceButton(
-                      onTap: _isLoading ? () {} : _signUp,
-                      child: Container(
-                        height: 56,
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [colorScheme.primary, const Color(0xFFD65108)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
+                        const SizedBox(height: 6),
+                        Text(
+                          'Como podemos te chamar?',
+                          style: GoogleFonts.lato(
+                            color: colorScheme.onSurface.withOpacity(0.55),
+                            fontSize: 15,
                           ),
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: colorScheme.primary.withOpacity(0.3),
-                              blurRadius: 12,
-                              offset: const Offset(0, 6),
-                            ),
-                          ],
                         ),
-                        child: Center(
-                          child: _isLoading
-                              ? const SizedBox(
-                                  height: 24,
-                                  width: 24,
-                                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
-                                )
-                              : const Text(
-                                  'CADASTRAR',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 1.5,
+                        const SizedBox(height: 36),
+
+                        // ── Avatar ─────────────────────────────────────────
+                        Center(
+                          child: BounceButton(
+                            onTap: _showImageSourceSheet,
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                // Avatar simples sem anel de gradiente exagerado
+                                Container(
+                                  width: 108,
+                                  height: 108,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: colorScheme.primary.withOpacity(0.3),
+                                      width: 2.5,
+                                    ),
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(3),
+                                    child: CircleAvatar(
+                                      radius: 50,
+                                      backgroundColor: colorScheme.primary.withOpacity(0.1),
+                                      backgroundImage: _imageFile != null
+                                          ? FileImage(_imageFile!)
+                                          : null,
+                                      child: _imageFile == null
+                                          ? Text(
+                                              initial,
+                                              style: GoogleFonts.oswald(
+                                                fontSize: 42,
+                                                color: colorScheme.primary,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            )
+                                          : null,
+                                    ),
                                   ),
                                 ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 40),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          'Já possui uma conta? ',
-                          style: GoogleFonts.lato(
-                            color: theme.colorScheme.onSurface.withOpacity(0.65),
+                                // Badge câmera simples com cor sólida
+                                Positioned(
+                                  bottom: 2,
+                                  right: 2,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(7),
+                                    decoration: BoxDecoration(
+                                      color: colorScheme.primary,
+                                      shape: BoxShape.circle,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: colorScheme.primary.withOpacity(0.3),
+                                          blurRadius: 6,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: const Icon(
+                                      Icons.photo_camera_rounded,
+                                      color: Colors.white,
+                                      size: 16,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                        GestureDetector(
-                          onTap: () => context.go('/'),
+                        const SizedBox(height: 10),
+                        Center(
                           child: Text(
-                            'ENTRAR',
-                            style: TextStyle(
-                              color: colorScheme.primary,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 0.5,
+                            _imageFile == null ? 'Adicionar foto' : 'Alterar foto',
+                            style: GoogleFonts.lato(
+                              fontSize: 12,
+                              color: colorScheme.primary.withOpacity(0.8),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 36),
+
+                        // ── Campo de nome ──────────────────────────────────
+                        TextFormField(
+                          controller: _nameController,
+                          onChanged: (_) => setState(() {}),
+                          style: GoogleFonts.lato(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                          ),
+                          decoration: InputDecoration(
+                            labelText: 'Seu nome',
+                            prefixIcon: const Icon(
+                              Icons.person_outline_rounded,
+                            ),
+                            errorText: _nameErrorText,
+                          ),
+                          keyboardType: TextInputType.name,
+                          textCapitalization: TextCapitalization.words,
+                          textInputAction: TextInputAction.done,
+                          onFieldSubmitted: (_) => _signUp(),
+                          validator: (value) {
+                            final trimmed = value?.trim() ?? '';
+                            if (trimmed.isEmpty) return 'Informe seu nome';
+                            if (trimmed.length < 2) {
+                              return 'Informe pelo menos 2 letras';
+                            }
+                            if (trimmed.length > 80) {
+                              return 'Use ate 80 caracteres';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 40),
+
+                        // ── Botão ──────────────────────────────────────────
+                        BounceButton(
+                          onTap: _isLoading ? () {} : _signUp,
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            height: 58,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  colorScheme.primary,
+                                  const Color(0xFFD65108),
+                                ],
+                                begin: Alignment.centerLeft,
+                                end: Alignment.centerRight,
+                              ),
+                              borderRadius: BorderRadius.circular(18),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: colorScheme.primary.withOpacity(0.4),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 8),
+                                ),
+                              ],
+                            ),
+                            child: Center(
+                              child: _isLoading
+                                  ? const SizedBox(
+                                      height: 24,
+                                      width: 24,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2.5,
+                                      ),
+                                    )
+                                  : Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Text(
+                                          'CONTINUAR',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                            letterSpacing: 2,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        const Icon(
+                                          Icons.arrow_forward_rounded,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                      ],
+                                    ),
                             ),
                           ),
                         ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      ),
     );
   }
 }

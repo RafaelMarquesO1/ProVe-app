@@ -1,12 +1,12 @@
 import 'dart:io';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:myapp/services/local_auth_service.dart';
 import 'package:myapp/widgets/app_alerts.dart';
 import 'package:myapp/widgets/bounce_button.dart';
+import 'package:myapp/widgets/photo_reframer.dart';
 
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
@@ -18,112 +18,61 @@ class EditProfilePage extends StatefulWidget {
 class _EditProfilePageState extends State<EditProfilePage> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
-  final _currentPasswordController = TextEditingController();
-  final _newPasswordController = TextEditingController();
-
-  final User? _currentUser = FirebaseAuth.instance.currentUser;
   final ImagePicker _picker = ImagePicker();
+
   File? _imageFile;
-  String? _storedPhotoUrl;
+  String? _storedPhotoPath;
   bool _removeCurrentPhoto = false;
   bool _isLoading = false;
-  bool _showCurrentPassword = false;
-  bool _showNewPassword = false;
 
   @override
   void initState() {
     super.initState();
-    _nameController.text = _currentUser?.displayName ?? '';
-    _storedPhotoUrl = _currentUser?.photoURL;
+    final currentUser = LocalAuthService.instance.currentUser;
+    _nameController.text = currentUser?.name ?? '';
+    _storedPhotoPath = currentUser?.photoPath;
   }
 
   @override
   void dispose() {
     _nameController.dispose();
-    _currentPasswordController.dispose();
-    _newPasswordController.dispose();
     super.dispose();
   }
 
   Future<void> _pickImage(ImageSource source) async {
-    final pickedFile = await _picker.pickImage(source: source, imageQuality: 80);
-    if (pickedFile != null) {
-      setState(() {
-        _imageFile = File(pickedFile.path);
-        _removeCurrentPhoto = false;
-      });
-    }
-  }
-
-  Future<String?> _uploadProfilePicture(String userId) async {
-    if (_imageFile == null) return null;
-    try {
-      final fileName = '$userId-${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final storageRef = FirebaseStorage.instance
-          .ref()
-          .child('profile_pictures')
-          .child(fileName);
-      await storageRef.putFile(_imageFile!);
-      return await storageRef.getDownloadURL();
-    } catch (e) {
-      if (mounted) {
-        AppAlerts.showSnackBar(
-          context,
-          message: 'Erro ao enviar foto: $e',
-          type: AppAlertType.error,
-        );
+    final pickedFile = await _picker.pickImage(
+      source: source,
+      imageQuality: 90,
+      maxWidth: 1600,
+      maxHeight: 1600,
+    );
+    if (pickedFile != null && mounted) {
+      final cropped = await PhotoReframer.reframe(
+        context: context,
+        imageFile: File(pickedFile.path),
+      );
+      if (cropped != null && mounted) {
+        setState(() {
+          _imageFile = cropped;
+          _removeCurrentPhoto = false;
+        });
       }
-      return null;
     }
   }
 
   Future<void> _updateProfile() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
-    final bool canProceed = await _showPreviewAndConfirmSave();
+    final canProceed = await _showPreviewAndConfirmSave();
     if (!canProceed) return;
-
-    final user = _currentUser;
-    if (user == null) return;
 
     setState(() => _isLoading = true);
 
     try {
-      String? photoURL = user.photoURL;
-      if (_removeCurrentPhoto) {
-        photoURL = null;
-      } else if (_imageFile != null) {
-        photoURL = await _uploadProfilePicture(user.uid);
-      }
-
-      await user.updateDisplayName(_nameController.text);
-      await user.updatePhotoURL(photoURL);
-      await user.reload();
-      
-      final Map<String, dynamic> updateData = {
-        'name': _nameController.text,
-      };
-      updateData['photoURL'] = photoURL;
-      
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .set(updateData, SetOptions(merge: true));
-
-      setState(() {
-        _storedPhotoUrl = photoURL;
-        _imageFile = null;
-        _removeCurrentPhoto = false;
-      });
-
-      if (_currentPasswordController.text.isNotEmpty && _newPasswordController.text.isNotEmpty) {
-        final email = user.email;
-        if (email != null) {
-          AuthCredential credential = EmailAuthProvider.credential(
-              email: email, password: _currentPasswordController.text);
-          await user.reauthenticateWithCredential(credential);
-          await user.updatePassword(_newPasswordController.text);
-        }
-      }
+      await LocalAuthService.instance.updateProfile(
+        name: _nameController.text,
+        newPhotoFile: _imageFile,
+        removePhoto: _removeCurrentPhoto,
+      );
 
       if (mounted) {
         AppAlerts.showSnackBar(
@@ -133,19 +82,16 @@ class _EditProfilePageState extends State<EditProfilePage> {
         );
         context.go('/home', extra: {'index': 2});
       }
-
-    } on FirebaseAuthException catch (e) {
+    } catch (e) {
       if (mounted) {
         AppAlerts.showSnackBar(
           context,
-          message: 'Erro: ${e.message}',
+          message: 'Nao foi possivel salvar o perfil local.',
           type: AppAlertType.error,
         );
       }
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -157,32 +103,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
-        final theme = Theme.of(context);
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Foto de perfil',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Escolha de onde deseja selecionar a imagem.',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-                const SizedBox(height: 18),
                 ListTile(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   leading: const Icon(Icons.photo_library_outlined),
                   title: const Text('Galeria'),
                   onTap: () async {
@@ -192,31 +120,25 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 ),
                 const SizedBox(height: 8),
                 ListTile(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   leading: const Icon(Icons.photo_camera_outlined),
-                  title: const Text('Câmera'),
+                  title: const Text('Camera'),
                   onTap: () async {
                     Navigator.pop(context);
                     await _pickImage(ImageSource.camera);
                   },
                 ),
-                if (_storedPhotoUrl != null || _imageFile != null) ...[
+                if (_storedPhotoPath != null || _imageFile != null) ...[
                   const SizedBox(height: 8),
                   ListTile(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    leading: const Icon(Icons.delete_outline_rounded),
-                    iconColor: Colors.red.shade700,
-                    title: const Text('Remover foto atual'),
-                    textColor: Colors.red.shade700,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    leading: Icon(Icons.delete_outline_rounded, color: Colors.red.shade700),
+                    title: Text('Remover foto atual', style: TextStyle(color: Colors.red.shade700)),
                     onTap: () {
                       Navigator.pop(context);
                       setState(() {
                         _imageFile = null;
-                        _storedPhotoUrl = null;
+                        _storedPhotoPath = null;
                         _removeCurrentPhoto = true;
                       });
                     },
@@ -231,17 +153,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 
   Future<bool> _showPreviewAndConfirmSave() async {
-    final ImageProvider? imageProvider = _imageFile != null
-        ? FileImage(_imageFile!)
-        : (_storedPhotoUrl != null ? NetworkImage(_storedPhotoUrl!) : null);
-
-    final bool? confirm = await showDialog<bool>(
+    final imageProvider = _currentImageProvider();
+    final confirm = await showDialog<bool>(
       context: context,
       barrierDismissible: true,
       builder: (context) {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-          title: const Text('Confirmar alterações'),
+          title: const Text('Confirmar alteracoes'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -250,13 +169,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 backgroundImage: imageProvider,
                 child: imageProvider == null
                     ? Text(
-                        _nameController.text.isNotEmpty
-                            ? _nameController.text.substring(0, 1).toUpperCase()
-                            : 'U',
-                        style: const TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        _avatarInitial(),
+                        style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                       )
                     : null,
               ),
@@ -267,7 +181,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
               ),
               const SizedBox(height: 6),
               Text(
-                'Verifique os dados antes de salvar.',
+                'Deseja salvar as alteracoes do seu perfil?',
+                textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey.shade600),
               ),
             ],
@@ -288,12 +203,23 @@ class _EditProfilePageState extends State<EditProfilePage> {
     return confirm ?? false;
   }
 
+  ImageProvider? _currentImageProvider() {
+    if (_imageFile != null) return FileImage(_imageFile!);
+    if (_storedPhotoPath != null) return FileImage(File(_storedPhotoPath!));
+    return null;
+  }
+
+  String _avatarInitial() {
+    final displayName = _nameController.text.trim();
+    return displayName.isNotEmpty ? displayName.substring(0, 1).toUpperCase() : 'U';
+  }
+
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
     final displayName = _nameController.text.trim().isEmpty
-        ? (_currentUser?.displayName ?? 'Usuário')
+        ? (LocalAuthService.instance.currentUser?.name ?? 'Usuario')
         : _nameController.text.trim();
 
     return Scaffold(
@@ -317,7 +243,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Mantenha seus dados sempre atualizados',
+                'Mantenha seu perfil atualizado',
                 style: textTheme.titleMedium?.copyWith(
                   color: colorScheme.onSurface.withOpacity(0.7),
                 ),
@@ -325,112 +251,27 @@ class _EditProfilePageState extends State<EditProfilePage> {
               const SizedBox(height: 20),
               _buildProfileHeader(context, colorScheme, displayName),
               const SizedBox(height: 28),
-
-              _buildSectionTitle(context, 'INFORMAÇÕES BÁSICAS'),
+              _buildSectionTitle(context, 'INFORMACOES BASICAS'),
               _buildInfoContainer(
-                child: Column(
-                  children: [
-                    TextFormField(
-                      controller: _nameController,
-                      onChanged: (_) => setState(() {}),
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                      decoration: const InputDecoration(
-                        labelText: 'Nome Completo',
-                        prefixIcon: Icon(Icons.person_outline_rounded),
-                      ),
-                      validator: (value) => (value?.isEmpty ?? true) ? 'O nome não pode estar em branco' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      initialValue: _currentUser?.email,
-                      enabled: false,
-                      style: TextStyle(
-                        color: colorScheme.onSurface.withOpacity(0.7),
-                        fontWeight: FontWeight.w500,
-                      ),
-                      decoration: const InputDecoration(
-                        labelText: 'E-mail',
-                        prefixIcon: Icon(Icons.email_outlined),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-              
-              _buildSectionTitle(context, 'SEGURANÇA'),
-              _buildInfoContainer(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Alterar Senha',
-                      style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Preencha apenas se desejar alterar sua senha atual.',
-                      style: textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurface.withOpacity(0.65),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    TextFormField(
-                      controller: _currentPasswordController,
-                      obscureText: !_showCurrentPassword,
-                      decoration: InputDecoration(
-                        labelText: 'Senha Atual',
-                        prefixIcon: const Icon(Icons.lock_outline_rounded),
-                        suffixIcon: IconButton(
-                          onPressed: () {
-                            setState(() {
-                              _showCurrentPassword = !_showCurrentPassword;
-                            });
-                          },
-                          icon: Icon(
-                            _showCurrentPassword
-                                ? Icons.visibility_off_rounded
-                                : Icons.visibility_rounded,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _newPasswordController,
-                      obscureText: !_showNewPassword,
-                      decoration: InputDecoration(
-                        labelText: 'Nova Senha',
-                        prefixIcon: const Icon(Icons.lock_reset_rounded),
-                        suffixIcon: IconButton(
-                          onPressed: () {
-                            setState(() {
-                              _showNewPassword = !_showNewPassword;
-                            });
-                          },
-                          icon: Icon(
-                            _showNewPassword
-                                ? Icons.visibility_off_rounded
-                                : Icons.visibility_rounded,
-                          ),
-                        ),
-                      ),
-                      validator: (value) {
-                        if ((value ?? '').isEmpty) return null;
-                        if ((value ?? '').length < 6) {
-                          return 'A nova senha precisa ter pelo menos 6 caracteres';
-                        }
-                        if (_currentPasswordController.text.isEmpty) {
-                          return 'Informe a senha atual para definir uma nova';
-                        }
-                        return null;
-                      },
-                    ),
-                  ],
+                child: TextFormField(
+                  controller: _nameController,
+                  onChanged: (_) => setState(() {}),
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                  decoration: const InputDecoration(
+                    labelText: 'Nome',
+                    prefixIcon: Icon(Icons.person_outline_rounded),
+                  ),
+                  textCapitalization: TextCapitalization.words,
+                  validator: (value) {
+                    final trimmed = value?.trim() ?? '';
+                    if (trimmed.isEmpty) return 'O nome nao pode estar em branco';
+                    if (trimmed.length < 2) return 'Informe pelo menos 2 letras';
+                    if (trimmed.length > 80) return 'Use ate 80 caracteres';
+                    return null;
+                  },
                 ),
               ),
               const SizedBox(height: 40),
-              
               BounceButton(
                 onTap: _isLoading ? () {} : _updateProfile,
                 child: Container(
@@ -458,7 +299,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                             child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
                           )
                         : const Text(
-                            'Salvar Alterações',
+                            'Salvar Alteracoes',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 16,
@@ -510,9 +351,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 
   Widget _buildAvatar(BuildContext context, ColorScheme colorScheme) {
-    final photoURL = _storedPhotoUrl;
-    final displayName = _currentUser?.displayName ?? 'U';
-
+    final imageProvider = _currentImageProvider();
     return Center(
       child: Stack(
         children: [
@@ -526,13 +365,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
               tag: 'profile_avatar',
               child: CircleAvatar(
                 radius: 56,
-                backgroundImage: _imageFile != null
-                    ? FileImage(_imageFile!)
-                    : (photoURL != null ? NetworkImage(photoURL) : null),
+                backgroundImage: imageProvider,
                 backgroundColor: colorScheme.primary.withOpacity(0.1),
-                child: _imageFile == null && photoURL == null
+                child: imageProvider == null
                     ? Text(
-                        displayName.substring(0, 1).toUpperCase(),
+                        _avatarInitial(),
                         style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: colorScheme.primary),
                       )
                     : null,
@@ -572,7 +409,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
     ColorScheme colorScheme,
     String displayName,
   ) {
-    final email = _currentUser?.email ?? 'Sem e-mail';
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -599,15 +435,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            email,
-            style: TextStyle(
-              color: colorScheme.onSurface.withOpacity(0.7),
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: _showImageSourceSheet,
@@ -625,4 +452,3 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
   }
 }
-

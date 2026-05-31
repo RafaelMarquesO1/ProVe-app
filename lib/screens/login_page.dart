@@ -1,8 +1,9 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:myapp/widgets/app_logo.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:myapp/services/local_auth_service.dart';
+import 'package:myapp/widgets/app_alerts.dart';
+import 'package:myapp/widgets/app_logo.dart';
 import 'package:myapp/widgets/bounce_button.dart';
 
 class LoginPage extends StatefulWidget {
@@ -12,14 +13,10 @@ class LoginPage extends StatefulWidget {
   State<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMixin {
-  final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
+class _LoginPageState extends State<LoginPage>
+    with SingleTickerProviderStateMixin {
   bool _isLoading = false;
-  bool _obscurePassword = true;
-  String? _emailErrorText;
-  String? _passwordErrorText;
+  bool _hasProfile = false;
 
   late final AnimationController _fadeController;
   late final Animation<double> _fadeAnimation;
@@ -29,54 +26,42 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
     super.initState();
     _fadeController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1000),
+      duration: const Duration(milliseconds: 900),
     );
-    _fadeAnimation = CurvedAnimation(parent: _fadeController, curve: Curves.easeOut);
+    _fadeAnimation = CurvedAnimation(
+      parent: _fadeController,
+      curve: Curves.easeOut,
+    );
     _fadeController.forward();
+    _loadProfileState();
   }
 
   @override
   void dispose() {
     _fadeController.dispose();
-    _emailController.dispose();
-    _passwordController.dispose();
     super.dispose();
   }
 
-  Future<void> _login() async {
-    if (!_formKey.currentState!.validate()) return;
+  Future<void> _loadProfileState() async {
+    final hasProfile = await LocalAuthService.instance.hasProfile();
+    if (mounted) setState(() => _hasProfile = hasProfile);
+  }
 
-    setState(() {
-      _isLoading = true;
-      _emailErrorText = null;
-      _passwordErrorText = null;
-    });
-
+  Future<void> _continueLocally() async {
+    setState(() => _isLoading = true);
     try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-      );
-    } on FirebaseAuthException catch (e) {
+      if (_hasProfile) {
+        await LocalAuthService.instance.signIn();
+      }
       if (mounted) {
-        String errorMessage = 'Ocorreu um erro. Tente novamente.';
-        if (e.code == 'invalid-email') {
-          _emailErrorText = 'E-mail inválido.';
-        } else if (e.code == 'user-not-found' || e.code == 'invalid-credential') {
-          errorMessage = 'E-mail ou senha incorretos.';
-        } else if (e.code == 'wrong-password') {
-          _passwordErrorText = 'Senha incorreta.';
-        } else if (e.code == 'too-many-requests') {
-          errorMessage = 'Muitas tentativas. Tente novamente mais tarde.';
-        }
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(errorMessage),
-            backgroundColor: Theme.of(context).colorScheme.error,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
+        context.go(_hasProfile ? '/home' : '/signup');
+      }
+    } catch (e) {
+      if (mounted) {
+        AppAlerts.showSnackBar(
+          context,
+          message: 'Nao foi possivel abrir seu perfil.',
+          type: AppAlertType.error,
         );
       }
     } finally {
@@ -84,170 +69,123 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
     }
   }
 
-  Future<void> _forgotPassword() async {
-    final email = _emailController.text.trim();
-    if (email.isEmpty || !email.contains('@')) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Insira seu e-mail para recuperar a senha.'),
-          backgroundColor: Color(0xFFD17A00),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-
-    try {
-      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
-      if (mounted) {
-        _showDialog(
-          'Recuperação Enviada!',
-          'Enviamos um link para redefinir sua senha no e-mail: $email',
-          Icons.mark_email_read_rounded,
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Erro ao enviar e-mail de recuperação.')),
-        );
-      }
-    }
-  }
-
-  void _showDialog(String title, String content, IconData icon) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Row(
-          children: [
-            Icon(icon, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(width: 12),
-            Text(title, style: GoogleFonts.oswald(fontWeight: FontWeight.bold)),
-          ],
-        ),
-        content: Text(content, style: GoogleFonts.lato()),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('ENTENDI'),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final user = LocalAuthService.instance.currentUser;
+    final firstName = user?.name.trim().split(' ').first;
 
     return Scaffold(
-      body: Container(
-        height: double.infinity,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              colorScheme.primary.withOpacity(0.05),
-              theme.scaffoldBackgroundColor,
-            ],
+      backgroundColor: theme.scaffoldBackgroundColor,
+      body: Stack(
+        children: [
+          // Gradiente de fundo
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    colorScheme.primary.withOpacity(isDark ? 0.15 : 0.08),
+                    theme.scaffoldBackgroundColor,
+                  ],
+                  stops: const [0.0, 0.5],
+                ),
+              ),
+            ),
           ),
-        ),
-        child: FadeTransition(
-          opacity: _fadeAnimation,
-          child: GestureDetector(
-            onTap: () => FocusScope.of(context).unfocus(),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 64),
-              child: Form(
-                key: _formKey,
+
+          // Blobs decorativos
+          Positioned(
+            top: -100,
+            right: -80,
+            child: Container(
+              width: 260,
+              height: 260,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: colorScheme.primary.withOpacity(isDark ? 0.1 : 0.07),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 60,
+            left: -60,
+            child: Container(
+              width: 180,
+              height: 180,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: colorScheme.primary.withOpacity(isDark ? 0.05 : 0.04),
+              ),
+            ),
+          ),
+
+          // Conteúdo
+          SafeArea(
+            child: FadeTransition(
+              opacity: _fadeAnimation,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32.0),
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const SizedBox(height: 40),
-                    const AppLogo(size: 100),
+                    const Spacer(flex: 2),
+
+                    // Logo
+                    Center(child: const AppLogo(size: 100)),
                     const SizedBox(height: 32),
+
+                    // Título
                     Text(
-                      'BEM-VINDO!',
+                      _hasProfile ? 'BEM-VINDO\nDE VOLTA!' : 'BEM-VINDO!',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.displayLarge?.copyWith(
                         fontSize: 40,
-                        letterSpacing: 2,
+                        letterSpacing: 1.5,
+                        height: 1.1,
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Entre para continuar sua jornada',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.lato(
-                        color: colorScheme.onSurface.withOpacity(0.7),
-                        fontSize: 16,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 48),
-                    TextFormField(
-                      controller: _emailController,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                      decoration: InputDecoration(
-                        labelText: 'E-mail',
-                        prefixIcon: const Icon(Icons.email_outlined),
-                        errorText: _emailErrorText,
-                      ),
-                      keyboardType: TextInputType.emailAddress,
-                      validator: (value) => (value == null || !value.contains('@')) ? 'E-mail inválido' : null,
-                    ),
-                    const SizedBox(height: 24),
-                    TextFormField(
-                      controller: _passwordController,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                      obscureText: _obscurePassword,
-                      decoration: InputDecoration(
-                        labelText: 'Senha',
-                        prefixIcon: const Icon(Icons.lock_outline_rounded),
-                        errorText: _passwordErrorText,
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscurePassword ? Icons.visibility_off_rounded : Icons.visibility_rounded,
-                            color: colorScheme.onSurface.withOpacity(0.55),
-                          ),
-                          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                        ),
-                      ),
-                      validator: (value) => (value == null || value.length < 6) ? 'A senha deve ter pelo menos 6 caracteres' : null,
                     ),
                     const SizedBox(height: 12),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: _forgotPassword,
-                        style: TextButton.styleFrom(
-                          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                        ),
-                        child: const Text('Esqueceu a senha?'),
+
+                    // Subtítulo
+                    Text(
+                      _hasProfile && firstName != null
+                          ? 'Continue sua jornada, $firstName.'
+                          : 'Comece sua jornada pelos Provérbios.',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.lato(
+                        color: colorScheme.onSurface.withOpacity(0.6),
+                        fontSize: 16,
+                        height: 1.4,
                       ),
                     ),
-                    const SizedBox(height: 32),
+
+                    const Spacer(flex: 3),
+
+                    // Botão principal
                     BounceButton(
-                      onTap: _isLoading ? () {} : _login,
+                      onTap: _isLoading ? () {} : _continueLocally,
                       child: Container(
-                        height: 56,
-                        width: double.infinity,
+                        height: 58,
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
-                            colors: [colorScheme.primary, const Color(0xFFD65108)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
+                            colors: [
+                              colorScheme.primary,
+                              const Color(0xFFD65108),
+                            ],
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
                           ),
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(18),
                           boxShadow: [
                             BoxShadow(
-                              color: colorScheme.primary.withOpacity(0.3),
-                              blurRadius: 12,
-                              offset: const Offset(0, 6),
+                              color: colorScheme.primary.withOpacity(0.4),
+                              blurRadius: 20,
+                              offset: const Offset(0, 8),
                             ),
                           ],
                         ),
@@ -256,51 +194,44 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                               ? const SizedBox(
                                   height: 24,
                                   width: 24,
-                                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
-                                )
-                              : const Text(
-                                  'ENTRAR',
-                                  style: TextStyle(
+                                  child: CircularProgressIndicator(
                                     color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 1.5,
+                                    strokeWidth: 2.5,
                                   ),
+                                )
+                              : Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      _hasProfile ? 'ENTRAR' : 'COMEÇAR',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 2,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    const Icon(
+                                      Icons.arrow_forward_rounded,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
+                                  ],
                                 ),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 48),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          'Ainda não tem conta? ',
-                          style: GoogleFonts.lato(
-                            color: theme.colorScheme.onSurface.withOpacity(0.65),
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: () => context.go('/signup'),
-                          child: Text(
-                            'CADASTRE-SE',
-                            style: TextStyle(
-                              color: colorScheme.primary,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+
+                    const SizedBox(height: 32),
+                    const Spacer(flex: 1),
                   ],
                 ),
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
 }
-

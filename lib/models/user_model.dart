@@ -1,23 +1,22 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+
+const Object _sentinel = Object();
 
 class UserModel {
   final String uid;
   final String name;
-  final String email;
-  final String? photoURL;
+  final String? photoPath;
   final DateTime? lastReadDate;
   final int readingStreak;
-  final int longestStreak; // Novo campo
+  final int longestStreak;
   final List<DateTime> completedDays;
   final int currentChapter;
-  final DateTime createdAt; // Novo campo
+  final DateTime createdAt;
 
   UserModel({
     required this.uid,
     required this.name,
-    required this.email,
-    this.photoURL,
+    this.photoPath,
     this.lastReadDate,
     this.readingStreak = 0,
     this.longestStreak = 0,
@@ -26,29 +25,17 @@ class UserModel {
     required this.createdAt,
   });
 
-  factory UserModel.fromFirestore(DocumentSnapshot doc) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-
-    DateTime? parseDate(dynamic date) {
-      return (date is Timestamp) ? date.toDate() : null;
-    }
-
-    List<DateTime> parseCompletedDays(dynamic list) {
-      return (list is List) ? list.whereType<Timestamp>().map((ts) => ts.toDate()).toList() : [];
-    }
-
+  factory UserModel.fromMap(Map<String, dynamic> data) {
     return UserModel(
-      uid: doc.id,
-      name: data['name'] ?? '',
-      email: data['email'] ?? '',
-      photoURL: data['photoURL'] as String?,
-      lastReadDate: parseDate(data['lastReadDate']),
-      readingStreak: data['readingStreak'] ?? 0,
-      longestStreak: data['longestStreak'] ?? 0,
-      completedDays: parseCompletedDays(data['completedDays']),
-      currentChapter: data['currentChapter'] ?? 1,
-      // Se 'createdAt' não existir, usa uma data padrão para evitar erros
-      createdAt: parseDate(data['createdAt']) ?? DateTime.now(),
+      uid: data['uid'] as String? ?? '',
+      name: data['name'] as String? ?? '',
+      photoPath: data['photoPath'] as String?,
+      lastReadDate: _parseDate(data['lastReadDate']),
+      readingStreak: data['readingStreak'] as int? ?? 0,
+      longestStreak: data['longestStreak'] as int? ?? 0,
+      completedDays: _parseCompletedDays(data['completedDays']),
+      currentChapter: data['currentChapter'] as int? ?? 1,
+      createdAt: _parseDate(data['createdAt']) ?? DateTime.now(),
     );
   }
 
@@ -56,33 +43,68 @@ class UserModel {
     return UserModel(
       uid: '',
       name: 'Convidado',
-      email: '',
-      photoURL: null,
+      photoPath: null,
       lastReadDate: null,
       readingStreak: 0,
       longestStreak: 0,
-      completedDays: [],
+      completedDays: const [],
       currentChapter: 1,
       createdAt: DateTime.now(),
     );
   }
 
-  Map<String, dynamic> toFirestore() {
+  Map<String, dynamic> toMap() {
     return {
+      'uid': uid,
       'name': name,
-      'email': email,
-      'photoURL': photoURL,
-      'lastReadDate': lastReadDate != null ? Timestamp.fromDate(lastReadDate!) : null,
+      'photoPath': photoPath,
+      'lastReadDate': lastReadDate?.toIso8601String(),
       'readingStreak': readingStreak,
       'longestStreak': longestStreak,
-      'completedDays': completedDays.map((date) => Timestamp.fromDate(date)).toList(),
+      'completedDays': completedDays.map((date) => date.toIso8601String()).toList(),
       'currentChapter': currentChapter,
-      'createdAt': Timestamp.fromDate(createdAt),
+      'createdAt': createdAt.toIso8601String(),
     };
   }
 
-  // Método para formatar a data de criação
+  UserModel copyWith({
+    String? uid,
+    String? name,
+    Object? photoPath = _sentinel,
+    DateTime? lastReadDate,
+    int? readingStreak,
+    int? longestStreak,
+    List<DateTime>? completedDays,
+    int? currentChapter,
+    DateTime? createdAt,
+  }) {
+    return UserModel(
+      uid: uid ?? this.uid,
+      name: name ?? this.name,
+      photoPath: photoPath == _sentinel ? this.photoPath : photoPath as String?,
+      lastReadDate: lastReadDate ?? this.lastReadDate,
+      readingStreak: readingStreak ?? this.readingStreak,
+      longestStreak: longestStreak ?? this.longestStreak,
+      completedDays: completedDays ?? this.completedDays,
+      currentChapter: currentChapter ?? this.currentChapter,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
   String getMemberSince() {
     return DateFormat('dd/MM/yyyy').format(createdAt);
+  }
+
+  static DateTime? _parseDate(dynamic value) {
+    if (value is DateTime) return value;
+    if (value is String && value.isNotEmpty) return DateTime.tryParse(value);
+    return null;
+  }
+
+  static List<DateTime> _parseCompletedDays(dynamic value) {
+    if (value is List) {
+      return value.map(_parseDate).whereType<DateTime>().toList(growable: false);
+    }
+    return const [];
   }
 }

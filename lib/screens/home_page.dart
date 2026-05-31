@@ -1,8 +1,6 @@
 import 'dart:convert';
 import 'dart:math';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -23,22 +21,18 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage>
     with SingleTickerProviderStateMixin {
-  final User? _currentUser = FirebaseAuth.instance.currentUser;
   final ProgressService _progressService = ProgressService();
   Map<String, String> _verseOfTheDay = {};
   DateTime _selectedCalendarDay = DateTime.now();
   DateTime _focusedCalendarDay = DateTime.now();
   bool _isVerseLoadError = false;
   late final AnimationController _shimmerController;
-  late final Stream<DocumentSnapshot<Map<String, dynamic>>> _userStream;
+  late final Stream<UserModel?> _userStream;
 
   @override
   void initState() {
     super.initState();
-    _userStream = FirebaseFirestore.instance
-        .collection('users')
-        .doc(_currentUser?.uid)
-        .snapshots();
+    _userStream = _progressService.userStream;
     _shimmerController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
@@ -141,13 +135,7 @@ class _HomePageState extends State<HomePage>
 
   @override
   Widget build(BuildContext context) {
-    if (_currentUser == null) {
-      return const Scaffold(
-        body: Center(child: Text('Faça login para começar.')),
-      );
-    }
-
-    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+    return StreamBuilder<UserModel?>(
       stream: _userStream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -160,7 +148,7 @@ class _HomePageState extends State<HomePage>
             showConnectionWarning: true,
           );
         }
-        if (!snapshot.hasData || !snapshot.data!.exists) {
+        if (!snapshot.hasData || snapshot.data == null) {
           return _buildContent(
             context,
             UserModel.empty(),
@@ -168,8 +156,7 @@ class _HomePageState extends State<HomePage>
           );
         }
 
-        final user = UserModel.fromFirestore(snapshot.data!);
-        return _buildContent(context, user);
+        return _buildContent(context, snapshot.data!);
       },
     );
   }
@@ -189,6 +176,7 @@ class _HomePageState extends State<HomePage>
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
         padding: const EdgeInsets.fromLTRB(20, 64, 20, 32),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

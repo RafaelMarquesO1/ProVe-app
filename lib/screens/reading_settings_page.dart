@@ -142,7 +142,6 @@ class ReadingSettingsPage extends StatelessWidget {
     BuildContext context,
     ReadingSettingsProvider settings,
   ) {
-    final theme = Theme.of(context);
     final isDark = settings.backgroundColor.computeLuminance() < 0.4;
     final textColor = isDark ? Colors.white : Colors.black87;
 

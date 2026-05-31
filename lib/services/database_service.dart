@@ -1,6 +1,8 @@
+import 'dart:convert';
 
-import 'package:sqflite/sqflite.dart';
+import 'package:myapp/models/user_model.dart';
 import 'package:path/path.dart';
+import 'package:sqflite/sqflite.dart';
 
 class DatabaseService {
   static final DatabaseService instance = DatabaseService._init();
@@ -18,111 +20,218 @@ class DatabaseService {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
 
-    return await openDatabase(path, version: 1, onCreate: _createDB);
-  }
-
-  Future _createDB(Database db, int version) async {
-    await db.execute('''
-      CREATE TABLE notes(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT NOT NULL,
-        content TEXT NOT NULL,
-        date TEXT NOT NULL
-      )
-    ''');
-
-    await db.execute('''
-      CREATE TABLE favorites(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        proverb_id INTEGER NOT NULL
-      )
-    ''');
-  }
-
-  // Note methods
-  Future<int> createNote({required String title, required String content}) async {
-    final db = await instance.database;
-    final id = await db.insert('notes', {
-      'title': title,
-      'content': content,
-      'date': DateTime.now().toIso8601String(),
-    });
-    return id;
-  }
-
-  Future<Map<String, dynamic>?> getNote(int id) async {
-    final db = await instance.database;
-    final maps = await db.query(
-      'notes',
-      columns: ['id', 'title', 'content', 'date'],
-      where: 'id = ?',
-      whereArgs: [id],
+    return openDatabase(
+      path,
+      version: 2,
+      onCreate: _createDB,
+      onUpgrade: _upgradeDB,
     );
+  }
 
-    if (maps.isNotEmpty) {
-      return maps.first;
-    } else {
-      return null;
+  Future<void> _createDB(Database db, int version) async {
+    await _createUserTable(db);
+    await _createFavoritesTable(db);
+    await _createNotesTable(db);
+  }
+
+  Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute('ALTER TABLE notes RENAME TO legacy_notes');
+      await db.execute('ALTER TABLE favorites RENAME TO legacy_favorites');
+      await _createUserTable(db);
+      await _createFavoritesTable(db);
+      await _createNotesTable(db);
     }
   }
 
-  Future<List<Map<String, dynamic>>> getAllNotes() async {
-    final db = await instance.database;
-    return await db.query('notes', orderBy: 'date DESC');
+  Future<void> _createUserTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS user_profile(
+        uid TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        photo_path TEXT,
+        last_read_date TEXT,
+        reading_streak INTEGER NOT NULL DEFAULT 0,
+        longest_streak INTEGER NOT NULL DEFAULT 0,
+        completed_days TEXT NOT NULL DEFAULT '[]',
+        current_chapter INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    ''');
   }
 
-  Future<int> updateNote({required int id, required String title, required String content}) async {
-    final db = await instance.database;
-    return await db.update(
-      'notes',
+  Future<void> _createFavoritesTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS favorites(
+        id TEXT PRIMARY KEY,
+        chapter TEXT NOT NULL,
+        verse_number TEXT NOT NULL,
+        text TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_favorites_created_at ON favorites(created_at DESC)',
+    );
+  }
+
+  Future<void> _createNotesTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS notes(
+        id TEXT PRIMARY KEY,
+        reference TEXT NOT NULL,
+        verse_text TEXT NOT NULL,
+        note_text TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_notes_created_at ON notes(created_at DESC)',
+    );
+  }
+
+  Future<UserModel?> getUserProfile() async {
+    final db = await database;
+    final rows = await db.query('user_profile', limit: 1);
+    if (rows.isEmpty) return null;
+    return _userFromRow(rows.first);
+  }
+
+  Future<void> upsertUserProfile(UserModel user) async {
+    final db = await database;
+    await db.insert(
+      'user_profile',
+      _userToRow(user),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<int> updateUserProfile({
+    required String name,
+    required String? photoPath,
+  }) async {
+    final db = await database;
+    return db.update(
+      'user_profile',
       {
-        'title': title,
-        'content': content,
-        'date': DateTime.now().toIso8601String(),
+        'name': name,
+        'photo_path': photoPath,
+        'updated_at': DateTime.now().toIso8601String(),
       },
-      where: 'id = ?',
-      whereArgs: [id],
     );
   }
 
-  Future<int> deleteNote(int id) async {
-    final db = await instance.database;
-    return await db.delete(
-      'notes',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+  Future<void> updateReadingProgress(UserModel user) async {
+    await upsertUserProfile(user);
   }
 
-  // Favorite methods
-  Future<int> addFavorite(int proverbId) async {
-    final db = await instance.database;
-    return await db.insert('favorites', {'proverb_id': proverbId});
-  }
-
-  Future<int> removeFavorite(int proverbId) async {
-    final db = await instance.database;
-    return await db.delete(
-      'favorites',
-      where: 'proverb_id = ?',
-      whereArgs: [proverbId],
-    );
-  }
-
-  Future<bool> isFavorite(int proverbId) async {
-    final db = await instance.database;
-    final maps = await db.query(
+  Future<void> toggleFavorite({
+    required String chapter,
+    required String verseNumber,
+    required String verseText,
+  }) async {
+    final db = await database;
+    final id = '${chapter}_$verseNumber';
+    final existing = await db.query(
       'favorites',
       columns: ['id'],
-      where: 'proverb_id = ?',
-      whereArgs: [proverbId],
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
     );
-    return maps.isNotEmpty;
+
+    if (existing.isNotEmpty) {
+      await db.delete('favorites', where: 'id = ?', whereArgs: [id]);
+      return;
+    }
+
+    await db.insert('favorites', {
+      'id': id,
+      'chapter': chapter,
+      'verse_number': verseNumber,
+      'text': verseText,
+      'created_at': DateTime.now().toIso8601String(),
+    });
   }
 
-  Future<List<int>> getAllFavorites() async {
-    final db = await instance.database;
-    final maps = await db.query('favorites');
-    return maps.map((map) => map['proverb_id'] as int).toList();
+  Future<bool> isFavorite(String chapter, String verseNumber) async {
+    final db = await database;
+    final rows = await db.query(
+      'favorites',
+      columns: ['id'],
+      where: 'id = ?',
+      whereArgs: ['${chapter}_$verseNumber'],
+      limit: 1,
+    );
+    return rows.isNotEmpty;
+  }
+
+  Future<List<Map<String, dynamic>>> getFavorites() async {
+    final db = await database;
+    return db.query('favorites', orderBy: 'created_at DESC');
+  }
+
+  Future<int> deleteFavorite(String id) async {
+    final db = await database;
+    return db.delete('favorites', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> saveNote({
+    required String reference,
+    required String verseText,
+    required String noteText,
+  }) async {
+    final db = await database;
+    final now = DateTime.now().toIso8601String();
+    await db.insert('notes', {
+      'id': 'note_${DateTime.now().microsecondsSinceEpoch}',
+      'reference': reference,
+      'verse_text': verseText,
+      'note_text': noteText,
+      'created_at': now,
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> getNotes() async {
+    final db = await database;
+    return db.query('notes', orderBy: 'created_at DESC');
+  }
+
+  Future<int> deleteNote(String id) async {
+    final db = await database;
+    return db.delete('notes', where: 'id = ?', whereArgs: [id]);
+  }
+
+  UserModel _userFromRow(Map<String, dynamic> row) {
+    return UserModel.fromMap({
+      'uid': row['uid'],
+      'name': row['name'],
+      'photoPath': row['photo_path'],
+      'lastReadDate': row['last_read_date'],
+      'readingStreak': row['reading_streak'],
+      'longestStreak': row['longest_streak'],
+      'completedDays': jsonDecode(row['completed_days'] as String),
+      'currentChapter': row['current_chapter'],
+      'createdAt': row['created_at'],
+    });
+  }
+
+  Map<String, dynamic> _userToRow(UserModel user) {
+    final now = DateTime.now().toIso8601String();
+    return {
+      'uid': user.uid,
+      'name': user.name,
+      'photo_path': user.photoPath,
+      'last_read_date': user.lastReadDate?.toIso8601String(),
+      'reading_streak': user.readingStreak,
+      'longest_streak': user.longestStreak,
+      'completed_days': jsonEncode(
+        user.completedDays.map((date) => date.toIso8601String()).toList(),
+      ),
+      'current_chapter': user.currentChapter,
+      'created_at': user.createdAt.toIso8601String(),
+      'updated_at': now,
+    };
   }
 }

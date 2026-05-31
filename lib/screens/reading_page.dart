@@ -74,10 +74,9 @@ class _ReadingPageState extends State<ReadingPage> {
     ) {
       if (!mounted) return;
       final newFavorites = <String>{};
-      for (var doc in snapshot.docs) {
-        final data = doc.data() as Map<String, dynamic>;
+      for (final data in snapshot) {
         final chapter = data['chapter'] ?? '';
-        final verseNumber = data['verseNumber'] ?? '';
+        final verseNumber = data['verse_number'] ?? '';
 
         // Verifica se o favorito pertence a um dos capítulos abertos
         if (chapters.contains(int.tryParse(chapter))) {

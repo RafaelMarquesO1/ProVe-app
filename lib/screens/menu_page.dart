@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:io';
 
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:myapp/models/user_model.dart';
 import 'package:myapp/services/app_theme_controller.dart';
+import 'package:myapp/services/local_auth_service.dart';
 import 'package:myapp/widgets/app_alerts.dart';
 import 'package:myapp/widgets/app_logo.dart';
 import 'package:myapp/widgets/bounce_button.dart';
@@ -17,15 +19,15 @@ class MenuPage extends StatefulWidget {
 }
 
 class _MenuPageState extends State<MenuPage> {
-  User? _user;
-  StreamSubscription<User?>? _userSubscription;
+  UserModel? _user;
+  StreamSubscription<UserModel?>? _userSubscription;
   bool _updatingTheme = false;
 
   @override
   void initState() {
     super.initState();
-    _user = FirebaseAuth.instance.currentUser;
-    _userSubscription = FirebaseAuth.instance.userChanges().listen((user) {
+    _user = LocalAuthService.instance.currentUser;
+    _userSubscription = LocalAuthService.instance.profileChanges.listen((user) {
       if (mounted) {
         setState(() {
           _user = user;
@@ -38,29 +40,6 @@ class _MenuPageState extends State<MenuPage> {
   void dispose() {
     _userSubscription?.cancel();
     super.dispose();
-  }
-
-  Future<void> _signOut() async {
-    AppAlerts.showCustomDialog(
-      context: context,
-      title: 'Sair da Conta',
-      message: 'Tem certeza que deseja sair agora? Sua jornada de sabedoria continuará aqui quando você voltar.',
-      confirmText: 'Sair',
-      cancelText: 'Cancelar',
-      icon: Icons.logout_rounded,
-      iconColor: Colors.red.shade700,
-      onConfirm: () async {
-        await FirebaseAuth.instance.signOut();
-        if (mounted) {
-          AppAlerts.showSnackBar(
-            context,
-            message: 'Sessão encerrada com sucesso.',
-            type: AppAlertType.info,
-          );
-          context.go('/');
-        }
-      },
-    );
   }
 
   Future<void> _onThemeChanged(bool isDark) async {
@@ -80,7 +59,7 @@ class _MenuPageState extends State<MenuPage> {
     final colorScheme = Theme.of(context).colorScheme;
     final preferencesItems = _buildPreferenceItems(context);
     final quickActions = _buildQuickActions(context);
-    final firstName = (_user?.displayName?.trim().split(' ').first ?? 'Usuário');
+    final firstName = (_user?.name.trim().split(' ').first ?? 'Usuário');
     final isDarkMode = AppThemeController.instance.themeMode == ThemeMode.dark;
 
     return Scaffold(
@@ -191,38 +170,6 @@ class _MenuPageState extends State<MenuPage> {
               const SizedBox(height: 20),
               _buildSectionTitle(context, 'Sobre'),
               _buildAboutCard(context),
-              const SizedBox(height: 20),
-              _buildSectionTitle(context, 'Conta'),
-              Semantics(
-                button: true,
-                label: 'Sair da conta',
-                child: BounceButton(
-                  onTap: _signOut,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-                    decoration: BoxDecoration(
-                      color: colorScheme.errorContainer.withOpacity(0.55),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: colorScheme.error.withOpacity(0.3)),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.logout, color: colorScheme.error),
-                        const SizedBox(width: 10),
-                        Text(
-                          'Sair da Conta',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: colorScheme.error,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
             ],
           ),
         ),
@@ -386,9 +333,9 @@ class _MenuPageState extends State<MenuPage> {
   Widget _buildProfileCard(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
-    final photoURL = _user?.photoURL;
-    final displayName = _user?.displayName ?? 'Usuário';
-    final email = _user?.email ?? 'Conta conectada';
+    final photoPath = _user?.photoPath;
+    final displayName = _user?.name ?? 'Usuário';
+    final memberSince = _user != null ? 'Membro desde ${_user!.getMemberSince()}' : 'Conta conectada';
 
     return BounceButton(
       onTap: () => context.push('/profile/edit'),
@@ -403,9 +350,9 @@ class _MenuPageState extends State<MenuPage> {
               tag: 'profile_avatar',
               child: CircleAvatar(
                 radius: 32,
-                backgroundImage: photoURL != null ? NetworkImage(photoURL) : null,
-                backgroundColor: photoURL == null ? colorScheme.primary.withOpacity(0.12) : Colors.transparent,
-                child: photoURL == null
+                backgroundImage: photoPath != null ? FileImage(File(photoPath)) : null,
+                backgroundColor: photoPath == null ? colorScheme.primary.withOpacity(0.12) : Colors.transparent,
+                child: photoPath == null
                     ? Text(
                         displayName.isNotEmpty ? displayName.substring(0, 1).toUpperCase() : 'U',
                         style: TextStyle(fontSize: 28, color: colorScheme.primary, fontWeight: FontWeight.bold),
@@ -431,7 +378,7 @@ class _MenuPageState extends State<MenuPage> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    email,
+                    memberSince,
                     style: textTheme.bodySmall?.copyWith(
                       color: colorScheme.onSurface.withOpacity(0.7),
                       fontWeight: FontWeight.w600,
