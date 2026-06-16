@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -701,7 +700,7 @@ class _HomePageState extends State<HomePage>
               !completedDaysSet.contains(d),
         )
         .length;
-    final monthPercent = ((completedThisMonth / daysInMonth) * 100).round();
+    final monthPercent = daysInMonth > 0 ? ((completedThisMonth / daysInMonth) * 100).round() : 0;
 
     return Column(
       key: ValueKey('monthly_${_focusedCalendarDay.month}'),
@@ -961,9 +960,9 @@ class _HomePageState extends State<HomePage>
                       ),
                     ),
                   ),
-                );
-              },
-            ),
+                ),
+              );
+            },
           ),
         ),
         const SizedBox(height: 24),
@@ -1186,7 +1185,7 @@ class _HomePageState extends State<HomePage>
                             context: context,
                             title: 'Próximos Passos',
                             message:
-                                'Ainda restam $remainingThisMonth dias de leitura. O próximo foco é o capítulo ${nextChapters.first}!',
+                                'Ainda restam $remainingThisMonth dias de leitura. O próximo foco é o capítulo ${nextChapters.isNotEmpty ? nextChapters.first : ''}!',
                             icon: Icons.trending_up_rounded,
                             iconColor: Colors.amber.shade700,
                             confirmText: 'LER AGORA',
@@ -1238,7 +1237,6 @@ class _HomePageState extends State<HomePage>
     String firstName,
   ) {
     final now = DateTime.now();
-    final todayMidnight = DateTime(now.year, now.month, now.day);
     final completedDaysSet = completedDays
         .map((d) => DateTime(d.year, d.month, d.day))
         .toSet();
@@ -1250,7 +1248,7 @@ class _HomePageState extends State<HomePage>
     );
 
     final completedThisYear = completedDaysSet.where((d) => d.year == now.year).length;
-    final yearPercent = ((completedThisYear / allDaysInYear.length) * 100).round();
+    final yearPercent = allDaysInYear.isNotEmpty ? ((completedThisYear / allDaysInYear.length) * 100).round() : 0;
 
     return Column(
       key: const ValueKey('annual'),

@@ -213,39 +213,46 @@ class _ReadingPageState extends State<ReadingPage> {
               if (name.contains('male')) return true;
               if (name.contains('pbc-local') ||
                   name.contains('ptd-local') ||
-                  name.contains('ptl-local'))
+                  name.contains('ptl-local')) {
                 return true;
+              }
               if (name.contains('-b-') ||
                   name.endsWith('-b') ||
                   name.contains('-d-') ||
-                  name.endsWith('-d'))
+                  name.endsWith('-d')) {
                 return true;
+              }
               if (genderField == 'male' ||
                   genderField == '1' ||
-                  genderField == 'man')
+                  genderField == 'man') {
                 return true;
+              }
             } else {
               if (name.contains('male') ||
                   name.contains('ptd-local') ||
-                  name.contains('pbc-local'))
+                  name.contains('pbc-local')) {
                 return false;
+              }
               if (name.contains('female')) return true;
               if (name.contains('pba-local') ||
                   name.contains('ptc-local') ||
                   name.contains('pts-local') ||
-                  name.contains('ptr-local'))
+                  name.contains('ptr-local')) {
                 return true;
+              }
               if (name.contains('-a-') ||
                   name.endsWith('-a') ||
                   name.contains('-c-') ||
                   name.endsWith('-c') ||
                   name.contains('-e-') ||
-                  name.endsWith('-e'))
+                  name.endsWith('-e')) {
                 return true;
+              }
               if (genderField == 'female' ||
                   genderField == '2' ||
-                  genderField == 'woman')
+                  genderField == 'woman') {
                 return true;
+              }
             }
             return false;
           }).toList();
@@ -253,8 +260,9 @@ class _ReadingPageState extends State<ReadingPage> {
           if (filteredVoices.isEmpty) {
             filteredVoices = ptVoices.where((v) {
               final name = (v['name'] as String?)?.toLowerCase() ?? '';
-              if (isMale)
+              if (isMale) {
                 return !name.contains('female') && !name.contains('pba');
+              }
               return !name.contains('male') && !name.contains('ptd');
             }).toList();
           }
@@ -464,7 +472,7 @@ class _ReadingPageState extends State<ReadingPage> {
         if (line.startsWith('HEAD ')) {
           _verseStartOffsets.add(fullTextBuffer.length);
           _currentSpokenVerseIndexes.add(i);
-          fullTextBuffer.write(line.replaceFirst('HEAD ', '') + ". ");
+          fullTextBuffer.write("${line.replaceFirst('HEAD ', '')}. ");
           continue;
         }
 
@@ -619,8 +627,9 @@ class _ReadingPageState extends State<ReadingPage> {
                           Future.delayed(
                             const Duration(milliseconds: 1000),
                             () {
-                              if (mounted)
+                              if (mounted) {
                                 setState(() => _isHeartAnimating = false);
+                              }
                             },
                           );
                         },
@@ -1297,10 +1306,11 @@ class _ReadingPageState extends State<ReadingPage> {
                                         Future.delayed(
                                           const Duration(milliseconds: 800),
                                           () {
-                                            if (mounted)
+                                            if (mounted) {
                                               setState(
                                                 () => _isHeartAnimating = false,
                                               );
+                                            }
                                           },
                                         );
                                       }

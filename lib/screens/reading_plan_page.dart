@@ -296,8 +296,8 @@ class _ReadingPlanPageState extends State<ReadingPlanPage>
       barrierLabel: 'Fechar conquista',
       barrierColor: Colors.black.withOpacity(0.7),
       transitionDuration: const Duration(milliseconds: 500),
-      pageBuilder: (context, _, __) => const SizedBox(),
-      transitionBuilder: (context, animation, __, child) {
+      pageBuilder: (context, _, _) => const SizedBox(),
+      transitionBuilder: (context, animation, _, child) {
         final curve = CurvedAnimation(
           parent: animation,
           curve: Curves.elasticOut,
