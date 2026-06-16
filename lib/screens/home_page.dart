@@ -20,14 +20,18 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   final ProgressService _progressService = ProgressService();
   Map<String, String> _verseOfTheDay = {};
   DateTime _selectedCalendarDay = DateTime.now();
   DateTime _focusedCalendarDay = DateTime.now();
   bool _isVerseLoadError = false;
+  bool _showAnnualView = false;
   late final AnimationController _shimmerController;
   late final Stream<UserModel?> _userStream;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -135,6 +139,7 @@ class _HomePageState extends State<HomePage>
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return StreamBuilder<UserModel?>(
       stream: _userStream,
       builder: (context, snapshot) {
@@ -477,6 +482,192 @@ class _HomePageState extends State<HomePage>
     List<DateTime> completedDays,
     String firstName,
   ) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.white.withOpacity(0.05)
+                : Colors.black.withOpacity(0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+        border: Border.all(color: Theme.of(context).dividerColor, width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildCalendarHeader(context, textTheme, colorScheme),
+          const SizedBox(height: 20),
+          _buildCalendarViewToggle(context, colorScheme),
+          const SizedBox(height: 24),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 400),
+            transitionBuilder: (child, animation) {
+              return FadeTransition(
+                opacity: animation,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0.1, 0),
+                    end: Offset.zero,
+                  ).animate(
+                    CurvedAnimation(
+                      parent: animation,
+                      curve: Curves.easeInOut,
+                    ),
+                  ),
+                  child: child,
+                ),
+              );
+            },
+            child: _showAnnualView
+                ? _buildAnnualCalendarView(
+                    context,
+                    textTheme,
+                    colorScheme,
+                    completedDays,
+                    firstName,
+                  )
+                : _buildMonthlyCalendarView(
+                    context,
+                    textTheme,
+                    colorScheme,
+                    completedDays,
+                    firstName,
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCalendarHeader(
+    BuildContext context,
+    TextTheme textTheme,
+    ColorScheme colorScheme,
+  ) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: colorScheme.primary.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Icon(
+            Icons.calendar_month_rounded,
+            color: colorScheme.primary,
+            size: 24,
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Seu Desempenho',
+                style: textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCalendarViewToggle(
+    BuildContext context,
+    ColorScheme colorScheme,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: ThemeColors.getLightBackground(context),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: BounceButton(
+              onTap: () {
+                HapticFeedback.selectionClick();
+                setState(() => _showAnnualView = false);
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: !_showAnnualView
+                      ? colorScheme.primary
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Center(
+                  child: Text(
+                    'Mensal',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                      color: !_showAnnualView
+                          ? colorScheme.onPrimary
+                          : ThemeColors.getSecondaryTextColor(context),
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: BounceButton(
+              onTap: () {
+                HapticFeedback.selectionClick();
+                setState(() => _showAnnualView = true);
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: _showAnnualView
+                      ? colorScheme.primary
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Center(
+                  child: Text(
+                    'Anual',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                      color: _showAnnualView
+                          ? colorScheme.onPrimary
+                          : ThemeColors.getSecondaryTextColor(context),
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMonthlyCalendarView(
+    BuildContext context,
+    TextTheme textTheme,
+    ColorScheme colorScheme,
+    List<DateTime> completedDays,
+    String firstName,
+  ) {
     // Cálculo preciso das estatísticas do mês
     final now = DateTime.now();
     final todayMidnight = DateTime(now.year, now.month, now.day);
@@ -512,245 +703,194 @@ class _HomePageState extends State<HomePage>
         .length;
     final monthPercent = ((completedThisMonth / daysInMonth) * 100).round();
 
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: Theme.of(context).brightness == Brightness.dark
-                ? Colors.white.withOpacity(0.05)
-                : Colors.black.withOpacity(0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-        border: Border.all(color: Theme.of(context).dividerColor, width: 1.5),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: colorScheme.primary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(
-                  Icons.calendar_month_rounded,
-                  color: colorScheme.primary,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Seu Desempenho',
-                      style: textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: monthPercent >= 80
-                        ? [const Color(0xFF43A047), const Color(0xFF2E7D32)]
-                        : [
-                            colorScheme.primary,
-                            colorScheme.primary.withOpacity(0.8),
-                          ],
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color:
-                          (monthPercent >= 80
-                                  ? const Color(0xFF2E7D32)
-                                  : colorScheme.primary)
-                              .withOpacity(0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Text(
-                  '$monthPercent%',
-                  style: TextStyle(
-                    color: colorScheme.onPrimary, // Corrigido
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                  ),
-                ),
+    return Column(
+      key: ValueKey('monthly_${_focusedCalendarDay.month}'),
+      children: [
+        // Percentage Badge
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: monthPercent >= 80
+                  ? [const Color(0xFF43A047), const Color(0xFF2E7D32)]
+                  : [colorScheme.primary, colorScheme.primary.withOpacity(0.8)],
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: (monthPercent >= 80
+                        ? const Color(0xFF2E7D32)
+                        : colorScheme.primary)
+                    .withOpacity(0.3),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
-          const SizedBox(height: 24),
-          TableCalendar(
-            locale: 'pt_BR',
-            firstDay: DateTime.utc(now.year, 1, 1),
-            lastDay: DateTime.utc(now.year, 12, 31),
-            focusedDay: _focusedCalendarDay,
-            selectedDayPredicate: (day) => isSameDay(day, _selectedCalendarDay),
-            onPageChanged: (focusedDay) {
-              setState(() {
-                _focusedCalendarDay = focusedDay;
-              });
-            },
-            onDaySelected: (selectedDay, focusedDay) {
-              HapticFeedback.mediumImpact();
-              setState(() {
-                _selectedCalendarDay = selectedDay;
-                _focusedCalendarDay = focusedDay;
-              });
+          child: Text(
+            '$monthPercent%',
+            style: TextStyle(
+              color: colorScheme.onPrimary,
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+        TableCalendar(
+          locale: 'pt_BR',
+          firstDay: DateTime.utc(now.year, 1, 1),
+          lastDay: DateTime.utc(now.year, 12, 31),
+          focusedDay: _focusedCalendarDay,
+          selectedDayPredicate: (day) => isSameDay(day, _selectedCalendarDay),
+          onPageChanged: (focusedDay) {
+            setState(() {
+              _focusedCalendarDay = focusedDay;
+            });
+          },
+          onDaySelected: (selectedDay, focusedDay) {
+            HapticFeedback.mediumImpact();
+            setState(() {
+              _selectedCalendarDay = selectedDay;
+              _focusedCalendarDay = focusedDay;
+            });
 
-              final dayOnly = DateTime(
-                selectedDay.year,
-                selectedDay.month,
-                selectedDay.day,
-              );
+            final dayOnly = DateTime(
+              selectedDay.year,
+              selectedDay.month,
+              selectedDay.day,
+            );
+            final isCompleted = completedDaysSet.contains(dayOnly);
+            final isToday = isSameDay(selectedDay, now);
+            final isFuture = dayOnly.isAfter(todayMidnight);
+
+            final chapters = _progressService.getChaptersForDate(selectedDay);
+            final String chaptersText = chapters.length > 1
+                ? 'Capítulos ${chapters.join(' e ')}'
+                : 'Capítulo ${chapters.first}';
+
+            String statusTitle = '';
+            String statusDesc = '';
+            IconData statusIcon = Icons.info_outline;
+            Color statusColor = Colors.blue;
+
+            if (isCompleted) {
+              statusTitle = 'Concluído';
+              statusDesc =
+                  'Capítulo(s) ${chapters.length > 1 ? 'de ${chapters.first} a ${chapters.last}' : chapters.first} lido(s) em ${selectedDay.day}/${selectedDay.month}.';
+              statusIcon = Icons.check_circle_rounded;
+              statusColor = const Color(0xFF388E3C);
+            } else if (isFuture) {
+              statusTitle = 'Por vir';
+              statusDesc =
+                  'Capítulo(s) ${chapters.length > 1 ? 'de ${chapters.first} a ${chapters.last}' : chapters.first} agendado(s) para ${selectedDay.day}/${selectedDay.month}.';
+              statusIcon = Icons.event_note_rounded;
+              statusColor = Colors.blueGrey;
+            } else if (isToday) {
+              statusTitle = 'Hoje';
+              statusDesc =
+                  'Leitura de hoje: capítulo(s) ${chapters.length > 1 ? 'de ${chapters.first} a ${chapters.last}' : chapters.first}. Comece agora?';
+              statusIcon = Icons.local_fire_department_rounded;
+              statusColor = colorScheme.primary;
+            } else {
+              statusTitle = 'Não realizado';
+              statusDesc =
+                  'Capítulo(s) ${chapters.length > 1 ? 'de ${chapters.first} a ${chapters.last}' : chapters.first} não foram lidos em ${selectedDay.day}/${selectedDay.month}.';
+              statusIcon = Icons.block_flipped;
+              statusColor = Colors.red.shade300;
+            }
+
+            AppAlerts.showCustomDialog(
+              context: context,
+              title: statusTitle,
+              message: statusDesc,
+              icon: statusIcon,
+              iconColor: statusColor,
+              confirmText: isToday && !isCompleted ? 'LER AGORA' : 'FECHAR',
+              cancelText: isToday && !isCompleted ? 'MAIS TARDE' : null,
+              onConfirm: () {
+                if (isToday && !isCompleted) {
+                  context.push('/reading');
+                }
+              },
+            );
+          },
+          onDayLongPressed: (selectedDay, focusedDay) {
+            HapticFeedback.heavyImpact();
+            final chapters = _progressService.getChaptersForDate(selectedDay);
+            final String chaptersText = chapters.length > 1
+                ? 'Capítulos ${chapters.join(' e ')}'
+                : 'Capítulo ${chapters.first}';
+
+            AppAlerts.showSnackBar(
+              context,
+              message: 'Pressione para ler o $chaptersText',
+              type: AppAlertType.info,
+            );
+          },
+          headerStyle: HeaderStyle(
+            titleCentered: true,
+            formatButtonVisible: false,
+            titleTextStyle: textTheme.titleMedium!.copyWith(
+              fontWeight: FontWeight.w900,
+              color: colorScheme.onSurface,
+            ),
+            leftChevronIcon: Icon(
+              Icons.chevron_left_rounded,
+              color: colorScheme.primary,
+            ),
+            rightChevronIcon: Icon(
+              Icons.chevron_right_rounded,
+              color: colorScheme.primary,
+            ),
+            headerPadding: const EdgeInsets.only(bottom: 16),
+          ),
+          calendarFormat: CalendarFormat.month,
+          startingDayOfWeek: StartingDayOfWeek.monday,
+          daysOfWeekHeight: 32,
+          daysOfWeekStyle: DaysOfWeekStyle(
+            weekdayStyle: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.grey.shade400,
+              fontSize: 12,
+            ),
+            weekendStyle: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: colorScheme.primary.withOpacity(0.4),
+              fontSize: 12,
+            ),
+          ),
+          calendarBuilders: CalendarBuilders(
+            prioritizedBuilder: (context, day, focusedDay) {
+              final dayOnly = DateTime(day.year, day.month, day.day);
               final isCompleted = completedDaysSet.contains(dayOnly);
-              final isToday = isSameDay(selectedDay, now);
+              final isToday = isSameDay(day, now);
               final isFuture = dayOnly.isAfter(todayMidnight);
+              final isOutside = day.month != focusedDay.month;
+              final isSelected = isSameDay(day, _selectedCalendarDay);
 
-              // Nova lógica para exibir os capítulos corretos (incluindo acumulo no fim do mês)
-              final chapters = _progressService.getChaptersForDate(selectedDay);
-              final String chaptersText = chapters.length > 1
-                  ? 'Capítulos ${chapters.join(' e ')}'
-                  : 'Capítulo ${chapters.first}';
-
-              String statusTitle = '';
-              String statusDesc = '';
-              IconData statusIcon = Icons.info_outline;
-              Color statusColor = Colors.blue;
-
-              if (isCompleted) {
-                statusTitle = 'Leitura Concluída';
-                statusDesc =
-                    'No dia ${selectedDay.day}/${selectedDay.month} você concluiu a leitura do $chaptersText.';
-                statusIcon = Icons.check_circle_rounded;
-                statusColor = const Color(0xFF388E3C);
-              } else if (isFuture) {
-                statusTitle = 'Futura Leitura';
-                statusDesc =
-                    'Prepare o seu coração! No dia ${selectedDay.day}/${selectedDay.month} você lerá o $chaptersText.';
-                statusIcon = Icons.event_note_rounded;
-                statusColor = Colors.blueGrey;
-              } else if (isToday) {
-                statusTitle = 'Hoje é o Dia!';
-                statusDesc =
-                    'Você ainda não registrou a leitura de hoje ($chaptersText). Que tal ler agora?';
-                statusIcon = Icons.local_fire_department_rounded;
-                statusColor = colorScheme.primary;
-              } else {
-                statusTitle = 'Leitura Perdida';
-                statusDesc =
-                    'A oportunidade de leitura para o dia ${selectedDay.day}/${selectedDay.month} ($chaptersText) expirou.';
-                statusIcon = Icons.block_flipped;
-                statusColor = Colors.red.shade300;
+              if (isOutside) {
+                return Center(
+                  child: Text(
+                    '${day.day}',
+                    style: TextStyle(
+                      color: Colors.grey.shade200,
+                      fontSize: 14,
+                    ),
+                  ),
+                );
               }
 
-              AppAlerts.showCustomDialog(
-                context: context,
-                title: statusTitle,
-                message: statusDesc,
-                icon: statusIcon,
-                iconColor: statusColor,
-                confirmText: isToday && !isCompleted ? 'LER AGORA' : 'FECHAR',
-                cancelText: isToday && !isCompleted ? 'MAIS TARDE' : null,
-                onConfirm: () {
-                  if (isToday && !isCompleted) {
-                    context.push('/reading');
-                  }
-                },
-              );
-            },
-            onDayLongPressed: (selectedDay, focusedDay) {
-              HapticFeedback.heavyImpact();
-              final chapters = _progressService.getChaptersForDate(selectedDay);
-              final String chaptersText = chapters.length > 1
-                  ? 'Capítulos ${chapters.join(' e ')}'
-                  : 'Capítulo ${chapters.first}';
-
-              AppAlerts.showSnackBar(
-                context,
-                message: 'Pressione para ler o $chaptersText! ✨',
-                type: AppAlertType.info,
-              );
-            },
-            headerStyle: HeaderStyle(
-              titleCentered: true,
-              formatButtonVisible: false,
-              titleTextStyle: textTheme.titleMedium!.copyWith(
-                fontWeight: FontWeight.w900,
-                color: colorScheme.onSurface,
-              ),
-              leftChevronIcon: Icon(
-                Icons.chevron_left_rounded,
-                color: colorScheme.primary,
-              ),
-              rightChevronIcon: Icon(
-                Icons.chevron_right_rounded,
-                color: colorScheme.primary,
-              ),
-              headerPadding: const EdgeInsets.only(bottom: 16),
-            ),
-            calendarFormat: CalendarFormat.month,
-            startingDayOfWeek: StartingDayOfWeek.monday,
-            daysOfWeekHeight: 32,
-            daysOfWeekStyle: DaysOfWeekStyle(
-              weekdayStyle: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Colors.grey.shade400,
-                fontSize: 12,
-              ),
-              weekendStyle: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: colorScheme.primary.withOpacity(0.4),
-                fontSize: 12,
-              ),
-            ),
-            calendarBuilders: CalendarBuilders(
-              prioritizedBuilder: (context, day, focusedDay) {
-                final dayOnly = DateTime(day.year, day.month, day.day);
-                final isCompleted = completedDaysSet.contains(dayOnly);
-                final isToday = isSameDay(day, now);
-                final isFuture = dayOnly.isAfter(todayMidnight);
-                final isOutside = day.month != focusedDay.month;
-                final isSelected = isSameDay(day, _selectedCalendarDay);
-
-                if (isOutside) {
-                  return Center(
-                    child: Text(
-                      '${day.day}',
-                      style: TextStyle(
-                        color: Colors.grey.shade200,
-                        fontSize: 14,
-                      ),
-                    ),
-                  );
-                }
-
-                return Center(
-                  child: AnimatedScale(
-                    scale: isSelected ? 1.1 : 1.0,
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeOutBack,
+              return Center(
+                child: AnimatedScale(
+                  scale: isSelected ? 1.1 : 1.0,
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOutBack,
+                  child: GestureDetector(
+                    onTapDown: (_) =>
+                        HapticFeedback.selectionClick(),
                     child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
+                      duration: const Duration(milliseconds: 400),
                       curve: Curves.easeInOut,
                       width: 38,
                       height: 38,
@@ -793,7 +933,7 @@ class _HomePageState extends State<HomePage>
                         child: isCompleted
                             ? Icon(
                                 Icons.check_rounded,
-                                color: colorScheme.onPrimary, // Corrigido
+                                color: colorScheme.onPrimary,
                                 size: 18,
                               )
                             : Text(
@@ -804,13 +944,15 @@ class _HomePageState extends State<HomePage>
                                       : (!isFuture && !isCompleted
                                             ? Colors.red.shade200
                                             : colorScheme.onSurface),
-                                  fontWeight:
-                                      isToday || isCompleted || isSelected
+                                  fontWeight: isToday ||
+                                          isCompleted ||
+                                          isSelected
                                       ? FontWeight.w900
                                       : FontWeight.w500,
                                   fontSize: 14,
-                                  decoration:
-                                      !isFuture && !isToday && !isCompleted
+                                  decoration: !isFuture &&
+                                          !isToday &&
+                                          !isCompleted
                                       ? TextDecoration.lineThrough
                                       : null,
                                   decorationColor: Colors.red.shade100,
@@ -823,270 +965,383 @@ class _HomePageState extends State<HomePage>
               },
             ),
           ),
-          const SizedBox(height: 24),
-          // Centro de Controle de Progresso
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Theme.of(context).cardColor,
-              borderRadius: BorderRadius.circular(32),
-              border: monthPercent >= 100
-                  ? Border.all(color: Colors.amber.shade300, width: 2)
-                  : Border.all(color: Colors.transparent, width: 2),
-              boxShadow: [
-                BoxShadow(
-                  color: monthPercent >= 100
-                      ? Colors.amber.withOpacity(0.15)
-                      : Colors.black.withOpacity(0.03),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    TweenAnimationBuilder<double>(
-                      tween: Tween<double>(
-                        begin: 0,
-                        end: monthPercent.toDouble(),
-                      ),
-                      duration: const Duration(seconds: 1),
-                      curve: Curves.easeOutCubic,
-                      builder: (context, value, child) {
-                        return Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            SizedBox(
-                              width: 80,
-                              height: 80,
-                              child: CircularProgressIndicator(
-                                value: value / 100,
-                                strokeWidth: 8,
-                                backgroundColor: colorScheme.primary
-                                    .withOpacity(0.1),
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  colorScheme.primary,
-                                ),
-                                strokeCap: StrokeCap.round,
+        ),
+        const SizedBox(height: 24),
+        // Centro de Controle de Progresso
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(32),
+            border: monthPercent >= 100
+                ? Border.all(color: Colors.amber.shade300, width: 2)
+                : Border.all(color: Colors.transparent, width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: monthPercent >= 100
+                    ? Colors.amber.withOpacity(0.15)
+                    : Colors.black.withOpacity(0.03),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  TweenAnimationBuilder<double>(
+                    tween: Tween<double>(
+                      begin: 0,
+                      end: monthPercent.toDouble(),
+                    ),
+                    duration: const Duration(seconds: 1),
+                    curve: Curves.easeOutCubic,
+                    builder: (context, value, child) {
+                      return Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          SizedBox(
+                            width: 80,
+                            height: 80,
+                            child: CircularProgressIndicator(
+                              value: value / 100,
+                              strokeWidth: 8,
+                              backgroundColor: colorScheme.primary
+                                  .withOpacity(0.1),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                colorScheme.primary,
                               ),
+                              strokeCap: StrokeCap.round,
                             ),
-                            Column(
-                              children: [
-                                Text(
-                                  '${value.round()}%',
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w900,
-                                    color: colorScheme.primary,
-                                  ),
+                          ),
+                          Column(
+                            children: [
+                              Text(
+                                '${value.round()}%',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w900,
+                                  color: colorScheme.primary,
                                 ),
-                                Text(
-                                  'META',
-                                  style: TextStyle(
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.w800,
-                                    color: Colors.grey.shade400,
-                                    letterSpacing: 1,
-                                  ),
+                              ),
+                              Text(
+                                'META',
+                                style: TextStyle(
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.grey.shade400,
+                                  letterSpacing: 1,
                                 ),
-                              ],
-                            ),
-                          ],
+                              ),
+                            ],
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 24),
+                  Expanded(
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 400),
+                      transitionBuilder:
+                          (Widget child, Animation<double> animation) {
+                        return FadeTransition(
+                          opacity: animation,
+                          child: SlideTransition(
+                            position: Tween<Offset>(
+                              begin: const Offset(0.1, 0),
+                              end: Offset.zero,
+                            ).animate(animation),
+                            child: child,
+                          ),
                         );
                       },
-                    ),
-                    const SizedBox(width: 24),
-                    // Mensagem Motivacional com Transição Suave
-                    Expanded(
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 400),
-                        transitionBuilder:
-                            (Widget child, Animation<double> animation) {
-                              return FadeTransition(
-                                opacity: animation,
-                                child: SlideTransition(
-                                  position: Tween<Offset>(
-                                    begin: const Offset(0.1, 0),
-                                    end: Offset.zero,
-                                  ).animate(animation),
-                                  child: child,
-                                ),
-                              );
-                            },
-                        child: Column(
-                          key: ValueKey(
-                            '${_focusedCalendarDay.month}_$monthPercent',
+                      child: Column(
+                        key: ValueKey(
+                          '${_focusedCalendarDay.month}_$monthPercent',
+                        ),
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _getMotivationalTitle(
+                              monthPercent,
+                              lostThisMonth,
+                              firstName,
+                              todayMidnight,
+                              daysInMonthList.first,
+                            ),
+                            style: textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 18,
+                            ),
                           ),
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _getMotivationalTitle(
+                          const SizedBox(height: 6),
+                          TweenAnimationBuilder<int>(
+                            tween: IntTween(
+                              begin: 0,
+                              end: _getMotivationalDescription(
                                 monthPercent,
                                 lostThisMonth,
                                 firstName,
                                 todayMidnight,
                                 daysInMonthList.first,
-                              ),
-                              style: textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w900,
-                                fontSize: 18,
-                              ),
+                              ).length,
                             ),
-                            const SizedBox(height: 6),
-                            TweenAnimationBuilder<int>(
-                              tween: IntTween(
-                                begin: 0,
-                                end: _getMotivationalDescription(
-                                  monthPercent,
-                                  lostThisMonth,
-                                  firstName,
-                                  todayMidnight,
-                                  daysInMonthList.first,
-                                ).length,
-                              ),
-                              duration: const Duration(seconds: 2),
-                              builder: (context, length, child) {
-                                final fullText = _getMotivationalDescription(
-                                  monthPercent,
-                                  lostThisMonth,
-                                  firstName,
-                                  todayMidnight,
-                                  daysInMonthList.first,
-                                );
-                                return Text(
-                                  fullText.substring(0, length),
-                                  style: textTheme.bodySmall?.copyWith(
-                                    color: Colors.grey.shade500,
-                                    height: 1.3,
-                                    fontSize: 12,
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
-                        ),
+                            duration: const Duration(seconds: 2),
+                            builder: (context, length, child) {
+                              final fullText = _getMotivationalDescription(
+                                monthPercent,
+                                lostThisMonth,
+                                firstName,
+                                todayMidnight,
+                                daysInMonthList.first,
+                              );
+                              return Text(
+                                fullText.substring(0, length),
+                                style: textTheme.bodySmall?.copyWith(
+                                  color: Colors.grey.shade500,
+                                  height: 1.3,
+                                  fontSize: 12,
+                                ),
+                              );
+                            },
+                          ),
+                        ],
                       ),
                     ),
-                  ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 28),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  vertical: 16,
+                  horizontal: 8,
                 ),
-                const SizedBox(height: 28),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 16,
-                    horizontal: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: ThemeColors.getLightBackground(context),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _StatItem(
-                          label: 'Lidos',
-                          value: '$completedThisMonth',
-                          color: colorScheme.primary,
-                          onTap: () {
-                            AppAlerts.showCustomDialog(
-                              context: context,
-                              title: 'Leituras Concluídas',
-                              message:
-                                  'Você já completou $completedThisMonth capítulos este mês. Cada um deles contribuiu para sua sabedoria!',
-                              icon: Icons.auto_awesome_rounded,
-                              iconColor: colorScheme.primary,
-                              confirmText: 'CONTINUAR',
-                              onConfirm: () {},
-                            );
-                          },
-                        ),
-                      ),
-                      Container(
-                        width: 1,
-                        height: 24,
-                        color: ThemeColors.getDividerColor(context),
-                      ),
-                      Expanded(
-                        child: _StatItem(
-                          label: 'Perdidos',
-                          value: '$lostThisMonth',
-                          color: Colors.red.shade300,
-                          onTap: () {
-                            AppAlerts.showCustomDialog(
-                              context: context,
-                              title: 'Dias Perdidos',
-                              message: lostThisMonth > 0
-                                  ? 'Não desanime por esses $lostThisMonth dias! A sabedoria é uma jornada de persistência, não de perfeição.'
-                                  : 'Incrível! Você não perdeu nenhum dia este mês. Mantenha essa disciplina!',
-                              icon: Icons.refresh_rounded,
-                              iconColor: Colors.red.shade300,
-                              confirmText: 'ENTENDI',
-                              onConfirm: () {},
-                            );
-                          },
-                        ),
-                      ),
-                      Container(
-                        width: 1,
-                        height: 24,
-                        color: ThemeColors.getDividerColor(context),
-                      ),
-                      Expanded(
-                        child: _StatItem(
-                          label: 'Restantes',
-                          value: '$remainingThisMonth',
-                          color: Colors.amber.shade700,
-                          onTap: () {
-                            final nextChapters = _progressService
-                                .getChaptersForDate(now);
-                            AppAlerts.showCustomDialog(
-                              context: context,
-                              title: 'Próximos Passos',
-                              message:
-                                  'Ainda restam $remainingThisMonth dias de leitura. O próximo foco é o capítulo ${nextChapters.first}!',
-                              icon: Icons.trending_up_rounded,
-                              iconColor: Colors.amber.shade700,
-                              confirmText: 'LER AGORA',
-                              onConfirm: () => context.push('/reading'),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
+                decoration: BoxDecoration(
+                  color: ThemeColors.getLightBackground(context),
+                  borderRadius: BorderRadius.circular(20),
                 ),
-                const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                child: Row(
                   children: [
-                    _buildLegendItem('Lido', colorScheme.primary, isIcon: true),
-                    const SizedBox(width: 12),
-                    _buildLegendItem(
-                      'Hoje',
-                      colorScheme.primary,
-                      isToday: true,
+                    Expanded(
+                      child: _StatItem(
+                        label: 'Lidos',
+                        value: '$completedThisMonth',
+                        color: colorScheme.primary,
+                        onTap: () {
+                          AppAlerts.showCustomDialog(
+                            context: context,
+                            title: 'Leituras Concluídas',
+                            message:
+                                'Você já completou $completedThisMonth capítulos este mês. Cada um deles contribuiu para sua sabedoria!',
+                            icon: Icons.auto_awesome_rounded,
+                            iconColor: colorScheme.primary,
+                            confirmText: 'CONTINUAR',
+                            onConfirm: () {},
+                          );
+                        },
+                      ),
                     ),
-                    const SizedBox(width: 12),
-                    _buildLegendItem(
-                      'Perdido',
-                      Colors.red.shade300,
-                      isLost: true,
+                    Container(
+                      width: 1,
+                      height: 24,
+                      color: ThemeColors.getDividerColor(context),
                     ),
-                    const SizedBox(width: 12),
-                    _buildLegendItem(
-                      'Futuro',
-                      Colors.grey.shade200,
-                      isFuture: true,
+                    Expanded(
+                      child: _StatItem(
+                        label: 'Perdidos',
+                        value: '$lostThisMonth',
+                        color: Colors.red.shade300,
+                        onTap: () {
+                          AppAlerts.showCustomDialog(
+                            context: context,
+                            title: 'Dias Perdidos',
+                            message: lostThisMonth > 0
+                                ? 'Não desanime por esses $lostThisMonth dias! A sabedoria é uma jornada de persistência, não de perfeição.'
+                                : 'Incrível! Você não perdeu nenhum dia este mês. Mantenha essa disciplina!',
+                            icon: Icons.refresh_rounded,
+                            iconColor: Colors.red.shade300,
+                            confirmText: 'ENTENDI',
+                            onConfirm: () {},
+                          );
+                        },
+                      ),
+                    ),
+                    Container(
+                      width: 1,
+                      height: 24,
+                      color: ThemeColors.getDividerColor(context),
+                    ),
+                    Expanded(
+                      child: _StatItem(
+                        label: 'Restantes',
+                        value: '$remainingThisMonth',
+                        color: Colors.amber.shade700,
+                        onTap: () {
+                          final nextChapters = _progressService
+                              .getChaptersForDate(now);
+                          AppAlerts.showCustomDialog(
+                            context: context,
+                            title: 'Próximos Passos',
+                            message:
+                                'Ainda restam $remainingThisMonth dias de leitura. O próximo foco é o capítulo ${nextChapters.first}!',
+                            icon: Icons.trending_up_rounded,
+                            iconColor: Colors.amber.shade700,
+                            confirmText: 'LER AGORA',
+                            onConfirm: () => context.push('/reading'),
+                          );
+                        },
+                      ),
                     ),
                   ],
                 ),
-              ],
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildLegendItem('Lido', colorScheme.primary, isIcon: true),
+                  const SizedBox(width: 12),
+                  _buildLegendItem(
+                    'Hoje',
+                    colorScheme.primary,
+                    isToday: true,
+                  ),
+                  const SizedBox(width: 12),
+                  _buildLegendItem(
+                    'Perdido',
+                    Colors.red.shade300,
+                    isLost: true,
+                  ),
+                  const SizedBox(width: 12),
+                  _buildLegendItem(
+                    'Futuro',
+                    Colors.grey.shade200,
+                    isFuture: true,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAnnualCalendarView(
+    BuildContext context,
+    TextTheme textTheme,
+    ColorScheme colorScheme,
+    List<DateTime> completedDays,
+    String firstName,
+  ) {
+    final now = DateTime.now();
+    final todayMidnight = DateTime(now.year, now.month, now.day);
+    final completedDaysSet = completedDays
+        .map((d) => DateTime(d.year, d.month, d.day))
+        .toSet();
+
+    // Estatísticas do ano inteiro
+    final allDaysInYear = List.generate(
+      DateTime(now.year, 12, 31).difference(DateTime(now.year, 1, 1)).inDays + 1,
+      (i) => DateTime(now.year, 1, 1).add(Duration(days: i)),
+    );
+
+    final completedThisYear = completedDaysSet.where((d) => d.year == now.year).length;
+    final yearPercent = ((completedThisYear / allDaysInYear.length) * 100).round();
+
+    return Column(
+      key: const ValueKey('annual'),
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: yearPercent >= 80
+                  ? [const Color(0xFF43A047), const Color(0xFF2E7D32)]
+                  : [colorScheme.primary, colorScheme.primary.withOpacity(0.8)],
+            ),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            '$yearPercent%',
+            style: TextStyle(
+              color: colorScheme.onPrimary,
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
             ),
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 20),
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Theme.of(context).dividerColor),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Visão Anual de $firstName',
+                style: textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                '$completedThisYear de ${allDaysInYear.length} dias completados',
+                style: textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Progresso consistente em sua jornada de leitura ao longo do ano.',
+                style: textTheme.bodySmall?.copyWith(
+                  color: Colors.grey.shade500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
+  }
+
+  String _getMonthName(int month) {
+    const months = [
+      'Jan',
+      'Fev',
+      'Mar',
+      'Abr',
+      'Mai',
+      'Jun',
+      'Jul',
+      'Ago',
+      'Set',
+      'Out',
+      'Nov',
+      'Dez',
+    ];
+    return months[month - 1];
+  }
+
+  Color _getHeatmapColor(int percent, ColorScheme colorScheme) {
+    if (percent >= 90) {
+      return const Color(0xFF1B5E20);
+    } else if (percent >= 70) {
+      return const Color(0xFF2E7D32);
+    } else if (percent >= 50) {
+      return const Color(0xFF558B2F);
+    } else if (percent >= 30) {
+      return const Color(0xFFF57F17);
+    } else if (percent > 0) {
+      return const Color(0xFFE65100);
+    } else {
+      return Colors.grey.shade400;
+    }
   }
 
   String _getMotivationalTitle(
@@ -1097,18 +1352,18 @@ class _HomePageState extends State<HomePage>
     DateTime monthStart,
   ) {
     if (monthStart.isAfter(today)) {
-      return 'Prepare-se, $name!';
+      return 'Próximo mês em breve';
     }
     if (percent >= 100) {
-      return 'Lendário, $name! 🏆';
+      return 'Mês completo';
     }
     if (lost > 0) {
-      if (lost <= 3) return 'Quase perfeito!';
-      if (lost <= 10) return 'Hora de reagir!';
-      return 'Novo começo?';
+      if (lost <= 3) return 'Poucos deslizes';
+      if (lost <= 10) return 'Recupere o ritmo';
+      return 'Novo recomeço';
     }
-    if (percent > 0) return 'Ritmo excelente!';
-    return 'Vamos começar?';
+    if (percent > 0) return 'No caminho certo';
+    return 'Comece hoje';
   }
 
   String _getMotivationalDescription(
@@ -1119,24 +1374,24 @@ class _HomePageState extends State<HomePage>
     DateTime monthStart,
   ) {
     if (monthStart.isAfter(today)) {
-      return 'Sua jornada para este mês está prestes a começar. Mantenha o foco!';
+      return 'Aproveite o tempo para planejar sua rotina de leitura.';
     }
     if (percent >= 100) {
-      return 'Você dominou cada provérbio deste mês com disciplina exemplar. Parabéns!';
+      return 'Todos os dias deste mês foram preenchidos com dedicação.';
     }
     if (lost > 0) {
       if (lost <= 3) {
-        return 'Apenas $lost deslizes leves. Não deixe que isso te pare, $name!';
+        return 'Apenas $lost dia(s) não preenchido(s). Mantenha a disciplina.';
       }
       if (lost <= 10) {
-        return 'Você deixou $lost dias para trás. Recupere o foco na sabedoria hoje mesmo!';
+        return '$lost dias ainda podem ser retomados. Volte ao ritmo.';
       }
-      return '$lost dias perdidos não definem você, mas o seu recomeço sim. Vamos ler?';
+      return 'Com $lost dias perdidos, agora é tempo de recomeçar com força.';
     }
     if (percent > 0) {
-      return 'Você não perdeu nenhum dia até agora! Continue assim para a vitória total.';
+      return 'Sem dias perdidos até agora. Mantenha a consistência.';
     }
-    return 'Cada capítulo é uma nova oportunidade de aprender. Comece sua leitura!';
+    return 'Cada dia lido é um passo em direção ao conhecimento.';
   }
 
   Widget _buildCalendarStat(String label, String value, Color color) {

@@ -18,10 +18,14 @@ class MenuPage extends StatefulWidget {
   State<MenuPage> createState() => _MenuPageState();
 }
 
-class _MenuPageState extends State<MenuPage> {
+class _MenuPageState extends State<MenuPage>
+    with AutomaticKeepAliveClientMixin {
   UserModel? _user;
   StreamSubscription<UserModel?>? _userSubscription;
   bool _updatingTheme = false;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -55,6 +59,7 @@ class _MenuPageState extends State<MenuPage> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
     final preferencesItems = _buildPreferenceItems(context);
@@ -264,7 +269,7 @@ class _MenuPageState extends State<MenuPage> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Continue sua jornada em Provérbios hoje.',
+                  'Continue sua jornada em Provérbios',
                   style: TextStyle(
                     color: colorScheme.onSurface,
                     fontSize: 17,
@@ -501,7 +506,7 @@ class _MenuPageState extends State<MenuPage> {
         title: 'Compartilhar App',
         subtitle: 'Convidar amigos para usar o ProVê',
         onTap: () => Share.share(
-          '📖 Conheça o ProVê! Um app para ler Provérbios diariamente e crescer em sabedoria. Baixe agora!',
+          'Conheça o ProVê. Um app para ler Provérbios diariamente. Disponível na Play Store.',
         ),
       ),
     ];
@@ -519,7 +524,7 @@ class _MenuPageState extends State<MenuPage> {
       ),
       _QuickActionItem(
         icon: Icons.local_fire_department_rounded,
-        title: 'Ofensiva',
+        title: 'Sequência',
         subtitle: 'Ver progresso',
         color: const Color(0xFFD65108),
         onTap: () => context.go('/home', extra: {'index': 1}),

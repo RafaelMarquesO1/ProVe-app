@@ -34,13 +34,17 @@ class _ReadingPageState extends State<ReadingPage> {
   final ReadingSettingsProvider _settings = ReadingSettingsProvider.instance;
 
   bool _isReading = false;
+  bool _showPlayer = false;
   bool _showFab = false;
   bool _isHeartAnimating = false;
   int _currentlySpeakingVerse = -1;
   Completer<void>? _speechCompleter;
+  bool _isPlayingTransition = false;
+  bool _ignoreTtsCallbacks = false;
 
   // Guardamos os offsets de caractere para cada versículo na string completa
   List<int> _verseStartOffsets = [];
+  List<int> _currentSpokenVerseIndexes = [];
   // Chaves para identificar a posição de cada versículo na tela
   final List<GlobalKey> _verseKeys = [];
 
@@ -105,16 +109,25 @@ class _ReadingPageState extends State<ReadingPage> {
       if (_speechCompleter != null && !_speechCompleter!.isCompleted) {
         _speechCompleter!.complete();
       }
+      if (_ignoreTtsCallbacks || _isPlayingTransition) return;
+      if (mounted) {
+        setState(() {
+          _isReading = false;
+          _currentlySpeakingVerse = -1;
+          _showPlayer = false;
+        });
+      }
     });
 
     _flutterTts.setCancelHandler(() {
       if (_speechCompleter != null && !_speechCompleter!.isCompleted) {
         _speechCompleter!.complete();
       }
+      if (_ignoreTtsCallbacks || _isPlayingTransition) return;
       if (mounted) {
         setState(() {
           _isReading = false;
-          _currentlySpeakingVerse = -1;
+          // Retemos o _currentlySpeakingVerse e _showPlayer para o usuário poder continuar
         });
       }
     });
@@ -129,32 +142,35 @@ class _ReadingPageState extends State<ReadingPage> {
       if (!mounted || _verseStartOffsets.isEmpty) return;
 
       // Encontra a qual versículo o offset atual pertence
-      int verseIndex = -1;
+      int localIndex = -1;
       for (int i = 0; i < _verseStartOffsets.length; i++) {
         if (start >= _verseStartOffsets[i]) {
-          verseIndex = i;
+          localIndex = i;
         } else {
           break;
         }
       }
 
-      if (verseIndex != -1 && verseIndex != _currentlySpeakingVerse) {
-        if (mounted) {
-          setState(() {
-            _currentlySpeakingVerse = verseIndex;
-          });
-        }
+      if (localIndex != -1 && localIndex < _currentSpokenVerseIndexes.length) {
+        int globalVerseIndex = _currentSpokenVerseIndexes[localIndex];
+        if (globalVerseIndex != _currentlySpeakingVerse) {
+          if (mounted) {
+            setState(() {
+              _currentlySpeakingVerse = globalVerseIndex;
+            });
+          }
 
-        // Rola automaticamente para o versículo atual com precisão usando a chave do widget
-        if (_scrollController.hasClients && verseIndex < _verseKeys.length) {
-          final keyContext = _verseKeys[verseIndex].currentContext;
-          if (keyContext != null) {
-            Scrollable.ensureVisible(
-              keyContext,
-              duration: const Duration(milliseconds: 600),
-              curve: Curves.easeInOut,
-              alignment: 0.2, // Mantém o versículo um pouco abaixo do topo
-            );
+          // Rola automaticamente para o versículo atual com precisão usando a chave do widget
+          if (_scrollController.hasClients && globalVerseIndex < _verseKeys.length) {
+            final keyContext = _verseKeys[globalVerseIndex].currentContext;
+            if (keyContext != null) {
+              Scrollable.ensureVisible(
+                keyContext,
+                duration: const Duration(milliseconds: 600),
+                curve: Curves.easeInOut,
+                alignment: 0.2, // Mantém o versículo um pouco abaixo do topo
+              );
+            }
           }
         }
       }
@@ -327,6 +343,7 @@ class _ReadingPageState extends State<ReadingPage> {
 
   Future<void> _markAsRead() async {
     try {
+      await _closePlayer();
       await _progressService.markChapterAsRead();
 
       if (!mounted) return;
@@ -334,11 +351,11 @@ class _ReadingPageState extends State<ReadingPage> {
       // Mostra a Animação de Parabéns por Concluir a Leitura!
       AppAlerts.showCustomDialog(
         context: context,
-        title: 'SABEDORIA ALCANÇADA!',
+        title: 'Leitura concluída',
         message:
-            'Você completou a leitura de hoje e iluminou sua mente com a palavra. Continue firme na sua jornada!',
-        confirmText: 'VER PROGRESSO',
-        icon: Icons.auto_awesome_rounded,
+            'Você finalizou a leitura de hoje. Progresso registrado.',
+        confirmText: 'Ver progresso',
+        icon: Icons.check_circle_rounded,
         iconColor: Colors.green.shade700,
         onConfirm: () {
           context.go('/home', extra: {'index': 1, 'showConfetti': true});
@@ -356,65 +373,135 @@ class _ReadingPageState extends State<ReadingPage> {
   }
 
   Future<void> _toggleReading(List<String> content) async {
+    if (_isPlayingTransition) return;
     if (_isReading) {
-      await _flutterTts.stop();
-      if (!mounted) return;
-      setState(() {
-        _isReading = false;
-        _currentlySpeakingVerse = -1;
-      });
+      await _pauseReading();
     } else {
-      if (!mounted) return;
+      int startIndex = _currentlySpeakingVerse != -1 ? _currentlySpeakingVerse : 0;
+      await _startReadingFrom(startIndex, content);
+    }
+  }
 
-      // Prepara a string conjunta para uma leitura mais natural
+  Future<void> _pauseReading() async {
+    if (_isPlayingTransition) return;
+    _isPlayingTransition = true;
+    _ignoreTtsCallbacks = true;
+    try {
+      await _flutterTts.stop();
+      if (mounted) {
+        setState(() {
+          _isReading = false;
+        });
+      }
+    } finally {
+      await Future.delayed(const Duration(milliseconds: 100));
+      _isPlayingTransition = false;
+      _ignoreTtsCallbacks = false;
+    }
+  }
+
+  Future<void> _nextVerse(List<String> content) async {
+    if (_isPlayingTransition) return;
+    if (_currentlySpeakingVerse != -1 && _currentlySpeakingVerse + 1 < content.length) {
+      await _startReadingFrom(_currentlySpeakingVerse + 1, content);
+    }
+  }
+
+  Future<void> _previousVerse(List<String> content) async {
+    if (_isPlayingTransition) return;
+    if (_currentlySpeakingVerse > 0) {
+      await _startReadingFrom(_currentlySpeakingVerse - 1, content);
+    } else {
+      await _startReadingFrom(0, content);
+    }
+  }
+
+  Future<void> _closePlayer() async {
+    if (_isPlayingTransition) return;
+    _isPlayingTransition = true;
+    _ignoreTtsCallbacks = true;
+    try {
+      await _flutterTts.stop();
+      if (mounted) {
+        setState(() {
+          _isReading = false;
+          _showPlayer = false;
+          _currentlySpeakingVerse = -1;
+        });
+      }
+    } finally {
+      await Future.delayed(const Duration(milliseconds: 100));
+      _isPlayingTransition = false;
+      _ignoreTtsCallbacks = false;
+    }
+  }
+
+  Future<void> _startReadingFrom(int startIndex, List<String> content) async {
+    if (_isPlayingTransition) return;
+    _isPlayingTransition = true;
+    _ignoreTtsCallbacks = true;
+    try {
+      await _flutterTts.stop();
+
+      if (!mounted) return;
+      if (startIndex < 0 || startIndex >= content.length) return;
+
       final StringBuffer fullTextBuffer = StringBuffer();
       _verseStartOffsets = [];
-      _verseKeys.clear();
-      for (int k = 0; k < content.length; k++) {
-        _verseKeys.add(GlobalKey());
+      _currentSpokenVerseIndexes = [];
+
+      // Certifique-se de que temos as keys para não perder o estado de rolagem
+      if (_verseKeys.length != content.length) {
+        _verseKeys.clear();
+        for (int k = 0; k < content.length; k++) {
+          _verseKeys.add(GlobalKey());
+        }
       }
 
-      for (int i = 0; i < content.length; i++) {
+      for (int i = startIndex; i < content.length; i++) {
         String line = content[i];
 
-        // Se for um cabeçalho, registramos o offset mas não lemos ou lemos como título
         if (line.startsWith('HEAD ')) {
           _verseStartOffsets.add(fullTextBuffer.length);
+          _currentSpokenVerseIndexes.add(i);
           fullTextBuffer.write(line.replaceFirst('HEAD ', '') + ". ");
           continue;
         }
 
-        // Remove o número inicial do versículo para o buffer de texto
         String cleanedText = line;
         final parts = cleanedText.split(' ');
         if (parts.length > 1 && int.tryParse(parts.first) != null) {
           cleanedText = parts.sublist(1).join(' ');
         }
 
-        // Registra o offset de início deste versículo no texto concatenado
         _verseStartOffsets.add(fullTextBuffer.length);
+        _currentSpokenVerseIndexes.add(i);
         fullTextBuffer.write(cleanedText);
-        fullTextBuffer.write(
-          " ",
-        ); // Pequena pausa natural entre versículos pela pontuação
+        fullTextBuffer.write(" "); 
       }
 
       setState(() {
         _isReading = true;
+        _showPlayer = true;
+        _currentlySpeakingVerse = startIndex;
       });
 
       await _applyTtsSettings();
 
       _speechCompleter = Completer<void>();
       await _flutterTts.speak(fullTextBuffer.toString());
-      await _speechCompleter!.future;
-
-      if (mounted) {
-        setState(() {
-          _isReading = false;
-          _currentlySpeakingVerse = -1;
-        });
-      }
+    } catch (e) {
+      debugPrint("Erro ao iniciar reprodução: $e");
+    } finally {
+      await Future.delayed(const Duration(milliseconds: 100));
+      _isPlayingTransition = false;
+      _ignoreTtsCallbacks = false;
+    }
+    
+    if (_speechCompleter != null) {
+      try {
+        await _speechCompleter!.future;
+      } catch (_) {}
     }
   }
 
@@ -500,7 +587,7 @@ class _ReadingPageState extends State<ReadingPage> {
                           setState(() => _selectedVerses.clear());
                           AppAlerts.showSnackBar(
                             context,
-                            message: 'Copiado para a área de transferência!',
+                            message: 'Copiado',
                             type: AppAlertType.success,
                           );
                         },
@@ -557,6 +644,300 @@ class _ReadingPageState extends State<ReadingPage> {
                         onPressed: () =>
                             setState(() => _selectedVerses.clear()),
                         tooltip: 'Limpar seleção',
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlayer(ThemeData theme, List<String> content) {
+    if (!_showPlayer || _selectedVerses.isNotEmpty) return const SizedBox.shrink();
+
+    // 1. Identificar dados do versículo atual de forma dinâmica
+    final int currentIdx = _currentlySpeakingVerse != -1 ? _currentlySpeakingVerse : 0;
+    String displayTitle = "Provérbios";
+    String displayVerseText = "...";
+
+    if (content.isNotEmpty && currentIdx < content.length) {
+      final line = content[currentIdx];
+      if (line.startsWith('HEAD ')) {
+        displayTitle = line.replaceFirst('HEAD ', '');
+        displayVerseText = "Iniciando capítulo...";
+      } else {
+        final parts = line.split(' ');
+        final verseNumber = parts.first;
+        final verseText = parts.sublist(1).join(' ');
+
+        // Se houver mais de um capítulo carregado, descobre a qual capítulo pertence este versículo
+        String chapterLabel = "";
+        for (int i = currentIdx; i >= 0; i--) {
+          if (content[i].startsWith('HEAD ')) {
+            chapterLabel = content[i]
+                .replaceFirst('HEAD ', '')
+                .replaceFirst('Capítulo ', '')
+                .trim();
+            break;
+          }
+        }
+
+        // Se não encontrou HEAD (ex: capítulo único), tenta deduzir a partir do estado da tela
+        if (chapterLabel.isEmpty) {
+          // Busca o título original que pode estar no formato "3" ou "3 - 4"
+          // Se for "3 - 4" (múltiplos capítulos mas não achou o HEAD por algum motivo), usa como fallback
+          // Mas normalmente "3" é ideal.
+          // Para obter o capítulo atual, se for capítulo único, usamos a primeira parte do chapterTitle
+          // Por exemplo, se chapterTitle for "3", chapterLabel vira "3".
+          // Se for "3 - 4", usamos "3 - 4".
+          // Vamos extrair a primeira parte de chapters se disponível.
+          // Para simplificar, o fallback é o próprio chapterTitle.
+          // Mas como estamos dentro de build, podemos obter o chapterTitle se quisermos,
+          // ou simplesmente usar um valor genérico.
+          // Como chapterTitle é definido na linha 845, e estamos fora do escopo do build local,
+          // nós podemos recriar a lógica ou passar chapterTitle/chapters como parâmetro,
+          // ou simplesmente deduzir a partir da lista content ou manter uma referência limpa.
+          // Na verdade, no build() da página, chapterTitle é definido como:
+          // chapters.length > 1 ? '${chapters.first} - ${chapters.last}' : chapters.first.toString()
+          // Mas no initState ou no State da classe, não guardamos chapters diretamente.
+          // Porém, temos acesso aos dados através da própria lista content que é passada.
+          // Vamos fazer uma busca simples no content para ver quais capítulos estão lá:
+          // Se houver HEAD lines, extraímos delas. Se não, sabemos que é apenas um capítulo.
+          // Para simplificar e manter super robusto, vamos obter a lista de capítulos a partir de content:
+          final chaptersInContent = content
+              .where((l) => l.startsWith('HEAD '))
+              .map((l) => l.replaceFirst('HEAD Capítulo ', '').trim())
+              .toList();
+          
+          if (chaptersInContent.isNotEmpty) {
+            chapterLabel = chaptersInContent.first;
+          } else {
+            // Se não houver HEAD, assumimos que é o capítulo ativo obtido dos dados de progresso.
+            // Mas para evitar queries assíncronas no build, usamos um fallback amigável "Provérbios"
+            chapterLabel = "";
+          }
+        }
+
+        displayTitle = chapterLabel.isNotEmpty 
+            ? "Provérbios $chapterLabel:$verseNumber"
+            : "Provérbios $verseNumber";
+        displayVerseText = verseText;
+      }
+    }
+
+    // 2. Definir cores baseadas no tema e no fundo customizado do leitor
+    final bool isDark = _settings.backgroundColor.computeLuminance() < 0.5;
+    final Color cardBgColor = isDark 
+        ? Colors.black.withValues(alpha: 0.82) 
+        : Colors.white.withValues(alpha: 0.90);
+    final Color playerBorderColor = isDark 
+        ? Colors.white.withValues(alpha: 0.08) 
+        : Colors.black.withValues(alpha: 0.08);
+    final Color playerTextColor = isDark 
+        ? Colors.white.withValues(alpha: 0.95) 
+        : Colors.black87;
+    final Color playerSubTextColor = isDark 
+        ? Colors.white.withValues(alpha: 0.6) 
+        : Colors.black54;
+
+    // Calcular o progresso
+    double progress = 0.0;
+    if (content.isNotEmpty) {
+      progress = (currentIdx + 1) / content.length;
+    }
+
+    return Positioned(
+      bottom: 20 + MediaQuery.of(context).padding.bottom,
+      left: 16,
+      right: 16,
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0.0, end: 1.0),
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.elasticOut,
+        builder: (context, value, child) {
+          return Transform.translate(
+            offset: Offset(0, 100 * (1 - value)),
+            child: Opacity(opacity: value.clamp(0.0, 1.0), child: child),
+          );
+        },
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: BackdropFilter(
+            filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: cardBgColor,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: playerBorderColor, width: 1.5),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.12),
+                    blurRadius: 25,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 1. Linha Superior: Álbum/Ícone + Info + Fechar
+                  Row(
+                    children: [
+                      // Ícone de Capa estilizado com gradiente
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          gradient: LinearGradient(
+                            colors: [
+                              theme.colorScheme.primary,
+                              const Color(0xFFD65108),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          _isReading ? Icons.volume_up_rounded : Icons.volume_mute_rounded,
+                          color: Colors.white,
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      // Informações do versículo
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              displayTitle,
+                              style: TextStyle(
+                                color: playerTextColor,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.3,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              displayVerseText,
+                              style: TextStyle(
+                                color: playerSubTextColor,
+                                fontSize: 12,
+                                height: 1.2,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Botão Fechar
+                      IconButton(
+                        icon: Icon(Icons.close_rounded, color: playerSubTextColor, size: 20),
+                        onPressed: _closePlayer,
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        tooltip: 'Fechar Player',
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  // 2. Barra de Progresso Fina
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(2),
+                    child: LinearProgressIndicator(
+                      value: progress.clamp(0.0, 1.0),
+                      backgroundColor: isDark ? Colors.white12 : Colors.black12,
+                      valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
+                      minHeight: 3.5,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // 3. Linha Inferior: Ajustes + Controles + Contador
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Botão de Ajustes de Leitura
+                      IconButton(
+                        icon: Icon(Icons.tune_rounded, color: playerSubTextColor, size: 20),
+                        onPressed: () => context.push('/settings/reading'),
+                        tooltip: 'Ajustes de Voz',
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                      // Controles de Reprodução
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: Icon(Icons.skip_previous_rounded, color: playerTextColor, size: 26),
+                            onPressed: () => _previousVerse(content),
+                            tooltip: 'Versículo Anterior',
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          const SizedBox(width: 8),
+                          BounceButton(
+                            onTap: () => _toggleReading(content),
+                            child: Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: theme.colorScheme.primary,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: Icon(
+                                _isReading ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: Icon(Icons.skip_next_rounded, color: playerTextColor, size: 26),
+                            onPressed: () => _nextVerse(content),
+                            tooltip: 'Próximo Versículo',
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ],
+                      ),
+                      // Contador de Progresso (centralização através de largura fixa)
+                      Container(
+                        width: 28,
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          "${currentIdx + 1}/${content.length}",
+                          style: TextStyle(
+                            color: playerSubTextColor,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -680,48 +1061,54 @@ class _ReadingPageState extends State<ReadingPage> {
 
         return Scaffold(
           backgroundColor: _settings.backgroundColor,
-          body: Stack(
-            children: [
-              SafeArea(
-                child: FutureBuilder<Map<String, dynamic>>(
-                  future: _readingData,
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return _buildReadingShimmer(
-                        context,
-                        textColor,
-                        subtleTextColor,
-                      );
-                    }
+          body: FutureBuilder<Map<String, dynamic>>(
+            future: _readingData,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return SafeArea(
+                  child: _buildReadingShimmer(
+                    context,
+                    textColor,
+                    subtleTextColor,
+                  ),
+                );
+              }
 
-                    if (snapshot.hasError) {
-                      return Center(
-                        child: Text(
-                          'Erro: ${snapshot.error}',
-                          style: TextStyle(color: textColor),
-                        ),
-                      );
-                    }
+              if (snapshot.hasError) {
+                return SafeArea(
+                  child: Center(
+                    child: Text(
+                      'Erro: ${snapshot.error}',
+                      style: TextStyle(color: textColor),
+                    ),
+                  ),
+                );
+              }
 
-                    if (!snapshot.hasData) {
-                      return Center(
-                        child: Text(
-                          'Nenhum dado disponível.',
-                          style: TextStyle(color: textColor),
-                        ),
-                      );
-                    }
+              if (!snapshot.hasData) {
+                return SafeArea(
+                  child: Center(
+                    child: Text(
+                      'Nenhum dado disponível.',
+                      style: TextStyle(color: textColor),
+                    ),
+                  ),
+                );
+              }
 
-                    final data = snapshot.data!;
-                    final List<int> chapters = List<int>.from(data['chapters']);
-                    final bool canRead = data['canRead'];
-                    final List<String> content = data['content'];
+              final data = snapshot.data!;
+              final List<int> chapters = List<int>.from(data['chapters']);
+              final bool canRead = data['canRead'];
+              final List<String> content = data['content'];
 
-                    String chapterTitle = chapters.length > 1
-                        ? '${chapters.first} - ${chapters.last}'
-                        : chapters.first.toString();
+              String chapterTitle = chapters.length > 1
+                  ? '${chapters.first} - ${chapters.last}'
+                  : chapters.first.toString();
 
-                    return Column(
+              return Stack(
+                children: [
+                  SafeArea(
+                    child: Column(
                       children: [
                         Expanded(
                           child: CustomScrollView(
@@ -772,7 +1159,7 @@ class _ReadingPageState extends State<ReadingPage> {
                                       color: theme.colorScheme.primary,
                                       size: 32,
                                     ),
-                                    tooltip: 'Ouvir Capítulo',
+                                    tooltip: _isReading ? 'Pausar' : 'Ouvir Capítulo',
                                     onPressed: () => _toggleReading(content),
                                   ),
                                   const SizedBox(width: 8),
@@ -1090,36 +1477,38 @@ class _ReadingPageState extends State<ReadingPage> {
                           ),
                         ),
                       ],
-                    );
-                  },
-                ),
-              ),
-              // Heart Animation Overlay
-              if (_isHeartAnimating)
-                Center(
-                  child: TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 0.5, end: 1.5),
-                    duration: const Duration(milliseconds: 400),
-                    curve: Curves.elasticOut,
-                    builder: (context, scale, child) {
-                      return AnimatedOpacity(
-                        opacity: _isHeartAnimating ? 1.0 : 0.0,
-                        duration: const Duration(milliseconds: 300),
-                        child: Transform.scale(
-                          scale: scale,
-                          child: const Icon(
-                            Icons.favorite_rounded,
-                            color: Colors.pink,
-                            size: 120,
-                          ),
-                        ),
-                      );
-                    },
+                    ),
                   ),
-                ),
-              // Selection Action Bar (Floating)
-              _buildSelectionActionBar(theme),
-            ],
+                  // Heart Animation Overlay
+                  if (_isHeartAnimating)
+                    Center(
+                      child: TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0.5, end: 1.5),
+                        duration: const Duration(milliseconds: 400),
+                        curve: Curves.elasticOut,
+                        builder: (context, scale, child) {
+                          return AnimatedOpacity(
+                            opacity: _isHeartAnimating ? 1.0 : 0.0,
+                            duration: const Duration(milliseconds: 300),
+                            child: Transform.scale(
+                              scale: scale,
+                              child: const Icon(
+                                Icons.favorite_rounded,
+                                color: Colors.pink,
+                                size: 120,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  // Selection Action Bar (Floating)
+                  _buildSelectionActionBar(theme),
+                  // Reading Player Bar (Floating)
+                  _buildPlayer(theme, content),
+                ],
+              );
+            },
           ),
         );
       },
