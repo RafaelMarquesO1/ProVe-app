@@ -1,9 +1,9 @@
 import 'dart:developer' as developer;
 import 'dart:math';
 
-import 'package:myapp/models/user_model.dart';
-import 'package:myapp/services/database_service.dart';
-import 'package:myapp/services/local_auth_service.dart';
+import 'package:prove/models/user_model.dart';
+import 'package:prove/services/database_service.dart';
+import 'package:prove/services/local_auth_service.dart';
 
 class ProgressService {
   Stream<UserModel?> get userStream async* {

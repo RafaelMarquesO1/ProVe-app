@@ -3,11 +3,11 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:myapp/models/user_model.dart';
-import 'package:myapp/services/app_theme_controller.dart';
-import 'package:myapp/services/local_auth_service.dart';
-import 'package:myapp/widgets/app_logo.dart';
-import 'package:myapp/widgets/bounce_button.dart';
+import 'package:prove/models/user_model.dart';
+import 'package:prove/services/app_theme_controller.dart';
+import 'package:prove/services/local_auth_service.dart';
+import 'package:prove/widgets/app_logo.dart';
+import 'package:prove/widgets/bounce_button.dart';
 import 'package:share_plus/share_plus.dart';
 
 class MenuPage extends StatefulWidget {

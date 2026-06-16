@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:myapp/routes.dart';
+import 'package:prove/routes.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:myapp/services/app_theme_controller.dart';
-import 'package:myapp/services/notification_service.dart';
+import 'package:prove/services/app_theme_controller.dart';
+import 'package:prove/services/notification_service.dart';
 
 
 void main() async {

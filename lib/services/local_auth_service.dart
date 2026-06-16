@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:myapp/models/user_model.dart';
-import 'package:myapp/services/database_service.dart';
+import 'package:prove/models/user_model.dart';
+import 'package:prove/services/database_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';

@@ -3,10 +3,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:myapp/services/local_auth_service.dart';
-import 'package:myapp/widgets/app_alerts.dart';
-import 'package:myapp/widgets/bounce_button.dart';
-import 'package:myapp/widgets/photo_reframer.dart';
+import 'package:prove/services/local_auth_service.dart';
+import 'package:prove/widgets/app_alerts.dart';
+import 'package:prove/widgets/bounce_button.dart';
+import 'package:prove/widgets/photo_reframer.dart';
 
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});

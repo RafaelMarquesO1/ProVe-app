@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:myapp/services/database_service.dart';
+import 'package:prove/services/database_service.dart';
 
 class UserDataService {
   UserDataService._internal();

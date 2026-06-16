@@ -3,12 +3,12 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:myapp/models/user_model.dart';
-import 'package:myapp/widgets/bounce_button.dart';
+import 'package:prove/models/user_model.dart';
+import 'package:prove/widgets/bounce_button.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:myapp/widgets/app_alerts.dart';
-import 'package:myapp/services/progress_service.dart';
-import 'package:myapp/utils/theme_colors.dart';
+import 'package:prove/widgets/app_alerts.dart';
+import 'package:prove/services/progress_service.dart';
+import 'package:prove/utils/theme_colors.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 class HomePage extends StatefulWidget {

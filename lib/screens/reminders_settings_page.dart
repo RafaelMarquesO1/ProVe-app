@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:myapp/services/notification_service.dart';
+import 'package:prove/services/notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class RemindersSettingsPage extends StatefulWidget {

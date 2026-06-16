@@ -1,5 +1,5 @@
-name: myapp
-description: "A new Flutter project."
+name: prove
+description: "ProVe - Provérbios Bíblicos"
 publish_to: 'none'
 
 version: 1.0.0+1

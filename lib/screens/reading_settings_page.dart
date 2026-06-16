@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:myapp/providers/reading_settings_provider.dart';
+import 'package:prove/providers/reading_settings_provider.dart';
 
 class ReadingSettingsPage extends StatelessWidget {
   final int returnIndex;

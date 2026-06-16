@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:myapp/services/local_auth_service.dart';
-import 'package:myapp/widgets/app_alerts.dart';
-import 'package:myapp/widgets/app_logo.dart';
-import 'package:myapp/widgets/bounce_button.dart';
+import 'package:prove/services/local_auth_service.dart';
+import 'package:prove/widgets/app_alerts.dart';
+import 'package:prove/widgets/app_logo.dart';
+import 'package:prove/widgets/bounce_button.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});

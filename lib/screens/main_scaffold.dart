@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:myapp/screens/home_page.dart';
-import 'package:myapp/screens/menu_page.dart';
-import 'package:myapp/screens/reading_plan_page.dart';
+import 'package:prove/screens/home_page.dart';
+import 'package:prove/screens/menu_page.dart';
+import 'package:prove/screens/reading_plan_page.dart';
 
 class MainScaffold extends StatefulWidget {
   final int initialIndex;

@@ -6,14 +6,14 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:myapp/providers/reading_settings_provider.dart';
-import 'package:myapp/services/progress_service.dart';
-import 'package:myapp/utils/theme_colors.dart';
-import 'package:myapp/services/user_data_service.dart';
-import 'package:myapp/widgets/bounce_button.dart';
+import 'package:prove/providers/reading_settings_provider.dart';
+import 'package:prove/services/progress_service.dart';
+import 'package:prove/utils/theme_colors.dart';
+import 'package:prove/services/user_data_service.dart';
+import 'package:prove/widgets/bounce_button.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:myapp/widgets/app_alerts.dart';
+import 'package:prove/widgets/app_alerts.dart';
 
 class ReadingPage extends StatefulWidget {
   const ReadingPage({super.key});

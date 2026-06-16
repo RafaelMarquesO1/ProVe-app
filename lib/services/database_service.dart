@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:myapp/models/user_model.dart';
+import 'package:prove/models/user_model.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
