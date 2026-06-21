@@ -527,6 +527,18 @@ class _ReadingPageState extends State<ReadingPage> {
     });
   }
 
+  void _handleVerseLongPress(Map<String, dynamic> verseData) {
+    HapticFeedback.selectionClick();
+    setState(() {
+      bool exists = _selectedVerses.any((v) => v['key'] == verseData['key']);
+      if (exists) {
+        _selectedVerses.removeWhere((v) => v['key'] == verseData['key']);
+      } else {
+        _selectedVerses.add(verseData);
+      }
+    });
+  }
+
   Widget _buildSelectionActionBar(ThemeData theme) {
     if (_selectedVerses.isEmpty) return const SizedBox.shrink();
 
@@ -537,124 +549,141 @@ class _ReadingPageState extends State<ReadingPage> {
         )
         .join('\n\n');
 
+    final bool allFavorited = _selectedVerses.every(
+      (v) => _favoriteVerses.contains('${v['chapter']}_${v['verseNumber']}'),
+    );
+
     return Positioned(
       bottom: 20 + MediaQuery.of(context).padding.bottom,
       left: 16,
       right: 16,
       child: TweenAnimationBuilder<double>(
+        key: ValueKey(_selectedVerses.length),
         tween: Tween(begin: 0.0, end: 1.0),
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.elasticOut,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeOutBack,
         builder: (context, value, child) {
           return Transform.translate(
-            offset: Offset(0, 100 * (1 - value)),
-            child: Opacity(opacity: value.clamp(0, 1), child: child),
+            offset: Offset(0, 80 * (1 - value)),
+            child: Opacity(opacity: value.clamp(0.0, 1.0), child: child),
           );
         },
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(28),
           child: BackdropFilter(
-            filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+              padding: const EdgeInsets.fromLTRB(8, 10, 4, 10),
               decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withOpacity(0.95),
-                borderRadius: BorderRadius.circular(24),
+                color: theme.colorScheme.primary,
+                borderRadius: BorderRadius.circular(28),
                 boxShadow: [
                   BoxShadow(
-                    color: theme.colorScheme.primary.withOpacity(0.3),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
+                    color: theme.colorScheme.primary.withOpacity(0.45),
+                    blurRadius: 24,
+                    offset: const Offset(0, 8),
                   ),
                 ],
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+              child: Row(
                 children: [
-                  // Contador de Seleção
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4, bottom: 8),
+                  // Pill contador
+                  Container(
+                    margin: const EdgeInsets.only(left: 4, right: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.18),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
                     child: Text(
-                      '${_selectedVerses.length} ${_selectedVerses.length == 1 ? 'versículo selecionado' : 'versículos selecionados'}',
+                      '${_selectedVerses.length}',
                       style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
                   ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _buildActionIconButton(
-                        icon: Icons.copy_rounded,
-                        label: 'Copiar',
-                        onTap: () {
-                          Clipboard.setData(ClipboardData(text: shareText));
-                          setState(() => _selectedVerses.clear());
-                          AppAlerts.showSnackBar(
-                            context,
-                            message: 'Copiado',
-                            type: AppAlertType.success,
-                          );
-                        },
-                      ),
-                      _buildActionIconButton(
-                        icon: Icons.share_rounded,
-                        label: 'Enviar',
-                        onTap: () {
-                          Share.share(shareText);
-                          setState(() => _selectedVerses.clear());
-                        },
-                      ),
-                      _buildActionIconButton(
-                        icon: Icons.favorite_rounded,
-                        label: 'Favoritar',
-                        onTap: () async {
-                          HapticFeedback.mediumImpact();
-                          for (var v in _selectedVerses) {
-                            await _userDataService.toggleFavorite(
-                              chapter: v['chapter'],
-                              verseNumber: v['verseNumber'],
-                              verseText: v['text'],
+                  // Ações
+                  Expanded(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _buildActionIconButton(
+                          icon: Icons.copy_rounded,
+                          label: 'Copiar',
+                          onTap: () {
+                            Clipboard.setData(ClipboardData(text: shareText));
+                            setState(() => _selectedVerses.clear());
+                            AppAlerts.showSnackBar(
+                              context,
+                              message: 'Copiado para a área de transferência',
+                              type: AppAlertType.success,
                             );
-                          }
-                          setState(() {
-                            _selectedVerses.clear();
-                            _isHeartAnimating = true;
-                          });
-                          Future.delayed(
-                            const Duration(milliseconds: 1000),
-                            () {
-                              if (mounted) {
-                                setState(() => _isHeartAnimating = false);
-                              }
-                            },
-                          );
-                        },
-                      ),
-                      _buildActionIconButton(
-                        icon: Icons.note_add_rounded,
-                        label: 'Anotar',
-                        onTap: () {
-                          context.push('/reading/nova-nota', extra: shareText);
-                          setState(() => _selectedVerses.clear());
-                        },
-                      ),
-                      const SizedBox(width: 4),
-                      Container(width: 1, height: 24, color: Colors.white24),
-                      IconButton(
-                        icon: const Icon(
-                          Icons.close_rounded,
-                          color: Colors.white,
-                          size: 24,
+                          },
                         ),
-                        onPressed: () =>
-                            setState(() => _selectedVerses.clear()),
-                        tooltip: 'Limpar seleção',
-                      ),
-                    ],
+                        _buildActionIconButton(
+                          icon: Icons.share_rounded,
+                          label: 'Enviar',
+                          onTap: () {
+                            Share.share(shareText);
+                            setState(() => _selectedVerses.clear());
+                          },
+                        ),
+                        _buildActionIconButton(
+                          icon: allFavorited
+                              ? Icons.favorite_rounded
+                              : Icons.favorite_border_rounded,
+                          label: allFavorited ? 'Salvo' : 'Favoritar',
+                          onTap: () async {
+                            HapticFeedback.mediumImpact();
+                            for (var v in _selectedVerses) {
+                              await _userDataService.toggleFavorite(
+                                chapter: v['chapter'],
+                                verseNumber: v['verseNumber'],
+                                verseText: v['text'],
+                              );
+                            }
+                            if (!allFavorited) {
+                              setState(() {
+                                _selectedVerses.clear();
+                                _isHeartAnimating = true;
+                              });
+                              Future.delayed(
+                                const Duration(milliseconds: 900),
+                                () {
+                                  if (mounted) setState(() => _isHeartAnimating = false);
+                                },
+                              );
+                            } else {
+                              setState(() => _selectedVerses.clear());
+                            }
+                          },
+                        ),
+                        _buildActionIconButton(
+                          icon: Icons.edit_note_rounded,
+                          label: 'Anotar',
+                          onTap: () {
+                            context.push('/reading/nova-nota', extra: shareText);
+                            setState(() => _selectedVerses.clear());
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Divisor
+                  Container(
+                    width: 1,
+                    height: 28,
+                    color: Colors.white24,
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                  ),
+                  // Fechar
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, color: Colors.white, size: 22),
+                    onPressed: () => setState(() => _selectedVerses.clear()),
+                    tooltip: 'Limpar seleção',
+                    visualDensity: VisualDensity.compact,
                   ),
                 ],
               ),
@@ -665,7 +694,7 @@ class _ReadingPageState extends State<ReadingPage> {
     );
   }
 
-  Widget _buildPlayer(ThemeData theme, List<String> content) {
+  Widget _buildPlayer(ThemeData theme, List<String> content, Color effectiveBg) {
     if (!_showPlayer || _selectedVerses.isNotEmpty) return const SizedBox.shrink();
 
     // 1. Identificar dados do versículo atual de forma dinâmica
@@ -739,7 +768,7 @@ class _ReadingPageState extends State<ReadingPage> {
     }
 
     // 2. Definir cores baseadas no tema e no fundo customizado do leitor
-    final bool isDark = _settings.backgroundColor.computeLuminance() < 0.5;
+    final bool isDark = effectiveBg.computeLuminance() < 0.5;
     final Color cardBgColor = isDark 
         ? Colors.black.withValues(alpha: 0.82) 
         : Colors.white.withValues(alpha: 0.90);
@@ -967,11 +996,18 @@ class _ReadingPageState extends State<ReadingPage> {
     return BounceButton(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: Colors.white, size: 22),
+            Container(
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: Colors.white, size: 19),
+            ),
             const SizedBox(height: 4),
             Text(
               label,
@@ -979,7 +1015,7 @@ class _ReadingPageState extends State<ReadingPage> {
                 color: Colors.white,
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
-                letterSpacing: 0.2,
+                letterSpacing: 0.1,
               ),
             ),
           ],
@@ -1059,8 +1095,16 @@ class _ReadingPageState extends State<ReadingPage> {
     return AnimatedBuilder(
       animation: _settings,
       builder: (context, child) {
-        final bool isDarkBackground =
+        final bool isAppDark = Theme.of(context).brightness == Brightness.dark;
+        // Se o tema escuro do app estiver ativo e o usuário não escolheu um fundo
+        // escuro manualmente, força o fundo escuro
+        final bool userChoseDark =
             _settings.backgroundColor.computeLuminance() < 0.5;
+        final Color effectiveBg = isAppDark && !userChoseDark
+            ? const Color(0xFF121212)
+            : _settings.backgroundColor;
+
+        final bool isDarkBackground = effectiveBg.computeLuminance() < 0.5;
         final textColor = isDarkBackground
             ? Colors.white.withOpacity(0.9)
             : Colors.black87;
@@ -1069,7 +1113,7 @@ class _ReadingPageState extends State<ReadingPage> {
             : Colors.grey.shade600;
 
         return Scaffold(
-          backgroundColor: _settings.backgroundColor,
+          backgroundColor: effectiveBg,
           body: FutureBuilder<Map<String, dynamic>>(
             future: _readingData,
             builder: (context, snapshot) {
@@ -1125,7 +1169,7 @@ class _ReadingPageState extends State<ReadingPage> {
                             physics: const BouncingScrollPhysics(),
                             slivers: [
                               SliverAppBar(
-                                backgroundColor: _settings.backgroundColor
+                                backgroundColor: effectiveBg
                                     .withOpacity(0.95),
                                 pinned: true,
                                 elevation: 0,
@@ -1276,26 +1320,42 @@ class _ReadingPageState extends State<ReadingPage> {
                                   final verseNumber = parts.first;
                                   final verseText = parts.sublist(1).join(' ');
 
+                                  // Determina o capítulo real do versículo (suporte a múltiplos capítulos)
+                                  String realChapter = chapterTitle;
+                                  for (int i = index; i >= 0; i--) {
+                                    if (content[i].startsWith('HEAD ')) {
+                                      realChapter = content[i]
+                                          .replaceFirst('HEAD Capítulo ', '')
+                                          .trim();
+                                      break;
+                                    }
+                                  }
+
+                                  final verseKey = '${realChapter}_$verseNumber';
                                   final isSelected = _selectedVerses.any(
-                                    (v) =>
-                                        v['key'] ==
-                                        '${chapterTitle}_$verseNumber',
+                                    (v) => v['key'] == verseKey,
                                   );
                                   final isFavorited = _favoriteVerses.contains(
-                                    '${chapterTitle}_$verseNumber',
+                                    '${realChapter}_$verseNumber',
                                   );
 
                                   return GestureDetector(
                                     onTap: () => _handleVerseTap({
-                                      'key': '${chapterTitle}_$verseNumber',
-                                      'chapter': chapterTitle,
+                                      'key': verseKey,
+                                      'chapter': realChapter,
+                                      'verseNumber': verseNumber,
+                                      'text': verseText,
+                                    }),
+                                    onLongPress: () => _handleVerseLongPress({
+                                      'key': verseKey,
+                                      'chapter': realChapter,
                                       'verseNumber': verseNumber,
                                       'text': verseText,
                                     }),
                                     onDoubleTap: () async {
                                       HapticFeedback.lightImpact();
                                       await _userDataService.toggleFavorite(
-                                        chapter: chapterTitle,
+                                        chapter: realChapter,
                                         verseNumber: verseNumber,
                                         verseText: verseText,
                                       );
@@ -1331,13 +1391,17 @@ class _ReadingPageState extends State<ReadingPage> {
                                       ),
                                       decoration: BoxDecoration(
                                         color: isSelected
-                                            ? theme.colorScheme.primary
-                                                  .withOpacity(0.08)
-                                            : (isSpeaking
-                                                  ? theme.colorScheme.primary
-                                                        .withOpacity(0.15)
-                                                  : Colors.transparent),
+                                            ? theme.colorScheme.primary.withOpacity(0.12)
+                                            : isSpeaking
+                                                ? theme.colorScheme.primary.withOpacity(0.15)
+                                                : Colors.transparent,
                                         borderRadius: BorderRadius.circular(16),
+                                        border: isSelected
+                                            ? Border.all(
+                                                color: theme.colorScheme.primary.withOpacity(0.35),
+                                                width: 1.5,
+                                              )
+                                            : null,
                                       ),
                                       child: RichText(
                                         textAlign: TextAlign.justify,
@@ -1390,17 +1454,18 @@ class _ReadingPageState extends State<ReadingPage> {
                                                 child: Padding(
                                                   padding:
                                                       const EdgeInsets.only(
-                                                        left: 6.0,
+                                                        left: 5.0,
                                                       ),
                                                   child: Icon(
                                                     Icons.favorite_rounded,
                                                     size:
                                                         _settings.fontSize *
-                                                        0.8,
-                                                    color: Colors.pink,
+                                                        0.72,
+                                                    color: Colors.pink.shade300,
                                                   ),
                                                 ),
                                               ),
+
                                           ],
                                         ),
                                       ),
@@ -1515,7 +1580,7 @@ class _ReadingPageState extends State<ReadingPage> {
                   // Selection Action Bar (Floating)
                   _buildSelectionActionBar(theme),
                   // Reading Player Bar (Floating)
-                  _buildPlayer(theme, content),
+                  _buildPlayer(theme, content, effectiveBg),
                 ],
               );
             },

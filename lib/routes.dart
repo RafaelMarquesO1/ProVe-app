@@ -27,6 +27,31 @@ CustomTransitionPage buildPageWithDefaultTransition<T>({
   );
 }
 
+CustomTransitionPage buildPageWithSlideTransition<T>({
+  required BuildContext context,
+  required GoRouterState state,
+  required Widget child,
+}) {
+  return CustomTransitionPage<T>(
+    key: state.pageKey,
+    child: child,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      final slide = Tween<Offset>(
+        begin: const Offset(1.0, 0),
+        end: Offset.zero,
+      ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic));
+      return SlideTransition(
+        position: slide,
+        child: FadeTransition(
+          opacity: CurvedAnimation(parent: animation, curve: const Interval(0, 0.6)),
+          child: child,
+        ),
+      );
+    },
+    transitionDuration: const Duration(milliseconds: 350),
+  );
+}
+
 class GoRouterRefreshStream extends ChangeNotifier {
   late final StreamSubscription<bool> _subscription;
 
@@ -123,7 +148,7 @@ final GoRouter router = GoRouter(
             final Map<String, dynamic> extra =
                 (state.extra as Map<String, dynamic>?) ?? {};
             final int initialIndex = extra['initialIndex'] as int? ?? 0;
-            return buildPageWithDefaultTransition(
+            return buildPageWithSlideTransition(
               context: context,
               state: state,
               child: LibraryPage(initialIndex: initialIndex),
@@ -132,7 +157,7 @@ final GoRouter router = GoRouter(
         ),
         GoRoute(
           path: '/reading',
-          pageBuilder: (context, state) => buildPageWithDefaultTransition(
+          pageBuilder: (context, state) => buildPageWithSlideTransition(
             context: context,
             state: state,
             child: const ReadingPage(),
@@ -142,7 +167,7 @@ final GoRouter router = GoRouter(
               path: 'nova-nota',
               pageBuilder: (context, state) {
                 final selectedText = state.extra as String? ?? '';
-                return buildPageWithDefaultTransition(
+                return buildPageWithSlideTransition(
                   context: context,
                   state: state,
                   child: NotePage(selectedText: selectedText),
@@ -157,7 +182,7 @@ final GoRouter router = GoRouter(
             final Map<String, dynamic> extra =
                 (state.extra as Map<String, dynamic>?) ?? {};
             final int returnIndex = extra['returnIndex'] as int? ?? 0;
-            return buildPageWithDefaultTransition(
+            return buildPageWithSlideTransition(
               context: context,
               state: state,
               child: RemindersSettingsPage(returnIndex: returnIndex),
@@ -170,7 +195,7 @@ final GoRouter router = GoRouter(
             final Map<String, dynamic> extra =
                 (state.extra as Map<String, dynamic>?) ?? {};
             final int returnIndex = extra['returnIndex'] as int? ?? 0;
-            return buildPageWithDefaultTransition(
+            return buildPageWithSlideTransition(
               context: context,
               state: state,
               child: ReadingSettingsPage(returnIndex: returnIndex),
@@ -179,7 +204,7 @@ final GoRouter router = GoRouter(
         ),
         GoRoute(
           path: '/profile/edit',
-          pageBuilder: (context, state) => buildPageWithDefaultTransition(
+          pageBuilder: (context, state) => buildPageWithSlideTransition(
             context: context,
             state: state,
             child: const EditProfilePage(),

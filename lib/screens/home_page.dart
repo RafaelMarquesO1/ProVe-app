@@ -19,14 +19,16 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage>
-    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
+    with TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   final ProgressService _progressService = ProgressService();
   Map<String, String> _verseOfTheDay = {};
   DateTime _selectedCalendarDay = DateTime.now();
   DateTime _focusedCalendarDay = DateTime.now();
   bool _isVerseLoadError = false;
   bool _showAnnualView = false;
+  int _selectedYear = DateTime.now().year;
   late final AnimationController _shimmerController;
+  late final AnimationController _entranceController;
   late final Stream<UserModel?> _userStream;
 
   @override
@@ -40,13 +42,41 @@ class _HomePageState extends State<HomePage>
       vsync: this,
       duration: const Duration(milliseconds: 1500),
     )..repeat();
+    _entranceController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..forward();
     _loadVerseOfTheDay();
   }
 
   @override
   void dispose() {
     _shimmerController.dispose();
+    _entranceController.dispose();
     super.dispose();
+  }
+
+  Animation<double> _staggeredFade(int index) {
+    final start = index * 0.15;
+    final end = (start + 0.55).clamp(0.0, 1.0);
+    return CurvedAnimation(
+      parent: _entranceController,
+      curve: Interval(start, end, curve: Curves.easeOut),
+    );
+  }
+
+  Animation<Offset> _staggeredSlide(int index) {
+    final start = index * 0.15;
+    final end = (start + 0.55).clamp(0.0, 1.0);
+    return Tween<Offset>(
+      begin: const Offset(0, 0.06),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(
+        parent: _entranceController,
+        curve: Interval(start, end, curve: Curves.easeOut),
+      ),
+    );
   }
 
   // Lista curada de provérbios que trazem ensinamentos profundos
@@ -87,6 +117,12 @@ class _HomePageState extends State<HomePage>
     '28:13',
     '29:11',
   ];
+
+  void _switchTab(bool toAnnual) {
+    if (toAnnual == _showAnnualView) return;
+    HapticFeedback.selectionClick();
+    setState(() => _showAnnualView = toAnnual);
+  }
 
   Future<void> _loadVerseOfTheDay() async {
     try {
@@ -190,42 +226,66 @@ class _HomePageState extends State<HomePage>
               const SizedBox(height: 24),
             ],
             // 1. Saudação Personalizada
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _getGreeting(firstName),
-                  style: textTheme.displayLarge?.copyWith(
-                    fontSize: 32,
-                    letterSpacing: -1.5,
-                  ),
+            FadeTransition(
+              opacity: _staggeredFade(0),
+              child: SlideTransition(
+                position: _staggeredSlide(0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _getGreeting(firstName),
+                      style: textTheme.displayLarge?.copyWith(
+                        fontSize: 32,
+                        letterSpacing: -1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'O que a sabedoria tem para você hoje?',
+                      style: textTheme.titleMedium?.copyWith(
+                        color: colorScheme.onSurface.withOpacity(0.65),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  'O que a sabedoria tem para você hoje?',
-                  style: textTheme.titleMedium?.copyWith(
-                    color: colorScheme.onSurface.withOpacity(0.65),
-                  ),
-                ),
-              ],
+              ),
             ),
             const SizedBox(height: 32),
 
             // 2. Ação Principal (Ler Agora)
-            _buildMainActionCard(context, user),
+            FadeTransition(
+              opacity: _staggeredFade(1),
+              child: SlideTransition(
+                position: _staggeredSlide(1),
+                child: _buildMainActionCard(context, user),
+              ),
+            ),
             const SizedBox(height: 24),
 
             // 3. Versículo de Inspiração
-            _buildVerseOfTheDayCard(context, textTheme, colorScheme),
+            FadeTransition(
+              opacity: _staggeredFade(2),
+              child: SlideTransition(
+                position: _staggeredSlide(2),
+                child: _buildVerseOfTheDayCard(context, textTheme, colorScheme),
+              ),
+            ),
             const SizedBox(height: 24),
 
             // 4. Calendário
-            _buildCalendarCard(
-              context,
-              textTheme,
-              colorScheme,
-              user.completedDays,
-              firstName,
+            FadeTransition(
+              opacity: _staggeredFade(3),
+              child: SlideTransition(
+                position: _staggeredSlide(3),
+                child: _buildCalendarCard(
+                  context,
+                  textTheme,
+                  colorScheme,
+                  user,
+                  firstName,
+                ),
+              ),
             ),
           ],
         ),
@@ -478,9 +538,10 @@ class _HomePageState extends State<HomePage>
     BuildContext context,
     TextTheme textTheme,
     ColorScheme colorScheme,
-    List<DateTime> completedDays,
+    UserModel user,
     String firstName,
   ) {
+    final completedDays = user.completedDays;
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -505,39 +566,21 @@ class _HomePageState extends State<HomePage>
           _buildCalendarViewToggle(context, colorScheme),
           const SizedBox(height: 24),
           AnimatedSwitcher(
-            duration: const Duration(milliseconds: 400),
-            transitionBuilder: (child, animation) {
-              return FadeTransition(
-                opacity: animation,
-                child: SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(0.1, 0),
-                    end: Offset.zero,
-                  ).animate(
-                    CurvedAnimation(
-                      parent: animation,
-                      curve: Curves.easeInOut,
-                    ),
-                  ),
-                  child: child,
-                ),
-              );
-            },
-            child: _showAnnualView
-                ? _buildAnnualCalendarView(
-                    context,
-                    textTheme,
-                    colorScheme,
-                    completedDays,
-                    firstName,
-                  )
-                : _buildMonthlyCalendarView(
-                    context,
-                    textTheme,
-                    colorScheme,
-                    completedDays,
-                    firstName,
-                  ),
+            duration: const Duration(milliseconds: 420),
+            switchInCurve: Curves.easeOut,
+            switchOutCurve: Curves.easeIn,
+            transitionBuilder: (child, animation) => FadeTransition(
+              opacity: animation,
+              child: child,
+            ),
+            child: KeyedSubtree(
+              key: ValueKey(_showAnnualView),
+              child: _showAnnualView
+                  ? _buildAnnualCalendarView(
+                      context, textTheme, colorScheme, user, firstName)
+                  : _buildMonthlyCalendarView(
+                      context, textTheme, colorScheme, completedDays, firstName),
+            ),
           ),
         ],
       ),
@@ -596,10 +639,7 @@ class _HomePageState extends State<HomePage>
         children: [
           Expanded(
             child: BounceButton(
-              onTap: () {
-                HapticFeedback.selectionClick();
-                setState(() => _showAnnualView = false);
-              },
+              onTap: () => _switchTab(false),
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 decoration: BoxDecoration(
@@ -627,10 +667,7 @@ class _HomePageState extends State<HomePage>
           const SizedBox(width: 8),
           Expanded(
             child: BounceButton(
-              onTap: () {
-                HapticFeedback.selectionClick();
-                setState(() => _showAnnualView = true);
-              },
+              onTap: () => _switchTab(true),
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 decoration: BoxDecoration(
@@ -850,7 +887,7 @@ class _HomePageState extends State<HomePage>
           daysOfWeekStyle: DaysOfWeekStyle(
             weekdayStyle: TextStyle(
               fontWeight: FontWeight.bold,
-              color: Colors.grey.shade400,
+              color: ThemeColors.getDisabledColor(context),
               fontSize: 12,
             ),
             weekendStyle: TextStyle(
@@ -873,7 +910,7 @@ class _HomePageState extends State<HomePage>
                   child: Text(
                     '${day.day}',
                     style: TextStyle(
-                      color: Colors.grey.shade200,
+                      color: ThemeColors.getDividerColor(context),
                       fontSize: 14,
                     ),
                   ),
@@ -1029,7 +1066,7 @@ class _HomePageState extends State<HomePage>
                                 style: TextStyle(
                                   fontSize: 8,
                                   fontWeight: FontWeight.w800,
-                                  color: Colors.grey.shade400,
+                                  color: ThemeColors.getDisabledColor(context),
                                   letterSpacing: 1,
                                 ),
                               ),
@@ -1099,7 +1136,7 @@ class _HomePageState extends State<HomePage>
                               return Text(
                                 fullText.substring(0, length),
                                 style: textTheme.bodySmall?.copyWith(
-                                  color: Colors.grey.shade500,
+                                  color: ThemeColors.getTertiaryTextColor(context),
                                   height: 1.3,
                                   fontSize: 12,
                                 ),
@@ -1217,7 +1254,7 @@ class _HomePageState extends State<HomePage>
                   const SizedBox(width: 12),
                   _buildLegendItem(
                     'Futuro',
-                    Colors.grey.shade200,
+                    ThemeColors.getDividerColor(context),
                     isFuture: true,
                   ),
                 ],
@@ -1233,95 +1270,420 @@ class _HomePageState extends State<HomePage>
     BuildContext context,
     TextTheme textTheme,
     ColorScheme colorScheme,
-    List<DateTime> completedDays,
+    UserModel user,
     String firstName,
   ) {
     final now = DateTime.now();
+    final isCurrentYear = _selectedYear == now.year;
+    final completedDays = user.completedDays;
     final completedDaysSet = completedDays
         .map((d) => DateTime(d.year, d.month, d.day))
         .toSet();
 
-    // Estatísticas do ano inteiro
-    final allDaysInYear = List.generate(
-      DateTime(now.year, 12, 31).difference(DateTime(now.year, 1, 1)).inDays + 1,
-      (i) => DateTime(now.year, 1, 1).add(Duration(days: i)),
-    );
+    final totalDaysInYear =
+        DateTime(_selectedYear, 12, 31).difference(DateTime(_selectedYear, 1, 1)).inDays + 1;
+    final daysPassed = isCurrentYear
+        ? now.difference(DateTime(_selectedYear, 1, 1)).inDays + 1
+        : totalDaysInYear;
+    final completedThisYear =
+        completedDaysSet.where((d) => d.year == _selectedYear).length;
+    final yearPercent =
+        ((completedThisYear / totalDaysInYear) * 100).round();
+    final consistencyPercent =
+        daysPassed > 0 ? ((completedThisYear / daysPassed) * 100).round() : 0;
 
-    final completedThisYear = completedDaysSet.where((d) => d.year == now.year).length;
-    final yearPercent = allDaysInYear.isNotEmpty ? ((completedThisYear / allDaysInYear.length) * 100).round() : 0;
+    final currentStreak = isCurrentYear ? user.readingStreak : 0;
+    final bestStreak = isCurrentYear ? user.longestStreak : completedThisYear;
+
+    // Ano mínimo: primeiro ano com dados, ou ano atual - 2
+    final minYear = completedDays.isNotEmpty
+        ? completedDays.map((d) => d.year).reduce((a, b) => a < b ? a : b)
+        : now.year;
 
     return Column(
-      key: const ValueKey('annual'),
+      key: ValueKey(_selectedYear),
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: yearPercent >= 80
-                  ? [const Color(0xFF43A047), const Color(0xFF2E7D32)]
-                  : [colorScheme.primary, colorScheme.primary.withOpacity(0.8)],
+        // Seletor de ano
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            IconButton(
+              onPressed: _selectedYear > minYear
+                  ? () {
+                      HapticFeedback.selectionClick();
+                      setState(() => _selectedYear--);
+                    }
+                  : null,
+              icon: Icon(
+                Icons.chevron_left_rounded,
+                color: _selectedYear > minYear
+                    ? colorScheme.primary
+                    : colorScheme.onSurface.withOpacity(0.2),
+              ),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
             ),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Text(
-            '$yearPercent%',
-            style: TextStyle(
-              color: colorScheme.onPrimary,
-              fontWeight: FontWeight.bold,
-              fontSize: 13,
+            const SizedBox(width: 8),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              transitionBuilder: (child, anim) => FadeTransition(
+                opacity: anim,
+                child: child,
+              ),
+              child: Text(
+                '$_selectedYear',
+                key: ValueKey(_selectedYear),
+                style: textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.5,
+                ),
+              ),
             ),
-          ),
+            const SizedBox(width: 8),
+            IconButton(
+              onPressed: _selectedYear < now.year
+                  ? () {
+                      HapticFeedback.selectionClick();
+                      setState(() => _selectedYear++);
+                    }
+                  : null,
+              icon: Icon(
+                Icons.chevron_right_rounded,
+                color: _selectedYear < now.year
+                    ? colorScheme.primary
+                    : colorScheme.onSurface.withOpacity(0.2),
+              ),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        // Topo: stats em destaque
+        Row(
+          children: [
+            _AnnualStatCard(
+              value: '$completedThisYear',
+              label: 'Dias lidos',
+              icon: Icons.check_circle_outline_rounded,
+              color: colorScheme.primary,
+            ),
+            const SizedBox(width: 10),
+            _AnnualStatCard(
+              value: isCurrentYear ? '$currentStreak' : '-',
+              label: 'Sequência atual',
+              icon: Icons.local_fire_department_rounded,
+              color: currentStreak >= 7
+                  ? const Color(0xFFE65100)
+                  : colorScheme.primary,
+            ),
+            const SizedBox(width: 10),
+            _AnnualStatCard(
+              value: '$consistencyPercent%',
+              label: 'Consistência',
+              icon: Icons.trending_up_rounded,
+              color: consistencyPercent >= 70
+                  ? const Color(0xFF2E7D32)
+                  : colorScheme.primary,
+            ),
+          ],
         ),
         const SizedBox(height: 20),
-        Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Theme.of(context).dividerColor),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Visão Anual de $firstName',
-                style: textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
+        // Barra de progresso anual
+        TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0, end: yearPercent / 100),
+          duration: const Duration(milliseconds: 900),
+          curve: Curves.easeOutCubic,
+          builder: (context, value, _) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                  '$_selectedYear${isCurrentYear ? ' — em andamento' : ' — concluído'}',
+                      style: textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurface.withOpacity(0.5),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      '$yearPercent%',
+                      style: textTheme.bodySmall?.copyWith(
+                        color: colorScheme.primary,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                '$completedThisYear de ${allDaysInYear.length} dias completados',
-                style: textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Progresso consistente em sua jornada de leitura ao longo do ano.',
-                style: textTheme.bodySmall?.copyWith(
-                  color: Colors.grey.shade500,
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: LinearProgressIndicator(
+                    value: value,
+                    minHeight: 8,
+                    backgroundColor: colorScheme.primary.withOpacity(0.12),
+                    valueColor:
+                        AlwaysStoppedAnimation<Color>(colorScheme.primary),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 24),
+        // Heatmap mensal
+        Text(
+          'Meses do ano',
+          style: textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w900,
+            color: colorScheme.onSurface.withOpacity(0.75),
           ),
         ),
+        const SizedBox(height: 12),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final cardWidth = (constraints.maxWidth - 20) / 3;
+            return Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: List.generate(12, (index) {
+                final month = index + 1;
+                final daysInMonth = DateTime(_selectedYear, month + 1, 0).day;
+                final completedInMonth = completedDaysSet
+                    .where((d) => d.year == _selectedYear && d.month == month)
+                    .length;
+                final isFuture = isCurrentYear &&
+                    (month > now.month ||
+                        (month == now.month && now.day == 1));
+                final isCurrentMonth = isCurrentYear && month == now.month;
+                final percent = isFuture
+                    ? 0
+                    : ((completedInMonth / daysInMonth) * 100).round();
+                final heatColor = isFuture
+                    ? ThemeColors.getDividerColor(context)
+                    : _getHeatmapColor(percent, colorScheme);
+
+                return GestureDetector(
+                  onTap: () {
+                    if (isFuture) return;
+                    HapticFeedback.mediumImpact();
+                    final lostInMonth = List.generate(
+                      daysInMonth,
+                      (i) => DateTime(_selectedYear, month, i + 1),
+                    )
+                        .where(
+                          (d) =>
+                              d.isBefore(
+                                DateTime(now.year, now.month, now.day),
+                              ) &&
+                              !completedDaysSet.contains(d),
+                        )
+                        .length;
+                    AppAlerts.showCustomDialog(
+                      context: context,
+                      title: _getMonthName(month),
+                      message:
+                          '$completedInMonth lido(s) · $lostInMonth perdido(s) · $percent% do mês',
+                      icon: percent >= 80
+                          ? Icons.emoji_events_rounded
+                          : Icons.bar_chart_rounded,
+                      iconColor: heatColor,
+                      confirmText: isCurrentMonth ? 'CALENDÁRIO' : 'FECHAR',
+                      cancelText: isCurrentMonth ? 'FECHAR' : null,
+                      onConfirm: () {
+                        if (isCurrentMonth) {
+                          setState(() => _showAnnualView = false);
+                        }
+                      },
+                    );
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    width: cardWidth,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: heatColor.withOpacity(isFuture ? 0.4 : 0.15),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: isCurrentMonth
+                            ? colorScheme.primary
+                            : heatColor.withOpacity(0.3),
+                        width: isCurrentMonth ? 2 : 1,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _getMonthName(month),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  color: isFuture
+                                      ? colorScheme.onSurface.withOpacity(0.3)
+                                      : colorScheme.onSurface,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (isCurrentMonth)
+                              Container(
+                                width: 6,
+                                height: 6,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: colorScheme.primary,
+                                ),
+                              ),
+                          ],
+                        ),
+                        if (!isFuture) ...[
+                          const SizedBox(height: 6),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              '$percent%',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w900,
+                                color: heatColor,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '$completedInMonth/$daysInMonth',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w600,
+                              color: colorScheme.onSurface.withOpacity(0.4),
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ] else ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            'Em breve',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: colorScheme.onSurface.withOpacity(0.3),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                );
+              }),
+            );
+          },
+        ),
+        const SizedBox(height: 20),
+        // Legenda do heatmap
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'Baixo',
+              style: TextStyle(
+                fontSize: 10,
+                color: colorScheme.onSurface.withOpacity(0.4),
+              ),
+            ),
+            const SizedBox(width: 6),
+            ...[
+              const Color(0xFFE65100),
+              const Color(0xFFF57F17),
+              const Color(0xFF558B2F),
+              const Color(0xFF2E7D32),
+              const Color(0xFF1B5E20),
+            ].map(
+              (c) => Container(
+                margin: const EdgeInsets.symmetric(horizontal: 2),
+                width: 14,
+                height: 14,
+                decoration: BoxDecoration(
+                  color: c.withOpacity(0.7),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              'Alto',
+              style: TextStyle(
+                fontSize: 10,
+                color: colorScheme.onSurface.withOpacity(0.4),
+              ),
+            ),
+          ],
+        ),
+        if (bestStreak > 0) ...[
+          const SizedBox(height: 20),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: colorScheme.primary.withOpacity(0.06),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: colorScheme.primary.withOpacity(0.15),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.military_tech_rounded,
+                  color: colorScheme.primary,
+                  size: 20,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: RichText(
+                    text: TextSpan(
+                      style: textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurface.withOpacity(0.7),
+                      ),
+                      children: [
+                        const TextSpan(text: 'Melhor sequência em '),
+                        TextSpan(
+                          text: '$_selectedYear',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const TextSpan(text: ': '),
+                        TextSpan(
+                          text: '$bestStreak dias seguidos',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            color: colorScheme.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }
 
   String _getMonthName(int month) {
     const months = [
-      'Jan',
-      'Fev',
-      'Mar',
-      'Abr',
-      'Mai',
-      'Jun',
-      'Jul',
-      'Ago',
-      'Set',
-      'Out',
-      'Nov',
-      'Dez',
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
     ];
     return months[month - 1];
   }
@@ -1410,7 +1772,7 @@ class _HomePageState extends State<HomePage>
           style: TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.w800,
-            color: Colors.grey.shade500,
+            color: ThemeColors.getTertiaryTextColor(context),
             letterSpacing: 1,
           ),
         ),
@@ -1457,7 +1819,7 @@ class _HomePageState extends State<HomePage>
           style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.bold,
-            color: Colors.grey.shade600,
+            color: ThemeColors.getSecondaryTextColor(context),
           ),
         ),
       ],
@@ -1543,11 +1905,7 @@ class _HomePageState extends State<HomePage>
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(8),
           gradient: LinearGradient(
-            colors: [
-              Colors.grey.shade200,
-              Colors.grey.shade100,
-              Colors.grey.shade200,
-            ],
+            colors: ThemeColors.getShimmerColors(context),
             stops: const [0.0, 0.5, 1.0],
             begin: Alignment(-1.0 + 2 * _shimmerController.value, 0),
             end: Alignment(1.0 + 2 * _shimmerController.value, 0),
@@ -1563,14 +1921,69 @@ class _HomePageState extends State<HomePage>
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         gradient: LinearGradient(
-          colors: [
-            Colors.grey.shade200,
-            Colors.grey.shade100,
-            Colors.grey.shade200,
-          ],
+          colors: ThemeColors.getShimmerColors(context),
           stops: const [0.0, 0.5, 1.0],
           begin: Alignment(-1.0 + 2 * _shimmerController.value, 0),
           end: Alignment(1.0 + 2 * _shimmerController.value, 0),
+        ),
+      ),
+    );
+  }
+}
+
+class _AnnualStatCard extends StatelessWidget {
+  final String value;
+  final String label;
+  final IconData icon;
+  final Color color;
+
+  const _AnnualStatCard({
+    required this.value,
+    required this.label,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withOpacity(0.2)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: color, size: 16),
+            const SizedBox(height: 6),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                value,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  color: color,
+                  letterSpacing: -0.5,
+                ),
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
         ),
       ),
     );
@@ -1633,7 +2046,7 @@ class _StatItemState extends State<_StatItem> {
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w800,
-                  color: Colors.grey.shade500,
+                  color: ThemeColors.getTertiaryTextColor(context),
                   letterSpacing: 1,
                 ),
               ),

@@ -209,6 +209,7 @@ class AppAlerts {
                                               .withOpacity(0.75),
                                           fontWeight: FontWeight.bold,
                                         ),
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
                                   ),
@@ -229,6 +230,7 @@ class AppAlerts {
                                     child: Text(
                                       confirmText,
                                       style: const TextStyle(fontWeight: FontWeight.bold),
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
                                 ),

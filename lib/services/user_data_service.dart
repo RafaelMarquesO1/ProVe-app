@@ -114,12 +114,20 @@ class UserDataService {
     required String reference,
     required String verseText,
     required String noteText,
+    String? mood,
+    String? imagePath,
+    List<String>? verseKeys,
+    String? title,
   }) async {
     try {
       await DatabaseService.instance.saveNote(
         reference: reference,
         verseText: verseText,
         noteText: noteText,
+        mood: mood,
+        imagePath: imagePath,
+        verseKeys: verseKeys,
+        title: title,
       );
       await refreshNotes();
     } catch (e) {

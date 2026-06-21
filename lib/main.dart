@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:prove/routes.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:prove/services/app_theme_controller.dart';
 import 'package:prove/services/notification_service.dart';
+import 'package:prove/services/update_service.dart';
 
 
 void main() async {
@@ -12,7 +14,9 @@ void main() async {
   await initializeDateFormatting('pt_BR', null);
   // Inicializa o serviço de notificações
   await NotificationService().init();
-  
+  // Verifica se há atualização disponível na Play Store
+  await UpdateService.checkForUpdate();
+
   runApp(const MyApp());
 }
 
@@ -173,32 +177,34 @@ class _MyAppState extends State<MyApp> {
     final ThemeData darkTheme = ThemeData(
       useMaterial3: true,
       scaffoldBackgroundColor: darkBackgroundColor,
-      cardColor: const Color(0xFF1C1C1E),
-      dividerColor: const Color(0xFF2E2E2E),
+      cardColor: const Color(0xFF1E1E1E),
+      dividerColor: const Color(0xFF2C2C2E),
       colorScheme: ColorScheme.fromSeed(
         seedColor: primarySeedColor,
         brightness: Brightness.dark,
         surface: darkBackgroundColor,
+        surfaceContainerHighest: const Color(0xFF2C2C2E),
+        onSurface: const Color(0xFFEAEAEA),
       ),
       textTheme: baseTextTheme
           .apply(
-            bodyColor: Colors.white,
-            displayColor: Colors.white,
+            bodyColor: const Color(0xFFEAEAEA),
+            displayColor: const Color(0xFFEAEAEA),
           )
           .copyWith(
             displayLarge: baseTextTheme.displayLarge?.copyWith(color: primarySeedColor),
           ),
-      appBarTheme: AppBarTheme(
+      appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
+        iconTheme: IconThemeData(color: Colors.white),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: primarySeedColor,
           foregroundColor: Colors.white,
           elevation: 4,
-          shadowColor: primarySeedColor.withOpacity(0.2),
+          shadowColor: primarySeedColor.withOpacity(0.25),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -208,7 +214,7 @@ class _MyAppState extends State<MyApp> {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: const Color(0xFF1D1D1D),
+        fillColor: const Color(0xFF1E1E1E),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 20,
           vertical: 16,
@@ -219,13 +225,14 @@ class _MyAppState extends State<MyApp> {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFF2E2E2E)),
+          borderSide: const BorderSide(color: Color(0xFF2C2C2E)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: primarySeedColor, width: 2),
         ),
-        labelStyle: const TextStyle(color: Colors.white70),
+        labelStyle: const TextStyle(color: Color(0xFFAAAAAA)),
+        hintStyle: const TextStyle(color: Color(0xFF666666)),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
@@ -236,6 +243,9 @@ class _MyAppState extends State<MyApp> {
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: const Color(0xFF1E1E1E),
+        surfaceTintColor: Colors.transparent,
+        indicatorColor: primarySeedColor.withOpacity(0.15),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
             return GoogleFonts.lato(
@@ -247,38 +257,88 @@ class _MyAppState extends State<MyApp> {
           return GoogleFonts.lato(
             fontSize: 12,
             fontWeight: FontWeight.w500,
-            color: Colors.white70,
+            color: const Color(0xFF888888),
           );
+        }),
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return const IconThemeData(color: primarySeedColor);
+          }
+          return const IconThemeData(color: Color(0xFF888888));
         }),
       ),
       cardTheme: CardThemeData(
-        color: const Color(0xFF1C1C1E),
-        elevation: 8,
-        shadowColor: Colors.black.withOpacity(0.4),
+        color: const Color(0xFF1E1E1E),
+        elevation: 0,
+        shadowColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
       listTileTheme: const ListTileThemeData(
-        iconColor: Colors.white70,
-        textColor: Colors.white,
+        iconColor: Color(0xFFAAAAAA),
+        textColor: Color(0xFFEAEAEA),
       ),
       dividerTheme: const DividerThemeData(
-        color: Color(0xFF2E2E2E),
+        color: Color(0xFF2C2C2E),
         thickness: 1,
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: const Color(0xFF1C1C1E),
+        backgroundColor: const Color(0xFF1E1E1E),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        titleTextStyle: const TextStyle(
+          color: Color(0xFFEAEAEA),
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+        ),
+        contentTextStyle: const TextStyle(
+          color: Color(0xFFAAAAAA),
+          fontSize: 14,
+        ),
       ),
       snackBarTheme: const SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: Color(0xFF2A2A2A),
-        contentTextStyle: TextStyle(color: Colors.white),
+        backgroundColor: Color(0xFF2C2C2E),
+        contentTextStyle: TextStyle(color: Color(0xFFEAEAEA)),
+        actionTextColor: primarySeedColor,
+      ),
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) return primarySeedColor;
+          return const Color(0xFF666666);
+        }),
+        trackColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return primarySeedColor.withOpacity(0.4);
+          }
+          return const Color(0xFF2C2C2E);
+        }),
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: Color(0xFF1E1E1E),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
       ),
     );
 
     return AnimatedBuilder(
       animation: _themeController,
       builder: (context, _) {
+        final isDark = _themeController.themeMode == ThemeMode.dark ||
+            (_themeController.themeMode == ThemeMode.system &&
+                WidgetsBinding.instance.platformDispatcher.platformBrightness ==
+                    Brightness.dark);
+        SystemChrome.setSystemUIOverlayStyle(
+          SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness:
+                isDark ? Brightness.light : Brightness.dark,
+            statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+            systemNavigationBarColor:
+                isDark ? const Color(0xFF1C1C1E) : Colors.white,
+            systemNavigationBarIconBrightness:
+                isDark ? Brightness.light : Brightness.dark,
+          ),
+        );
         return MaterialApp.router(
           scrollBehavior: const SmoothScrollBehavior(),
           debugShowCheckedModeBanner: false,

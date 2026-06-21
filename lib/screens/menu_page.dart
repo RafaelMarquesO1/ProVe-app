@@ -595,12 +595,15 @@ class _MenuPageState extends State<MenuPage>
   }
 
   BoxDecoration _cardDecoration(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return BoxDecoration(
       color: Theme.of(context).cardColor,
       borderRadius: BorderRadius.circular(20),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withOpacity(0.04),
+          color: isDark
+              ? Colors.black.withOpacity(0.3)
+              : Colors.black.withOpacity(0.04),
           blurRadius: 10,
           offset: const Offset(0, 4),
         ),

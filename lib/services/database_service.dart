@@ -22,7 +22,7 @@ class DatabaseService {
 
     return openDatabase(
       path,
-      version: 2,
+      version: 5,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -41,6 +41,16 @@ class DatabaseService {
       await _createUserTable(db);
       await _createFavoritesTable(db);
       await _createNotesTable(db);
+    }
+    if (oldVersion < 3) {
+      await db.execute('ALTER TABLE notes ADD COLUMN mood TEXT');
+      await db.execute('ALTER TABLE notes ADD COLUMN image_path TEXT');
+    }
+    if (oldVersion < 4) {
+      await db.execute('ALTER TABLE notes ADD COLUMN verse_keys TEXT');
+    }
+    if (oldVersion < 5) {
+      await db.execute('ALTER TABLE notes ADD COLUMN title TEXT');
     }
   }
 
@@ -83,6 +93,10 @@ class DatabaseService {
         reference TEXT NOT NULL,
         verse_text TEXT NOT NULL,
         note_text TEXT NOT NULL,
+        mood TEXT,
+        image_path TEXT,
+        verse_keys TEXT,
+        title TEXT,
         created_at TEXT NOT NULL
       )
     ''');
@@ -181,6 +195,10 @@ class DatabaseService {
     required String reference,
     required String verseText,
     required String noteText,
+    String? mood,
+    String? imagePath,
+    List<String>? verseKeys,
+    String? title,
   }) async {
     final db = await database;
     final now = DateTime.now().toIso8601String();
@@ -189,6 +207,10 @@ class DatabaseService {
       'reference': reference,
       'verse_text': verseText,
       'note_text': noteText,
+      'mood': mood,
+      'image_path': imagePath,
+      'verse_keys': verseKeys != null ? verseKeys.join(',') : null,
+      'title': title,
       'created_at': now,
     });
   }

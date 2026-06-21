@@ -269,6 +269,10 @@ class _ReadingPlanPageState extends State<ReadingPlanPage>
     final rarity = achievement['rarity'] as String? ?? 'comum';
     final quote = achievement['quote'] as String? ?? '';
     final ref = achievement['ref'] as String? ?? '';
+    final progressSuffix = achievement['progressSuffix'] as String?;
+    final progressText = progressSuffix != null
+        ? '$currentValue / $threshold $progressSuffix'
+        : '$currentValue / $threshold';
 
     Color rarityColor;
     String rarityLabel;
@@ -518,7 +522,7 @@ class _ReadingPlanPageState extends State<ReadingPlanPage>
                               ),
                             ),
                             Text(
-                              '$currentValue / $threshold',
+                              progressText,
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w900,
@@ -637,7 +641,15 @@ class _ReadingPlanPageState extends State<ReadingPlanPage>
   Widget _buildAchievementsList(BuildContext context, UserModel user) {
     final longestStreak = user.longestStreak;
     final totalReadDays = user.completedDays.length;
-    final currentChapter = user.currentChapter;
+    // Capítulos completados no ciclo atual (1–31), baseado nos dias lidos.
+    // Usa o total de leituras para nunca regredir: se completou >= 31, considera 31.
+    // Dentro de um ciclo incompleto, conta quantos dias foram lidos nesse ciclo.
+    final completedReadings = user.completedDays.length;
+    final chaptersCompletedInCycle = completedReadings == 0
+        ? 0
+        : completedReadings % 31 == 0
+            ? 31
+            : completedReadings % 31;
 
     final List<Map<String, dynamic>> achievements = [
       // ===== OFENSIVA (streak) =====
@@ -832,9 +844,10 @@ class _ReadingPlanPageState extends State<ReadingPlanPage>
       // ===== CAPÍTULOS (chapter) =====
       {
         'title': 'Primeiro Passo',
-        'desc': 'Completar o capítulo 1',
+        'desc': 'Ler o 1º capítulo',
         'threshold': 1,
         'metric': 'chapter',
+        'progressSuffix': 'leitura',
         'rarity': 'comum',
         'icon': Icons.flag_rounded,
         'color': Color(0xFF66BB6A),
@@ -843,9 +856,10 @@ class _ReadingPlanPageState extends State<ReadingPlanPage>
       },
       {
         'title': 'Meio Caminho',
-        'desc': 'Chegar ao capítulo 15',
+        'desc': 'Completar 15 leituras no ciclo',
         'threshold': 15,
         'metric': 'chapter',
+        'progressSuffix': 'leituras',
         'rarity': 'raro',
         'icon': Icons.directions_rounded,
         'color': Color(0xFF29B6F6),
@@ -854,9 +868,10 @@ class _ReadingPlanPageState extends State<ReadingPlanPage>
       },
       {
         'title': 'Missão Cumprida',
-        'desc': 'Completar todos os 31 capítulos',
+        'desc': 'Completar os 31 capítulos do ciclo',
         'threshold': 31,
         'metric': 'chapter',
+        'progressSuffix': 'leituras',
         'rarity': 'epico',
         'icon': Icons.verified_rounded,
         'color': Color(0xFFFF8F00),
@@ -879,7 +894,7 @@ class _ReadingPlanPageState extends State<ReadingPlanPage>
           ? longestStreak
           : metric == 'total'
               ? totalReadDays
-              : currentChapter;
+              : chaptersCompletedInCycle;
       return val >= threshold;
     }).length;
 
@@ -915,7 +930,7 @@ class _ReadingPlanPageState extends State<ReadingPlanPage>
           categoryTitle: 'Capítulos',
           categoryEmoji: '✝️',
           achievements: chapterAchievements,
-          currentValue: currentChapter,
+          currentValue: chaptersCompletedInCycle,
           startDelay: (streakAchievements.length + totalAchievements.length) * 60,
         ),
       ],

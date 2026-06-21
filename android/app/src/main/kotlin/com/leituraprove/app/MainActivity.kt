@@ -1,4 +1,4 @@
-package com.example.myapp
+package com.leituraprove.app
 
 import io.flutter.embedding.android.FlutterActivity
 
