@@ -22,7 +22,7 @@ class DatabaseService {
 
     return openDatabase(
       path,
-      version: 5,
+      version: 8,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -32,6 +32,7 @@ class DatabaseService {
     await _createUserTable(db);
     await _createFavoritesTable(db);
     await _createNotesTable(db);
+    await _createHighlightsTable(db);
   }
 
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
@@ -51,6 +52,17 @@ class DatabaseService {
     }
     if (oldVersion < 5) {
       await db.execute('ALTER TABLE notes ADD COLUMN title TEXT');
+    }
+    if (oldVersion < 6) {
+      await db.execute('ALTER TABLE notes ADD COLUMN accent_color INTEGER');
+      await db.execute('ALTER TABLE notes ADD COLUMN font_size REAL');
+      await db.execute('ALTER TABLE notes ADD COLUMN font_style TEXT');
+    }
+    if (oldVersion < 7) {
+      await db.execute('ALTER TABLE notes ADD COLUMN updated_at TEXT');
+    }
+    if (oldVersion < 8) {
+      await _createHighlightsTable(db);
     }
   }
 
@@ -97,11 +109,30 @@ class DatabaseService {
         image_path TEXT,
         verse_keys TEXT,
         title TEXT,
-        created_at TEXT NOT NULL
+        accent_color INTEGER,
+        font_size REAL,
+        font_style TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT
       )
     ''');
     await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_notes_created_at ON notes(created_at DESC)',
+    );
+  }
+
+  Future<void> _createHighlightsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS highlights(
+        id TEXT PRIMARY KEY,
+        chapter TEXT NOT NULL,
+        verse_number TEXT NOT NULL,
+        color_value INTEGER NOT NULL,
+        created_at TEXT NOT NULL
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_highlights_chapter ON highlights(chapter)',
     );
   }
 
@@ -199,6 +230,7 @@ class DatabaseService {
     String? imagePath,
     List<String>? verseKeys,
     String? title,
+    int? accentColor,
   }) async {
     final db = await database;
     final now = DateTime.now().toIso8601String();
@@ -209,8 +241,9 @@ class DatabaseService {
       'note_text': noteText,
       'mood': mood,
       'image_path': imagePath,
-      'verse_keys': verseKeys != null ? verseKeys.join(',') : null,
+      'verse_keys': verseKeys?.join(','),
       'title': title,
+      'accent_color': accentColor,
       'created_at': now,
     });
   }
@@ -218,6 +251,30 @@ class DatabaseService {
   Future<List<Map<String, dynamic>>> getNotes() async {
     final db = await database;
     return db.query('notes', orderBy: 'created_at DESC');
+  }
+
+  Future<int> updateNote({
+    required String id,
+    required String noteText,
+    String? mood,
+    String? title,
+    int? accentColor,
+    String? imagePath,
+  }) async {
+    final db = await database;
+    return db.update(
+      'notes',
+      {
+        'note_text': noteText,
+        'mood': mood,
+        'title': title,
+        'accent_color': accentColor,
+        'image_path': imagePath,
+        'updated_at': DateTime.now().toIso8601String(),
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   Future<int> deleteNote(String id) async {
@@ -255,5 +312,36 @@ class DatabaseService {
       'created_at': user.createdAt.toIso8601String(),
       'updated_at': now,
     };
+  }
+
+  Future<void> saveHighlight({
+    required String chapter,
+    required String verseNumber,
+    required int colorValue,
+  }) async {
+    final db = await database;
+    final id = '${chapter}_$verseNumber';
+    await db.insert(
+      'highlights',
+      {
+        'id': id,
+        'chapter': chapter,
+        'verse_number': verseNumber,
+        'color_value': colorValue,
+        'created_at': DateTime.now().toIso8601String(),
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<int> removeHighlight(String chapter, String verseNumber) async {
+    final db = await database;
+    final id = '${chapter}_$verseNumber';
+    return db.delete('highlights', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<List<Map<String, dynamic>>> getHighlights() async {
+    final db = await database;
+    return db.query('highlights');
   }
 }

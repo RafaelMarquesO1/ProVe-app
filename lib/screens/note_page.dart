@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:prove/services/user_data_service.dart';
@@ -16,6 +17,20 @@ const _moods = [
   ('😔', 'Lamento'),
   ('✨', 'Promessa'),
 ];
+
+/// Paleta de cores de destaque disponíveis para o card
+const _accentColors = [
+  Color(0xFFB85C00), // laranja (padrão do app)
+  Color(0xFF5C6BC0), // índigo
+  Color(0xFF26A69A), // teal
+  Color(0xFF66BB6A), // verde
+  Color(0xFFEF5350), // vermelho
+  Color(0xFFAB47BC), // roxo
+  Color(0xFF29B6F6), // azul claro
+  Color(0xFFFFCA28), // âmbar
+];
+
+
 
 class NotePage extends StatefulWidget {
   final String selectedText;
@@ -33,9 +48,11 @@ class _NotePageState extends State<NotePage> {
   final _userDataService = UserDataService.instance;
 
   bool _isSaving = false;
+  bool _showSaveAnimation = false;
   bool _isFocused = false;
   String? _selectedMood;
   File? _attachedImage;
+  Color _accentColor = _accentColors[0];
 
   late final String _reference;
   late final String _verseText;
@@ -228,18 +245,25 @@ class _NotePageState extends State<NotePage> {
         imagePath: _attachedImage?.path,
         verseKeys: _verseKeys.isNotEmpty ? _verseKeys : null,
         title: _titleController.text.trim().isNotEmpty ? _titleController.text.trim() : null,
+        accentColor: _accentColor.toARGB32(),
       );
 
       if (mounted) {
-        AppAlerts.showSnackBar(
-          context,
-          message: 'Reflexão salva na biblioteca!',
-          type: AppAlertType.success,
-        );
-        if (Navigator.of(context).canPop()) {
-          Navigator.of(context).pop();
-        } else {
-          context.go('/home');
+        setState(() => _showSaveAnimation = true);
+        HapticFeedback.heavyImpact();
+        await Future.delayed(const Duration(milliseconds: 1400));
+        
+        if (mounted) {
+          AppAlerts.showSnackBar(
+            context,
+            message: 'Reflexão salva na biblioteca!',
+            type: AppAlertType.success,
+          );
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          } else {
+            context.go('/home');
+          }
         }
       }
     } catch (e) {
@@ -344,7 +368,7 @@ class _NotePageState extends State<NotePage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final primary = theme.colorScheme.primary;
+    final primary = _accentColor;
     final charCount = _noteController.text.length;
     final hasContent = _noteController.text.trim().isNotEmpty;
 
@@ -383,31 +407,75 @@ class _NotePageState extends State<NotePage> {
           const SizedBox(width: 4),
         ],
       ),
-      body: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 4, 20, 40),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildVerseCard(theme, primary),
-              _buildDivider(primary),
-              _buildTitleField(theme, primary),
-              const SizedBox(height: 20),
-              _buildMoodSelector(theme, primary),
-              const SizedBox(height: 20),
-              _buildNoteField(theme, primary, charCount),
-              const SizedBox(height: 12),
-              _buildAttachButton(theme, primary),
-              if (_attachedImage != null) ...[
-                const SizedBox(height: 12),
-                _buildImagePreview(),
-              ],
-              const SizedBox(height: 28),
-              _buildSaveButton(primary, hasContent),
-            ],
+      body: Stack(
+        children: [
+          GestureDetector(
+            onTap: () => FocusScope.of(context).unfocus(),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 40),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildVerseCard(theme, primary),
+                  _buildDivider(primary),
+                  _buildTitleField(theme, primary),
+                  const SizedBox(height: 20),
+                  _buildMoodSelector(theme, primary),
+                  const SizedBox(height: 20),
+                  _buildAccentColorPicker(theme, primary),
+                  const SizedBox(height: 20),
+                  _buildNoteField(theme, primary, charCount),
+                  const SizedBox(height: 12),
+                  _buildAttachButton(theme, primary),
+                  if (_attachedImage != null) ...[
+                    const SizedBox(height: 12),
+                    _buildImagePreview(),
+                  ],
+                  const SizedBox(height: 28),
+                  _buildSaveButton(primary, hasContent),
+                ],
+              ),
+            ),
           ),
-        ),
+          if (_showSaveAnimation)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: Container(
+                  color: Colors.black.withOpacity(0.3),
+                  child: Center(
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0.3, end: 1.2),
+                      duration: const Duration(milliseconds: 600),
+                      curve: Curves.elasticOut,
+                      builder: (_, scale, __) => Transform.scale(
+                        scale: scale,
+                        child: Container(
+                          width: 120,
+                          height: 120,
+                          decoration: BoxDecoration(
+                            color: primary,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: primary.withOpacity(0.4),
+                                blurRadius: 20,
+                                offset: const Offset(0, 10),
+                              )
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.done_all_rounded,
+                            color: Colors.white,
+                            size: 64,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -649,8 +717,69 @@ class _NotePageState extends State<NotePage> {
     );
   }
 
-  Widget _buildNoteField(ThemeData theme, Color primary, int charCount) {
+  Widget _buildAccentColorPicker(ThemeData theme, Color primary) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 2, bottom: 10),
+          child: Row(
+            children: [
+              Icon(Icons.palette_rounded, color: primary, size: 15),
+              const SizedBox(width: 7),
+              Text(
+                'COR DO CARD',
+                style: GoogleFonts.oswald(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                  color: primary,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Row(
+          children: _accentColors.map((color) {
+            final selected = _accentColor.toARGB32() == color.toARGB32();
+            return Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: GestureDetector(
+                onTap: () => setState(() => _accentColor = color),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  width: selected ? 34 : 28,
+                  height: selected ? 34 : 28,
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: selected ? Colors.white : Colors.transparent,
+                      width: 2.5,
+                    ),
+                    boxShadow: selected
+                        ? [
+                            BoxShadow(
+                              color: color.withValues(alpha: 0.55),
+                              blurRadius: 10,
+                              offset: const Offset(0, 3),
+                            ),
+                          ]
+                        : [],
+                  ),
+                  child: selected
+                      ? const Icon(Icons.check_rounded, color: Colors.white, size: 16)
+                      : null,
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNoteField(ThemeData theme, Color primary, int charCount) {    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
@@ -781,13 +910,34 @@ class _NotePageState extends State<NotePage> {
   Widget _buildImagePreview() {
     return Stack(
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(20),
-          child: Image.file(
-            _attachedImage!,
-            width: double.infinity,
-            height: 180,
-            fit: BoxFit.cover,
+        GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => Scaffold(
+                  backgroundColor: Colors.black,
+                  appBar: AppBar(
+                    backgroundColor: Colors.transparent,
+                    iconTheme: const IconThemeData(color: Colors.white),
+                  ),
+                  body: Center(
+                    child: InteractiveViewer(
+                      child: Image.file(_attachedImage!),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: Image.file(
+              _attachedImage!,
+              width: double.infinity,
+              height: 180,
+              fit: BoxFit.cover,
+            ),
           ),
         ),
         Positioned(
@@ -819,7 +969,9 @@ class _NotePageState extends State<NotePage> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
           gradient: LinearGradient(
-            colors: [primary, const Color(0xFFD65108)],
+            colors: [primary, HSLColor.fromColor(primary).withLightness(
+              (HSLColor.fromColor(primary).lightness - 0.12).clamp(0.0, 1.0),
+            ).toColor()],
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
           ),

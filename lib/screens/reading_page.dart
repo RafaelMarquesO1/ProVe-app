@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -14,6 +15,8 @@ import 'package:prove/widgets/bounce_button.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:prove/widgets/app_alerts.dart';
+import 'package:prove/widgets/shareable_card.dart';
+import 'package:prove/services/share_image_service.dart';
 
 class ReadingPage extends StatefulWidget {
   const ReadingPage({super.key});
@@ -37,6 +40,8 @@ class _ReadingPageState extends State<ReadingPage> {
   bool _showPlayer = false;
   bool _showFab = false;
   bool _isHeartAnimating = false;
+  bool _showReadingDoneOverlay = false;
+  bool _focusMode = false;
   int _currentlySpeakingVerse = -1;
   Completer<void>? _speechCompleter;
   bool _isPlayingTransition = false;
@@ -53,6 +58,18 @@ class _ReadingPageState extends State<ReadingPage> {
   final Set<String> _favoriteVerses = {};
   StreamSubscription? _favoritesSubscription;
 
+  // Controle de Destaques (Marca Texto)
+  Map<String, int> _highlightedVerses = {};
+  StreamSubscription? _highlightsSubscription;
+
+  static const List<Color> _highlightColors = [
+    Color(0xFFFFF176), // Amarelo
+    Color(0xFFA5D6A7), // Verde
+    Color(0xFF90CAF9), // Azul
+    Color(0xFFF48FB1), // Rosa
+    Color(0xFFFFCC80), // Laranja
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -65,6 +82,7 @@ class _ReadingPageState extends State<ReadingPage> {
     });
     _readingData = _loadInitialData().then((data) {
       _listenToFavorites(data['chapters']);
+      _listenToHighlights();
       return data;
     });
     _initTts();
@@ -94,9 +112,29 @@ class _ReadingPageState extends State<ReadingPage> {
     });
   }
 
+  void _listenToHighlights() {
+    _highlightsSubscription?.cancel();
+    _highlightsSubscription = _userDataService.getHighlightsStream().listen((
+      snapshot,
+    ) {
+      if (!mounted) return;
+      final highlights = <String, int>{};
+      for (final data in snapshot) {
+        final chapter = data['chapter'] ?? '';
+        final verseNumber = data['verse_number'] ?? '';
+        final colorValue = data['color_value'] as int? ?? 0xFFFFF176;
+        highlights['${chapter}_$verseNumber'] = colorValue;
+      }
+      setState(() {
+        _highlightedVerses = highlights;
+      });
+    });
+  }
+
   @override
   void dispose() {
     _favoritesSubscription?.cancel();
+    _highlightsSubscription?.cancel();
     _scrollController.dispose();
     _flutterTts.stop();
     super.dispose();
@@ -356,12 +394,19 @@ class _ReadingPageState extends State<ReadingPage> {
 
       if (!mounted) return;
 
+      // Exibe overlay de celebração local
+      setState(() => _showReadingDoneOverlay = true);
+      HapticFeedback.heavyImpact();
+
+      await Future.delayed(const Duration(milliseconds: 1600));
+      if (!mounted) return;
+      setState(() => _showReadingDoneOverlay = false);
+
       // Mostra a Animação de Parabéns por Concluir a Leitura!
       AppAlerts.showCustomDialog(
         context: context,
         title: 'Leitura concluída',
-        message:
-            'Você finalizou a leitura de hoje. Progresso registrado.',
+        message: 'Você finalizou a leitura de hoje. Progresso registrado.',
         confirmText: 'Ver progresso',
         icon: Icons.check_circle_rounded,
         iconColor: Colors.green.shade700,
@@ -422,6 +467,12 @@ class _ReadingPageState extends State<ReadingPage> {
     } else {
       await _startReadingFrom(0, content);
     }
+  }
+
+  void _toggleFocusMode() {
+    setState(() {
+      _focusMode = !_focusMode;
+    });
   }
 
   Future<void> _closePlayer() async {
@@ -539,6 +590,221 @@ class _ReadingPageState extends State<ReadingPage> {
     });
   }
 
+  void _showHighlightColorPicker() {
+    HapticFeedback.mediumImpact();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final theme = Theme.of(ctx);
+        return Container(
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: theme.cardColor,
+            borderRadius: BorderRadius.circular(28),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: theme.dividerColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Cor do Marca Texto',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Escolha uma cor para destacar os versículos selecionados',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: _highlightColors.map((color) {
+                  return GestureDetector(
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _applyHighlight(color);
+                    },
+                    child: Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: color.withOpacity(0.5),
+                          width: 2,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: color.withOpacity(0.4),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 24),
+              TextButton.icon(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _removeHighlights();
+                },
+                icon: const Icon(Icons.remove_circle_outline_rounded, color: Colors.red, size: 18),
+                label: const Text(
+                  'Remover destaque dos versículos selecionados',
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _applyHighlight(Color color) async {
+    for (final v in _selectedVerses) {
+      await _userDataService.saveHighlight(
+        chapter: v['chapter'],
+        verseNumber: v['verseNumber'],
+        colorValue: color.toARGB32(),
+      );
+    }
+    if (!mounted) return;
+    setState(() => _selectedVerses.clear());
+    AppAlerts.showSnackBar(
+      context,
+      message: 'Versículo(s) destacado(s) com sucesso!',
+      type: AppAlertType.success,
+    );
+  }
+
+  void _removeHighlights() async {
+    for (final v in _selectedVerses) {
+      await _userDataService.removeHighlight(
+        v['chapter'],
+        v['verseNumber'],
+      );
+    }
+    if (!mounted) return;
+    setState(() => _selectedVerses.clear());
+  }
+
+  void _showShareOptions(BuildContext context, String shareText) {
+    final theme = Theme.of(context);
+    final selectedData = List<Map<String, dynamic>>.from(_selectedVerses);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: theme.cardColor,
+            borderRadius: BorderRadius.circular(28),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: theme.dividerColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Compartilhar versículo(s)',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 20),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(Icons.text_fields_rounded,
+                      color: theme.colorScheme.primary),
+                ),
+                title: const Text('Como texto',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: const Text('Copia o versículo como texto simples'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  setState(() => _selectedVerses.clear());
+                  Share.share(shareText);
+                },
+              ),
+              const Divider(indent: 60),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF9B59B6).withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.image_rounded,
+                      color: Color(0xFF9B59B6)),
+                ),
+                title: const Text('Como imagem',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: const Text('Gera uma imagem estilizada para compartilhar'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  final first = selectedData.first;
+                  final card = ShareableCard(
+                    type: ShareCardType.verse,
+                    title: '"${first['text']}"',
+                    subtitle: 'Provérbios ${first['chapter']}:${first['verseNumber']}',
+                    body: selectedData.length > 1
+                        ? '${selectedData.length} versículos selecionados'
+                        : null,
+                    footer: 'ProVê — Provérbios Diários',
+                    icon: Icons.format_quote_rounded,
+                  );
+                  ShareImageService.showSharePreview(
+                    context: context,
+                    card: card,
+                    shareText: shareText,
+                  );
+                  setState(() => _selectedVerses.clear());
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildSelectionActionBar(ThemeData theme) {
     if (_selectedVerses.isEmpty) return const SizedBox.shrink();
 
@@ -626,8 +892,7 @@ class _ReadingPageState extends State<ReadingPage> {
                           icon: Icons.share_rounded,
                           label: 'Enviar',
                           onTap: () {
-                            Share.share(shareText);
-                            setState(() => _selectedVerses.clear());
+                            _showShareOptions(context, shareText);
                           },
                         ),
                         _buildActionIconButton(
@@ -667,6 +932,11 @@ class _ReadingPageState extends State<ReadingPage> {
                             context.push('/reading/nova-nota', extra: shareText);
                             setState(() => _selectedVerses.clear());
                           },
+                        ),
+                        _buildActionIconButton(
+                          icon: Icons.highlight_alt_rounded,
+                          label: 'Marcar',
+                          onTap: _showHighlightColorPicker,
                         ),
                       ],
                     ),
@@ -1169,14 +1439,18 @@ class _ReadingPageState extends State<ReadingPage> {
                             physics: const BouncingScrollPhysics(),
                             slivers: [
                               SliverAppBar(
-                                backgroundColor: effectiveBg
-                                    .withOpacity(0.95),
-                                pinned: true,
+                                backgroundColor: _focusMode
+                                    ? Colors.transparent
+                                    : effectiveBg.withOpacity(0.95),
+                                pinned: !_focusMode,
+                                floating: _focusMode,
                                 elevation: 0,
                                 leading: IconButton(
                                   icon: Icon(
                                     Icons.arrow_back_ios_new_rounded,
-                                    color: theme.colorScheme.primary,
+                                    color: _focusMode
+                                        ? Colors.transparent
+                                        : theme.colorScheme.primary,
                                   ),
                                   onPressed: () {
                                     if (Navigator.of(context).canPop()) {
@@ -1186,37 +1460,55 @@ class _ReadingPageState extends State<ReadingPage> {
                                     }
                                   },
                                 ),
-                                actions: [
-                                  IconButton(
-                                    icon: Icon(
-                                      Icons.bookmarks_rounded,
-                                      color: theme.colorScheme.primary,
-                                    ),
-                                    tooltip: 'Minha Biblioteca',
-                                    onPressed: () => context.push('/library'),
-                                  ),
-                                  IconButton(
-                                    icon: Icon(
-                                      Icons.tune_rounded,
-                                      color: theme.colorScheme.primary,
-                                    ),
-                                    tooltip: 'Ajustes de Leitura',
-                                    onPressed: () =>
-                                        context.push('/settings/reading'),
-                                  ),
-                                  IconButton(
-                                    icon: Icon(
-                                      _isReading
-                                          ? Icons.pause_circle_filled_rounded
-                                          : Icons.play_circle_fill_rounded,
-                                      color: theme.colorScheme.primary,
-                                      size: 32,
-                                    ),
-                                    tooltip: _isReading ? 'Pausar' : 'Ouvir Capítulo',
-                                    onPressed: () => _toggleReading(content),
-                                  ),
-                                  const SizedBox(width: 8),
-                                ],
+                                actions: _focusMode
+                                    ? [
+                                        IconButton(
+                                          icon: Icon(
+                                            Icons.fullscreen_exit_rounded,
+                                            color: Colors.transparent,
+                                          ),
+                                          onPressed: _toggleFocusMode,
+                                        ),
+                                      ]
+                                    : [
+                                        IconButton(
+                                          icon: Icon(
+                                            Icons.fullscreen_rounded,
+                                            color: theme.colorScheme.primary,
+                                          ),
+                                          tooltip: 'Modo Foco',
+                                          onPressed: _toggleFocusMode,
+                                        ),
+                                        IconButton(
+                                          icon: Icon(
+                                            Icons.bookmarks_rounded,
+                                            color: theme.colorScheme.primary,
+                                          ),
+                                          tooltip: 'Minha Biblioteca',
+                                          onPressed: () => context.push('/library'),
+                                        ),
+                                        IconButton(
+                                          icon: Icon(
+                                            Icons.tune_rounded,
+                                            color: theme.colorScheme.primary,
+                                          ),
+                                          tooltip: 'Ajustes de Leitura',
+                                          onPressed: () =>
+                                              context.push('/settings/reading'),
+                                        ),
+                                        IconButton(
+                                          icon: Icon(
+                                            _isReading
+                                                ? Icons.pause_circle_filled_rounded
+                                                : Icons.play_circle_fill_rounded,
+                                            color: theme.colorScheme.primary,
+                                            size: 32,
+                                          ),
+                                          tooltip: _isReading ? 'Pausar' : 'Ouvir Capítulo',
+                                          onPressed: () => _toggleReading(content),
+                                        ),
+                                        const SizedBox(width: 8),
+                                      ],
                               ),
                               SliverToBoxAdapter(
                                 child: Padding(
@@ -1338,6 +1630,10 @@ class _ReadingPageState extends State<ReadingPage> {
                                   final isFavorited = _favoriteVerses.contains(
                                     '${realChapter}_$verseNumber',
                                   );
+                                  final isHighlighted = _highlightedVerses.containsKey(verseKey);
+                                  final highlightColor = isHighlighted
+                                      ? Color(_highlightedVerses[verseKey]!)
+                                      : null;
 
                                   return GestureDetector(
                                     onTap: () => _handleVerseTap({
@@ -1394,17 +1690,24 @@ class _ReadingPageState extends State<ReadingPage> {
                                             ? theme.colorScheme.primary.withOpacity(0.12)
                                             : isSpeaking
                                                 ? theme.colorScheme.primary.withOpacity(0.15)
-                                                : Colors.transparent,
+                                                : isHighlighted
+                                                    ? highlightColor!.withOpacity(0.3)
+                                                    : Colors.transparent,
                                         borderRadius: BorderRadius.circular(16),
                                         border: isSelected
                                             ? Border.all(
                                                 color: theme.colorScheme.primary.withOpacity(0.35),
                                                 width: 1.5,
                                               )
-                                            : null,
+                                            : isHighlighted
+                                                ? Border.all(
+                                                    color: highlightColor!.withOpacity(0.5),
+                                                    width: 1.0,
+                                                  )
+                                                : null,
                                       ),
                                       child: RichText(
-                                        textAlign: TextAlign.justify,
+                                        textAlign: TextAlign.start,
                                         text: TextSpan(
                                           style: theme.textTheme.bodyLarge
                                               ?.copyWith(
@@ -1476,7 +1779,7 @@ class _ReadingPageState extends State<ReadingPage> {
                               const SliverToBoxAdapter(
                                 child: SizedBox(height: 32),
                               ),
-                              if (canRead)
+                              if (canRead && !_focusMode)
                                 SliverToBoxAdapter(
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
@@ -1526,25 +1829,26 @@ class _ReadingPageState extends State<ReadingPage> {
                                     ),
                                   ),
                                 ),
-                              SliverToBoxAdapter(
-                                child: Padding(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    24,
-                                    8,
-                                    24,
-                                    4,
-                                  ),
-                                  child: Text(
-                                    _bibleVersion,
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      color: subtleTextColor,
-                                      fontSize: 12,
-                                      fontStyle: FontStyle.italic,
+                              if (!_focusMode)
+                                SliverToBoxAdapter(
+                                  child: Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      24,
+                                      8,
+                                      24,
+                                      4,
+                                    ),
+                                    child: Text(
+                                      _bibleVersion,
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color: subtleTextColor,
+                                        fontSize: 12,
+                                        fontStyle: FontStyle.italic,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
                               const SliverToBoxAdapter(
                                 child: SizedBox(height: 48),
                               ),
@@ -1556,31 +1860,214 @@ class _ReadingPageState extends State<ReadingPage> {
                   ),
                   // Heart Animation Overlay
                   if (_isHeartAnimating)
-                    Center(
-                      child: TweenAnimationBuilder<double>(
-                        tween: Tween(begin: 0.5, end: 1.5),
-                        duration: const Duration(milliseconds: 400),
-                        curve: Curves.elasticOut,
-                        builder: (context, scale, child) {
-                          return AnimatedOpacity(
-                            opacity: _isHeartAnimating ? 1.0 : 0.0,
-                            duration: const Duration(milliseconds: 300),
-                            child: Transform.scale(
-                              scale: scale,
-                              child: const Icon(
-                                Icons.favorite_rounded,
-                                color: Colors.pink,
-                                size: 120,
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            // Pulso de fundo
+                            TweenAnimationBuilder<double>(
+                              tween: Tween(begin: 0.3, end: 2.0),
+                              duration: const Duration(milliseconds: 700),
+                              curve: Curves.easeOut,
+                              builder: (_, v, __) => Opacity(
+                                opacity: (1 - v / 2).clamp(0.0, 1.0),
+                                child: Container(
+                                  width: 140 * v,
+                                  height: 140 * v,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Colors.pink.withOpacity(0.18),
+                                  ),
+                                ),
                               ),
                             ),
-                          );
-                        },
+                            // Coracao central
+                            TweenAnimationBuilder<double>(
+                              tween: Tween(begin: 0.4, end: 1.3),
+                              duration: const Duration(milliseconds: 500),
+                              curve: Curves.elasticOut,
+                              builder: (_, scale, __) => Transform.scale(
+                                scale: scale,
+                                child: const Icon(
+                                  Icons.favorite_rounded,
+                                  color: Colors.pink,
+                                  size: 100,
+                                ),
+                              ),
+                            ),
+                            // Particulas orbit
+                            ...List.generate(6, (i) {
+                              final angle = (i / 6) * 2 * math.pi;
+                              return TweenAnimationBuilder<double>(
+                                tween: Tween(begin: 0.0, end: 1.0),
+                                duration: Duration(milliseconds: 450 + i * 50),
+                                curve: Curves.easeOut,
+                                builder: (_, v, __) => Transform.translate(
+                                  offset: Offset(
+                                    math.cos(angle) * 80 * v,
+                                    math.sin(angle) * 80 * v,
+                                  ),
+                                  child: Opacity(
+                                    opacity: (1 - v).clamp(0.0, 1.0),
+                                    child: Icon(
+                                      Icons.favorite_rounded,
+                                      color: Colors.pink.shade300,
+                                      size: 18,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }),
+                          ],
+                        ),
                       ),
                     ),
                   // Selection Action Bar (Floating)
                   _buildSelectionActionBar(theme),
                   // Reading Player Bar (Floating)
                   _buildPlayer(theme, content, effectiveBg),
+                  // Focus Mode Exit Button
+                  if (_focusMode)
+                    Positioned(
+                      top: MediaQuery.of(context).padding.top + 8,
+                      right: 16,
+                      child: Material(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(24),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(24),
+                          onTap: _toggleFocusMode,
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 8,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.fullscreen_exit_rounded,
+                                  color: Colors.white,
+                                  size: 18,
+                                ),
+                                SizedBox(width: 6),
+                                Text(
+                                  'Sair do Modo Foco',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  // Reading Done Celebration Overlay
+                  if (_showReadingDoneOverlay)
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: Container(
+                          color: Colors.black.withOpacity(0.45),
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              // Pulso
+                              TweenAnimationBuilder<double>(
+                                tween: Tween(begin: 0.4, end: 2.2),
+                                duration: const Duration(milliseconds: 800),
+                                curve: Curves.easeOut,
+                                builder: (_, v, __) => Opacity(
+                                  opacity: (1 - v / 2.2).clamp(0.0, 1.0),
+                                  child: Container(
+                                    width: 160 * v,
+                                    height: 160 * v,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: Colors.green.withOpacity(0.25),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              // Check central
+                              TweenAnimationBuilder<double>(
+                                tween: Tween(begin: 0.3, end: 1.2),
+                                duration: const Duration(milliseconds: 600),
+                                curve: Curves.elasticOut,
+                                builder: (_, s, __) => Transform.scale(
+                                  scale: s,
+                                  child: Container(
+                                    width: 100,
+                                    height: 100,
+                                    decoration: const BoxDecoration(
+                                      color: Colors.green,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.check_rounded,
+                                      color: Colors.white,
+                                      size: 56,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              // Partículas
+                              ...List.generate(8, (i) {
+                                final angle = (i / 8) * 2 * math.pi;
+                                return TweenAnimationBuilder<double>(
+                                  tween: Tween(begin: 0.0, end: 1.0),
+                                  duration: Duration(milliseconds: 500 + i * 40),
+                                  curve: Curves.easeOut,
+                                  builder: (_, v, __) => Transform.translate(
+                                    offset: Offset(
+                                      math.cos(angle) * 100 * v,
+                                      math.sin(angle) * 100 * v,
+                                    ),
+                                    child: Opacity(
+                                      opacity: (1 - v).clamp(0.0, 1.0),
+                                      child: Container(
+                                        width: 10,
+                                        height: 10,
+                                        decoration: BoxDecoration(
+                                          color: i.isEven
+                                              ? Colors.greenAccent
+                                              : Colors.yellow,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }),
+                              // Label
+                              Positioned(
+                                bottom: MediaQuery.of(context).size.height * 0.35,
+                                child: TweenAnimationBuilder<double>(
+                                  tween: Tween(begin: 0.0, end: 1.0),
+                                  duration: const Duration(milliseconds: 700),
+                                  curve: Curves.easeOut,
+                                  builder: (_, v, __) => Opacity(
+                                    opacity: v,
+                                    child: const Text(
+                                      'Leitura concluída! 🎉',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               );
             },

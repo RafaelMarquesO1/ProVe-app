@@ -4,12 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:prove/models/user_model.dart';
+import 'package:prove/services/whats_new_service.dart';
 import 'package:prove/widgets/bounce_button.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:prove/widgets/app_alerts.dart';
 import 'package:prove/services/progress_service.dart';
 import 'package:prove/utils/theme_colors.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -47,6 +49,172 @@ class _HomePageState extends State<HomePage>
       duration: const Duration(milliseconds: 900),
     )..forward();
     _loadVerseOfTheDay();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkWhatsNew());
+  }
+
+  Future<void> _checkWhatsNew() async {
+    final changelog = await WhatsNewService.checkForWhatsNew();
+    if (changelog == null || !mounted) return;
+    await WhatsNewService.markAsSeen();
+    _showWhatsNewModal(changelog);
+  }
+
+  void _showWhatsNewModal(VersionChangelog changelog) {
+    final theme = Theme.of(context);
+    final primary = theme.colorScheme.primary;
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.85,
+        ),
+        margin: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+        padding: EdgeInsets.fromLTRB(24, 20, 24, bottomPadding > 0 ? bottomPadding : 24),
+        decoration: BoxDecoration(
+          color: theme.cardColor,
+          borderRadius: BorderRadius.circular(28),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: theme.dividerColor,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: IconButton(
+                    icon: Icon(Icons.close_rounded, color: theme.hintColor),
+                    onPressed: () => Navigator.pop(context),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                )
+              ],
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    primary.withValues(alpha: 0.2),
+                    primary.withValues(alpha: 0.05),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.new_releases_rounded, color: primary, size: 36),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              changelog.title,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.oswald(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
+              ),
+            ),
+            Text(
+              'Versão ${changelog.version}',
+              style: GoogleFonts.lato(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: primary,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Flexible(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Column(
+                  children: changelog.items.map(
+                    (item) => Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: primary.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(item.icon, color: primary, size: 20),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item.title,
+                                  style: GoogleFonts.lato(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 15,
+                                    color: theme.colorScheme.onSurface,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  item.description,
+                                  style: GoogleFonts.lato(
+                                    fontSize: 14,
+                                    height: 1.4,
+                                    color: ThemeColors.getSecondaryTextColor(context),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ).toList(),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              height: 54,
+              child: FilledButton(
+                onPressed: () => Navigator.pop(context),
+                style: FilledButton.styleFrom(
+                  backgroundColor: primary,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: Text(
+                  'ENTENDIDO',
+                  style: GoogleFonts.oswald(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override

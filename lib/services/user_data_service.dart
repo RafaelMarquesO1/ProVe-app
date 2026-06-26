@@ -14,10 +14,13 @@ class UserDataService {
       StreamController<List<Map<String, dynamic>>>.broadcast();
   final _notesController =
       StreamController<List<Map<String, dynamic>>>.broadcast();
+  final _highlightsController =
+      StreamController<List<Map<String, dynamic>>>.broadcast();
 
   // Último valor conhecido (cache em memória)
   List<Map<String, dynamic>>? _lastFavorites;
   List<Map<String, dynamic>>? _lastNotes;
+  List<Map<String, dynamic>>? _lastHighlights;
 
   /// Retorna um Stream que emite imediatamente o valor atual e depois
   /// emite atualizações subsequentes via broadcast.
@@ -75,6 +78,33 @@ class UserDataService {
     return controller.stream;
   }
 
+  Stream<List<Map<String, dynamic>>> getHighlightsStream() {
+    final controller = StreamController<List<Map<String, dynamic>>>.broadcast();
+    StreamSubscription? sub;
+    controller.onListen = () {
+      final initial = _lastHighlights;
+      if (initial != null) {
+        controller.add(initial);
+      } else {
+        DatabaseService.instance.getHighlights().then((val) {
+          _lastHighlights = val;
+          if (!controller.isClosed) controller.add(val);
+        });
+      }
+      sub = _highlightsController.stream.listen(
+        (val) {
+          if (!controller.isClosed) controller.add(val);
+        },
+        onError: controller.addError,
+        onDone: controller.close,
+      );
+    };
+    controller.onCancel = () {
+      sub?.cancel();
+    };
+    return controller.stream;
+  }
+
   Future<void> toggleFavorite({
     required String chapter,
     required String verseNumber,
@@ -118,6 +148,7 @@ class UserDataService {
     String? imagePath,
     List<String>? verseKeys,
     String? title,
+    int? accentColor,
   }) async {
     try {
       await DatabaseService.instance.saveNote(
@@ -128,10 +159,35 @@ class UserDataService {
         imagePath: imagePath,
         verseKeys: verseKeys,
         title: title,
+        accentColor: accentColor,
       );
       await refreshNotes();
     } catch (e) {
       debugPrint('Erro ao salvar anotacao local: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> updateNote({
+    required String id,
+    required String noteText,
+    String? mood,
+    String? title,
+    int? accentColor,
+    String? imagePath,
+  }) async {
+    try {
+      await DatabaseService.instance.updateNote(
+        id: id,
+        noteText: noteText,
+        mood: mood,
+        title: title,
+        accentColor: accentColor,
+        imagePath: imagePath,
+      );
+      await refreshNotes();
+    } catch (e) {
+      debugPrint('Erro ao atualizar anotacao local: $e');
       rethrow;
     }
   }
@@ -147,5 +203,41 @@ class UserDataService {
   Future<void> deleteNote(String id) async {
     await DatabaseService.instance.deleteNote(id);
     await refreshNotes();
+  }
+
+  Future<void> saveHighlight({
+    required String chapter,
+    required String verseNumber,
+    required int colorValue,
+  }) async {
+    try {
+      await DatabaseService.instance.saveHighlight(
+        chapter: chapter,
+        verseNumber: verseNumber,
+        colorValue: colorValue,
+      );
+      await refreshHighlights();
+    } catch (e) {
+      debugPrint('Erro ao salvar highlight local: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> removeHighlight(String chapter, String verseNumber) async {
+    try {
+      await DatabaseService.instance.removeHighlight(chapter, verseNumber);
+      await refreshHighlights();
+    } catch (e) {
+      debugPrint('Erro ao remover highlight local: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> refreshHighlights() async {
+    final highlights = await DatabaseService.instance.getHighlights();
+    _lastHighlights = highlights;
+    if (!_highlightsController.isClosed) {
+      _highlightsController.add(highlights);
+    }
   }
 }

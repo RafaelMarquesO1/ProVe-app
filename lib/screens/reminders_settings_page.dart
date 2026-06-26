@@ -28,9 +28,21 @@ class _RemindersSettingsPageState extends State<RemindersSettingsPage> {
 
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
+
+    // Se ainda não há preferência salva, ativa os lembretes por padrão às 08:00
+    final bool? savedEnabled = prefs.getBool('remindersEnabled');
+    if (savedEnabled == null) {
+      await prefs.setBool('remindersEnabled', true);
+      await prefs.setInt('reminderHour', 8);
+      await prefs.setInt('reminderMinute', 0);
+      await _notificationService.scheduleDailyReminder(
+        const TimeOfDay(hour: 8, minute: 0),
+      );
+    }
+
     if (!mounted) return;
     setState(() {
-      _areRemindersEnabled = prefs.getBool('remindersEnabled') ?? false;
+      _areRemindersEnabled = prefs.getBool('remindersEnabled') ?? true;
       final hour = prefs.getInt('reminderHour') ?? 8;
       final minute = prefs.getInt('reminderMinute') ?? 0;
       _selectedTime = TimeOfDay(hour: hour, minute: minute);

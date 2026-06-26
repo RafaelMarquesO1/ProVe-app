@@ -10,6 +10,8 @@ import 'package:prove/screens/reminders_settings_page.dart';
 import 'package:prove/screens/edit_profile_page.dart';
 import 'package:prove/screens/reading_settings_page.dart';
 import 'package:prove/screens/library_page.dart';
+import 'package:prove/screens/quiz_page.dart';
+import 'package:prove/screens/quiz_results_page.dart';
 import 'package:prove/services/local_auth_service.dart';
 import 'package:prove/screens/splash_screen.dart';
 
@@ -209,6 +211,24 @@ final GoRouter router = GoRouter(
             state: state,
             child: const EditProfilePage(),
           ),
+        ),
+        GoRoute(
+          path: '/quiz',
+          pageBuilder: (context, state) => buildPageWithSlideTransition(
+            context: context,
+            state: state,
+            child: const QuizPage(),
+          ),
+          routes: [
+            GoRoute(
+              path: 'resultado',
+              pageBuilder: (context, state) => buildPageWithSlideTransition(
+                context: context,
+                state: state,
+                child: const QuizResultsPage(),
+              ),
+            ),
+          ],
         ),
       ],
     ),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:prove/models/user_model.dart';
@@ -8,6 +9,9 @@ import 'package:prove/widgets/bounce_button.dart';
 import 'package:prove/utils/theme_colors.dart';
 import 'package:prove/services/local_auth_service.dart';
 import 'package:prove/services/progress_service.dart';
+import 'package:prove/services/user_data_service.dart';
+import 'package:prove/services/share_image_service.dart';
+import 'package:prove/widgets/shareable_card.dart';
 
 class ReadingPlanPage extends StatefulWidget {
   final bool showConfetti;
@@ -21,8 +25,15 @@ class ReadingPlanPage extends StatefulWidget {
 class _ReadingPlanPageState extends State<ReadingPlanPage>
     with AutomaticKeepAliveClientMixin {
   final ProgressService _progressService = ProgressService();
+  final UserDataService _userDataService = UserDataService.instance;
   late final Stream<UserModel?> _userStream;
   late ConfettiController _confettiController;
+  int _highlightCount = 0;
+  int _noteCount = 0;
+  int _favoriteCount = 0;
+  StreamSubscription? _highlightsSub;
+  StreamSubscription? _notesSub;
+  StreamSubscription? _favoritesSub;
 
   @override
   bool get wantKeepAlive => true;
@@ -37,6 +48,15 @@ class _ReadingPlanPageState extends State<ReadingPlanPage>
     if (widget.showConfetti) {
       _confettiController.play();
     }
+    _highlightsSub = _userDataService.getHighlightsStream().listen((data) {
+      if (mounted) setState(() => _highlightCount = data.length);
+    });
+    _notesSub = _userDataService.getNotesStream().listen((data) {
+      if (mounted) setState(() => _noteCount = data.length);
+    });
+    _favoritesSub = _userDataService.getFavoritesStream().listen((data) {
+      if (mounted) setState(() => _favoriteCount = data.length);
+    });
   }
 
   @override
@@ -50,6 +70,9 @@ class _ReadingPlanPageState extends State<ReadingPlanPage>
   @override
   void dispose() {
     _confettiController.dispose();
+    _highlightsSub?.cancel();
+    _notesSub?.cancel();
+    _favoritesSub?.cancel();
     super.dispose();
   }
 
@@ -300,7 +323,7 @@ class _ReadingPlanPageState extends State<ReadingPlanPage>
       barrierLabel: 'Fechar conquista',
       barrierColor: Colors.black.withOpacity(0.7),
       transitionDuration: const Duration(milliseconds: 500),
-      pageBuilder: (context, _, _) => const SizedBox(),
+      pageBuilder: (context, _, __) => const SizedBox(),
       transitionBuilder: (context, animation, _, child) {
         final curve = CurvedAnimation(
           parent: animation,
@@ -310,334 +333,24 @@ class _ReadingPlanPageState extends State<ReadingPlanPage>
           scale: Tween<double>(begin: 0.8, end: 1.0).animate(curve),
           child: FadeTransition(
             opacity: animation,
-            child: Center(
-              child: Material(
-                color: Colors.transparent,
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 20),
-                  padding: const EdgeInsets.all(28),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).cardColor,
-                    borderRadius: BorderRadius.circular(36),
-                    boxShadow: [
-                      BoxShadow(
-                        color: isUnlocked
-                            ? color.withOpacity(0.25)
-                            : Colors.black.withOpacity(0.15),
-                        blurRadius: 50,
-                        offset: const Offset(0, 20),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Rarity Badge
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: rarityColor.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(100),
-                          border: Border.all(
-                            color: rarityColor.withOpacity(0.3),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.stars_rounded,
-                              color: rarityColor,
-                              size: 12,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              rarityLabel,
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w900,
-                                color: rarityColor,
-                                letterSpacing: 1.5,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Badge Icon
-                      Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          Container(
-                            width: 110,
-                            height: 110,
-                            decoration: BoxDecoration(
-                              color: isUnlocked
-                                  ? color.withOpacity(0.1)
-                                  : ThemeColors.getLightBackground(context),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          Icon(
-                            isUnlocked ? iconData : Icons.lock_rounded,
-                            color: isUnlocked
-                                ? color
-                                : ThemeColors.getDisabledColor(context),
-                            size: 56,
-                          ),
-                          if (isUnlocked)
-                            TweenAnimationBuilder<double>(
-                              tween: Tween(begin: 0.0, end: 1.0),
-                              duration: const Duration(milliseconds: 800),
-                              builder: (context, val, child) {
-                                return Transform.rotate(
-                                  angle: val * 2 * pi,
-                                  child: Icon(
-                                    Icons.auto_awesome_rounded,
-                                    color: color.withOpacity(0.35),
-                                    size: 130,
-                                  ),
-                                );
-                              },
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Title
-                      Text(
-                        achievement['title'] as String,
-                        style: TextStyle(
-                          fontSize: 26,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: -0.8,
-                          color: Theme.of(context).colorScheme.onSurface,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 8),
-
-                      // Desc pill
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isUnlocked
-                              ? color.withOpacity(0.1)
-                              : ThemeColors.getLightBackground(context),
-                          borderRadius: BorderRadius.circular(100),
-                        ),
-                        child: Text(
-                          achievement['desc'] as String,
-                          style: TextStyle(
-                            color: isUnlocked
-                                ? color
-                                : ThemeColors.getSecondaryTextColor(context),
-                            fontWeight: FontWeight.w800,
-                            fontSize: 11,
-                            letterSpacing: 0.8,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Biblical Quote
-                      if (quote.isNotEmpty) ...[
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: isUnlocked
-                                ? color.withOpacity(0.06)
-                                : ThemeColors.getLightBackground(context),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: isUnlocked
-                                  ? color.withOpacity(0.18)
-                                  : ThemeColors.getDividerColor(context),
-                            ),
-                          ),
-                          child: Column(
-                            children: [
-                              Icon(
-                                Icons.format_quote_rounded,
-                                color: isUnlocked
-                                    ? color.withOpacity(0.5)
-                                    : ThemeColors.getDisabledColor(context),
-                                size: 20,
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                quote,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontStyle: FontStyle.italic,
-                                  color: ThemeColors.getSecondaryTextColor(
-                                    context,
-                                  ),
-                                  height: 1.6,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                ref,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w800,
-                                  color: isUnlocked
-                                      ? color
-                                      : ThemeColors.getTertiaryTextColor(
-                                          context,
-                                        ),
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-
-                      // Progress Section
-                      if (!isUnlocked) ...[
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'PROGRESSO ATUAL',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w900,
-                                color: ThemeColors.getTertiaryTextColor(
-                                  context,
-                                ),
-                                letterSpacing: 1,
-                              ),
-                            ),
-                            Text(
-                              progressText,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w900,
-                                color: color,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(100),
-                          child: LinearProgressIndicator(
-                            value: (currentValue / threshold)
-                                .clamp(0, 1)
-                                .toDouble(),
-                            minHeight: 8,
-                            backgroundColor: Theme.of(context).dividerColor,
-                            valueColor: AlwaysStoppedAnimation<Color>(color),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        Text(
-                          'Continue lendo regularmente para desbloquear.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: ThemeColors.getSecondaryTextColor(context),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                      ] else ...[
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              Icons.check_circle_rounded,
-                              color: Colors.green,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'DESBLOQUEADO',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w900,
-                                color: Colors.green,
-                                letterSpacing: 2,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Você conquistou este marco.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: ThemeColors.getSecondaryTextColor(context),
-                            height: 1.5,
-                            fontSize: 14,
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                      ],
-
-                      SizedBox(
-                        height: 54,
-                        width: double.infinity,
-                        child: BounceButton(
-                          onTap: () => Navigator.pop(context),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: isUnlocked
-                                  ? color
-                                  : Theme.of(
-                                      context,
-                                    ).colorScheme.primary,
-                              borderRadius: BorderRadius.circular(16),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: (isUnlocked
-                                          ? color
-                                          : Theme.of(
-                                              context,
-                                            ).colorScheme.primary)
-                                      .withOpacity(0.3),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 6),
-                                ),
-                              ],
-                            ),
-                            child: Center(
-                              child: Text(
-                                isUnlocked ? 'Ótimo!' : 'OK',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 1.2,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+            child: _AchievementDialogContent(
+              achievement: achievement,
+              isUnlocked: isUnlocked,
+              currentValue: currentValue,
+              color: color,
+              iconData: iconData,
+              threshold: threshold,
+              rarityLabel: rarityLabel,
+              rarityColor: rarityColor,
+              quote: quote,
+              ref: ref,
+              progressText: progressText,
             ),
           ),
         );
       },
     );
   }
-
   Widget _buildAchievementsList(BuildContext context, UserModel user) {
     final longestStreak = user.longestStreak;
     final totalReadDays = user.completedDays.length;
@@ -650,6 +363,7 @@ class _ReadingPlanPageState extends State<ReadingPlanPage>
         : completedReadings % 31 == 0
             ? 31
             : completedReadings % 31;
+    final totalCycles = completedReadings ~/ 31;
 
     final List<Map<String, dynamic>> achievements = [
       // ===== OFENSIVA (streak) =====
@@ -763,6 +477,17 @@ class _ReadingPlanPageState extends State<ReadingPlanPage>
         'quote': '"O caminho do justo é como a brilhante luz que aumenta mais e mais até ser dia perfeito."',
         'ref': 'Provérbios 4:18',
       },
+      {
+        'title': 'Guardião Incansável',
+        'desc': '730 dias de ofensiva',
+        'threshold': 730,
+        'metric': 'streak',
+        'rarity': 'lendario',
+        'icon': Icons.rocket_launch_rounded,
+        'color': Color(0xFF1B5E20),
+        'quote': '"O justo florescerá como a palmeira; crescerá como o cedro no Líbano."',
+        'ref': 'Salmos 92:12',
+      },
       // ===== LEITURAS TOTAIS (total) =====
       {
         'title': 'Lâmpada para os Pés',
@@ -841,6 +566,28 @@ class _ReadingPlanPageState extends State<ReadingPlanPage>
         'quote': '"A sabedoria vale mais do que o ouro fino; e o entendimento mais do que a prata."',
         'ref': 'Provérbios 16:16',
       },
+      {
+        'title': 'Legado de Sabedoria',
+        'desc': '1.000 leituras totais',
+        'threshold': 1000,
+        'metric': 'total',
+        'rarity': 'lendario',
+        'icon': Icons.emoji_events_rounded,
+        'color': Color(0xFFD4A017),
+        'quote': '"O sábio ouvirá e crescerá em conhecimento."',
+        'ref': 'Provérbios 1:5',
+      },
+      {
+        'title': 'Eterno Aprendiz',
+        'desc': '1.095 leituras totais',
+        'threshold': 1095,
+        'metric': 'total',
+        'rarity': 'lendario',
+        'icon': Icons.repeat_rounded,
+        'color': Color(0xFF6A1B9A),
+        'quote': '"Ensina-nos a contar os nossos dias, de tal maneira que alcancemos coração sábio."',
+        'ref': 'Salmos 90:12',
+      },
       // ===== CAPÍTULOS (chapter) =====
       {
         'title': 'Primeiro Passo',
@@ -878,6 +625,274 @@ class _ReadingPlanPageState extends State<ReadingPlanPage>
         'quote': '"Bem-aventurado o homem que me ouve, vigiando às minhas portas dia a dia."',
         'ref': 'Provérbios 8:34',
       },
+      // ===== CICLOS COMPLETOS (cycle) =====
+      {
+        'title': 'Primeiro Ciclo',
+        'desc': 'Completar 1 ciclo de 31 leituras',
+        'threshold': 1,
+        'metric': 'cycle',
+        'progressSuffix': 'ciclos',
+        'rarity': 'comum',
+        'icon': Icons.looks_one_rounded,
+        'color': Color(0xFF66BB6A),
+        'quote': '"O Senhor é quem dá sabedoria; da sua boca é que vem o conhecimento e o entendimento."',
+        'ref': 'Provérbios 2:6',
+      },
+      {
+        'title': 'Veterano',
+        'desc': 'Completar 5 ciclos de leitura',
+        'threshold': 5,
+        'metric': 'cycle',
+        'progressSuffix': 'ciclos',
+        'rarity': 'raro',
+        'icon': Icons.star_rounded,
+        'color': Color(0xFF42A5F5),
+        'quote': '"A sabedoria é a coisa principal; adquire a sabedoria e com tudo o que tens adquirido, adquire o entendimento."',
+        'ref': 'Provérbios 4:7',
+      },
+      {
+        'title': 'Mestre de Provérbios',
+        'desc': 'Completar 10 ciclos de leitura',
+        'threshold': 10,
+        'metric': 'cycle',
+        'progressSuffix': 'ciclos',
+        'rarity': 'epico',
+        'icon': Icons.auto_stories_rounded,
+        'color': Color(0xFF7E57C2),
+        'quote': '"O entendimento é fonte de vida para o que o possui."',
+        'ref': 'Provérbios 16:22',
+      },
+      {
+        'title': 'Sábio Consumado',
+        'desc': 'Completar 20 ciclos de leitura',
+        'threshold': 20,
+        'metric': 'cycle',
+        'progressSuffix': 'ciclos',
+        'rarity': 'lendario',
+        'icon': Icons.workspace_premium_rounded,
+        'color': Color(0xFFFFC107),
+        'quote': '"O coração do sábio está na casa do luto, mas o coração dos tolos está na casa da alegria."',
+        'ref': 'Eclesiastes 7:4',
+      },
+      // ===== DESTAQUES (highlight) =====
+      {
+        'title': 'Primeiro Destaque',
+        'desc': 'Marcar 1 versículo com destaque',
+        'threshold': 1,
+        'metric': 'highlight',
+        'progressSuffix': 'destaques',
+        'rarity': 'comum',
+        'icon': Icons.highlight_alt_rounded,
+        'color': Color(0xFFFFF176),
+        'quote': '"O preceito é lâmpada, e a luz brilha nas trevas."',
+        'ref': 'Provérbios 6:23',
+      },
+      {
+        'title': 'Colorindo a Palavra',
+        'desc': 'Marcar 5 versículos com destaque',
+        'threshold': 5,
+        'metric': 'highlight',
+        'progressSuffix': 'destaques',
+        'rarity': 'comum',
+        'icon': Icons.palette_rounded,
+        'color': Color(0xFFA5D6A7),
+        'quote': '"O coração alegre aformoseia o rosto."',
+        'ref': 'Provérbios 15:13',
+      },
+      {
+        'title': 'Arco-Íris da Sabedoria',
+        'desc': 'Marcar 10 versículos com destaque',
+        'threshold': 10,
+        'metric': 'highlight',
+        'progressSuffix': 'destaques',
+        'rarity': 'raro',
+        'icon': Icons.gradient_rounded,
+        'color': Color(0xFF90CAF9),
+        'quote': '"O sábio de coração será chamado prudente."',
+        'ref': 'Provérbios 16:21',
+      },
+      {
+        'title': 'Escriba Iluminado',
+        'desc': 'Marcar 25 versículos com destaque',
+        'threshold': 25,
+        'metric': 'highlight',
+        'progressSuffix': 'destaques',
+        'rarity': 'epico',
+        'icon': Icons.lightbulb_rounded,
+        'color': Color(0xFFFFCC80),
+        'quote': '"O ouvido que escuta a instrução da vida habitará no meio dos sábios."',
+        'ref': 'Provérbios 15:31',
+      },
+      {
+        'title': 'Iluminador',
+        'desc': 'Marcar 50 versículos com destaque',
+        'threshold': 50,
+        'metric': 'highlight',
+        'progressSuffix': 'destaques',
+        'rarity': 'epico',
+        'icon': Icons.flare_rounded,
+        'color': Color(0xFFFFB74D),
+        'quote': '"A luz brilha nas trevas, e as trevas não prevaleceram contra ela."',
+        'ref': 'João 1:5',
+      },
+      {
+        'title': 'Farol da Palavra',
+        'desc': 'Marcar 100 versículos com destaque',
+        'threshold': 100,
+        'metric': 'highlight',
+        'progressSuffix': 'destaques',
+        'rarity': 'lendario',
+        'icon': Icons.lan_rounded,
+        'color': Color(0xFFFFD54F),
+        'quote': '"A vereda do justo é como a luz da aurora, que vai brilhando mais e mais até ser dia perfeito."',
+        'ref': 'Provérbios 4:18',
+      },
+      {
+        'title': 'Escritor de Luz',
+        'desc': 'Marcar 200 versículos com destaque',
+        'threshold': 200,
+        'metric': 'highlight',
+        'progressSuffix': 'destaques',
+        'rarity': 'lendario',
+        'icon': Icons.sunny_snowing,
+        'color': Color(0xFFFFCC02),
+        'quote': '"A tua palavra é lâmpada para os meus pés e luz para o meu caminho."',
+        'ref': 'Salmos 119:105',
+      },
+      // ===== NOTAS (note) =====
+      {
+        'title': 'Primeira Reflexão',
+        'desc': 'Criar 1 anotação',
+        'threshold': 1,
+        'metric': 'note',
+        'progressSuffix': 'anotações',
+        'rarity': 'comum',
+        'icon': Icons.edit_note_rounded,
+        'color': Color(0xFFCE93D8),
+        'quote': '"O coração do sábio instrui a sua boca e aos seus lábios acrescenta ciência."',
+        'ref': 'Provérbios 16:23',
+      },
+      {
+        'title': 'Coração Transbordante',
+        'desc': 'Criar 5 anotações',
+        'threshold': 5,
+        'metric': 'note',
+        'progressSuffix': 'anotações',
+        'rarity': 'raro',
+        'icon': Icons.favorite_rounded,
+        'color': Color(0xFFEF9A9A),
+        'quote': '"As palavras dos sábios são como aguilhões."',
+        'ref': 'Eclesiastes 12:11',
+      },
+      {
+        'title': 'Diário de Sabedoria',
+        'desc': 'Criar 15 anotações',
+        'threshold': 15,
+        'metric': 'note',
+        'progressSuffix': 'anotações',
+        'rarity': 'epico',
+        'icon': Icons.menu_book_rounded,
+        'color': Color(0xFF81D4FA),
+        'quote': '"O coração do entendido adquire o conhecimento, e o ouvido dos sábios busca a sabedoria."',
+        'ref': 'Provérbios 18:15',
+      },
+      {
+        'title': 'Crônicas de Provérbios',
+        'desc': 'Criar 31 anotações',
+        'threshold': 31,
+        'metric': 'note',
+        'progressSuffix': 'anotações',
+        'rarity': 'lendario',
+        'icon': Icons.auto_stories_rounded,
+        'color': Color(0xFFB39DDB),
+        'quote': '"Escrevei estes mandamentos no coração e na alma."',
+        'ref': 'Deuteronômio 11:18',
+      },
+      {
+        'title': 'Memorial Fiel',
+        'desc': 'Criar 50 anotações',
+        'threshold': 50,
+        'metric': 'note',
+        'progressSuffix': 'anotações',
+        'rarity': 'epico',
+        'icon': Icons.archive_rounded,
+        'color': Color(0xFFA1887F),
+        'quote': '"O entendimento guarda-te e o conhecimento te protege."',
+        'ref': 'Provérbios 2:11',
+      },
+      {
+        'title': 'Tesouro de Sabedoria',
+        'desc': 'Criar 100 anotações',
+        'threshold': 100,
+        'metric': 'note',
+        'progressSuffix': 'anotações',
+        'rarity': 'lendario',
+        'icon': Icons.temple_buddhist_rounded,
+        'color': Color(0xFFD4E157),
+        'quote': '"O coração do sábio é tesouro de conhecimento e de sabedoria."',
+        'ref': 'Provérbios 10:14 (adaptado)',
+      },
+      // ===== FAVORITOS (favorite) =====
+      {
+        'title': 'Primeiro Favorito',
+        'desc': 'Adicionar 1 versículo aos favoritos',
+        'threshold': 1,
+        'metric': 'favorite',
+        'progressSuffix': 'favoritos',
+        'rarity': 'comum',
+        'icon': Icons.favorite_rounded,
+        'color': Color(0xFFEF9A9A),
+        'quote': '"Porque melhor é a sabedoria do que os rubis, e de tudo o que se deseja não é comparável a ela."',
+        'ref': 'Provérbios 8:11',
+      },
+      {
+        'title': 'Amante da Palavra',
+        'desc': 'Adicionar 10 versículos aos favoritos',
+        'threshold': 10,
+        'metric': 'favorite',
+        'progressSuffix': 'favoritos',
+        'rarity': 'comum',
+        'icon': Icons.favorite_border_rounded,
+        'color': Color(0xFFF48FB1),
+        'quote': '"Os lábios do sábio espalham conhecimento."',
+        'ref': 'Provérbios 15:7',
+      },
+      {
+        'title': 'Colecionador de Versículos',
+        'desc': 'Adicionar 30 versículos aos favoritos',
+        'threshold': 30,
+        'metric': 'favorite',
+        'progressSuffix': 'favoritos',
+        'rarity': 'raro',
+        'icon': Icons.collections_bookmark_rounded,
+        'color': Color(0xFFCE93D8),
+        'quote': '"O homem sábio é forte, e o homem de conhecimento consolida a força."',
+        'ref': 'Provérbios 24:5',
+      },
+      {
+        'title': 'Guardião de Joias',
+        'desc': 'Adicionar 60 versículos aos favoritos',
+        'threshold': 60,
+        'metric': 'favorite',
+        'progressSuffix': 'favoritos',
+        'rarity': 'epico',
+        'icon': Icons.diamond_rounded,
+        'color': Color(0xFF81D4FA),
+        'quote': '"A língua dos sábios adorna o conhecimento."',
+        'ref': 'Provérbios 15:2',
+      },
+      {
+        'title': 'Biblioteca Viva',
+        'desc': 'Adicionar 100 versículos aos favoritos',
+        'threshold': 100,
+        'metric': 'favorite',
+        'progressSuffix': 'favoritos',
+        'rarity': 'lendario',
+        'icon': Icons.local_library_rounded,
+        'color': Color(0xFFB39DDB),
+        'quote': '"O temor do Senhor é o princípio do saber; os loucos desprezam a sabedoria e o ensino."',
+        'ref': 'Provérbios 1:7',
+      },
     ];
 
     final streakAchievements =
@@ -886,6 +901,14 @@ class _ReadingPlanPageState extends State<ReadingPlanPage>
         achievements.where((a) => a['metric'] == 'total').toList();
     final chapterAchievements =
         achievements.where((a) => a['metric'] == 'chapter').toList();
+    final highlightAchievements =
+        achievements.where((a) => a['metric'] == 'highlight').toList();
+    final noteAchievements =
+        achievements.where((a) => a['metric'] == 'note').toList();
+    final cycleAchievements =
+        achievements.where((a) => a['metric'] == 'cycle').toList();
+    final favoriteAchievements =
+        achievements.where((a) => a['metric'] == 'favorite').toList();
 
     final totalUnlocked = achievements.where((a) {
       final metric = a['metric'] as String;
@@ -894,7 +917,15 @@ class _ReadingPlanPageState extends State<ReadingPlanPage>
           ? longestStreak
           : metric == 'total'
               ? totalReadDays
-              : chaptersCompletedInCycle;
+              : metric == 'chapter'
+                  ? chaptersCompletedInCycle
+                  : metric == 'highlight'
+                      ? _highlightCount
+                      : metric == 'note'
+                          ? _noteCount
+                          : metric == 'cycle'
+                              ? totalCycles
+                              : _favoriteCount;
       return val >= threshold;
     }).length;
 
@@ -932,6 +963,42 @@ class _ReadingPlanPageState extends State<ReadingPlanPage>
           achievements: chapterAchievements,
           currentValue: chaptersCompletedInCycle,
           startDelay: (streakAchievements.length + totalAchievements.length) * 60,
+        ),
+        const SizedBox(height: 20),
+        _buildAchievementCategory(
+          context: context,
+          categoryTitle: 'Destaques',
+          categoryEmoji: '🖍️',
+          achievements: highlightAchievements,
+          currentValue: _highlightCount,
+          startDelay: (streakAchievements.length + totalAchievements.length + chapterAchievements.length) * 60,
+        ),
+        const SizedBox(height: 20),
+        _buildAchievementCategory(
+          context: context,
+          categoryTitle: 'Notas e Reflexões',
+          categoryEmoji: '📝',
+          achievements: noteAchievements,
+          currentValue: _noteCount,
+          startDelay: (streakAchievements.length + totalAchievements.length + chapterAchievements.length + highlightAchievements.length) * 60,
+        ),
+        const SizedBox(height: 20),
+        _buildAchievementCategory(
+          context: context,
+          categoryTitle: 'Ciclos Completos',
+          categoryEmoji: '🔄',
+          achievements: cycleAchievements,
+          currentValue: totalCycles,
+          startDelay: (streakAchievements.length + totalAchievements.length + chapterAchievements.length + highlightAchievements.length + noteAchievements.length) * 60,
+        ),
+        const SizedBox(height: 20),
+        _buildAchievementCategory(
+          context: context,
+          categoryTitle: 'Favoritos',
+          categoryEmoji: '❤️',
+          achievements: favoriteAchievements,
+          currentValue: _favoriteCount,
+          startDelay: (streakAchievements.length + totalAchievements.length + chapterAchievements.length + highlightAchievements.length + noteAchievements.length + cycleAchievements.length) * 60,
         ),
       ],
     );
@@ -1141,40 +1208,69 @@ class _ReadingPlanPageState extends State<ReadingPlanPage>
           ),
         ],
       ),
-      child: Column(
+      child: Stack(
         children: [
-          const GlowingFireIcon(),
-          const SizedBox(height: 16),
-          TweenAnimationBuilder<int>(
-            tween: IntTween(
-              begin: widget.showConfetti
-                  ? max(0, user.readingStreak - 1)
-                  : user.readingStreak,
-              end: user.readingStreak,
-            ),
-            duration: const Duration(milliseconds: 1500),
-            curve: Curves.easeOutCubic,
-            builder: (context, val, child) {
-              return Text(
-                '$val DIAS',
-                style: const TextStyle(
-                  fontSize: 48,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                  letterSpacing: 2,
+          Column(
+            children: [
+              const GlowingFireIcon(),
+              const SizedBox(height: 16),
+              TweenAnimationBuilder<int>(
+                tween: IntTween(
+                  begin: widget.showConfetti
+                      ? max(0, user.readingStreak - 1)
+                      : user.readingStreak,
+                  end: user.readingStreak,
                 ),
-              );
-            },
+                duration: const Duration(milliseconds: 1500),
+                curve: Curves.easeOutCubic,
+                builder: (context, val, child) {
+                  return Text(
+                    '$val DIAS',
+                    style: const TextStyle(
+                      fontSize: 48,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                      letterSpacing: 2,
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 4),
+              Text(
+                user.readingStreak > 0
+                    ? 'Sequência atual'
+                    : 'Comece a ler hoje',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white.withOpacity(0.9),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 4),
-          Text(
-            user.readingStreak > 0
-                ? 'Sequência atual'
-                : 'Comece a ler hoje',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w500,
-              color: Colors.white.withOpacity(0.9),
+          Positioned(
+            top: -8,
+            right: -8,
+            child: IconButton(
+              icon: const Icon(Icons.share_rounded, color: Colors.white70),
+              tooltip: 'Compartilhar ofensiva',
+              onPressed: () {
+                final card = ShareableCard(
+                  type: ShareCardType.streak,
+                  title: '🔥 ${user.readingStreak} DIAS',
+                  subtitle: user.readingStreak > 0
+                      ? 'Sequência atual de leitura'
+                      : 'Comece sua sequência hoje!',
+                  body: 'Maior sequência: ${user.longestStreak} dias',
+                  footer: 'ProVê — Provérbios Diários',
+                  icon: Icons.local_fire_department_rounded,
+                );
+                ShareImageService.showSharePreview(
+                  context: context,
+                  card: card,
+                  shareText: '🔥 Minha ofensiva no ProVê: ${user.readingStreak} dias de leitura em Provérbios!',
+                );
+              },
             ),
           ),
         ],
@@ -1867,6 +1963,409 @@ class _AchievementCardState extends State<_AchievementCard>
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AchievementDialogContent extends StatefulWidget {
+  final Map<String, dynamic> achievement;
+  final bool isUnlocked;
+  final int currentValue;
+  final Color color;
+  final IconData iconData;
+  final int threshold;
+  final String rarityLabel;
+  final Color rarityColor;
+  final String quote;
+  final String ref;
+  final String progressText;
+
+  const _AchievementDialogContent({
+    required this.achievement,
+    required this.isUnlocked,
+    required this.currentValue,
+    required this.color,
+    required this.iconData,
+    required this.threshold,
+    required this.rarityLabel,
+    required this.rarityColor,
+    required this.quote,
+    required this.ref,
+    required this.progressText,
+  });
+
+  @override
+  State<_AchievementDialogContent> createState() =>
+      _AchievementDialogContentState();
+}
+
+class _AchievementDialogContentState extends State<_AchievementDialogContent> {
+  late ConfettiController _confetti;
+
+  @override
+  void initState() {
+    super.initState();
+    _confetti = ConfettiController(duration: const Duration(seconds: 2));
+    if (widget.isUnlocked) {
+      _confetti.play();
+    }
+  }
+
+  @override
+  void dispose() {
+    _confetti.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Material(
+        color: Colors.transparent,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.all(28),
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                borderRadius: BorderRadius.circular(36),
+                boxShadow: [
+                  BoxShadow(
+                    color: widget.isUnlocked
+                        ? widget.color.withOpacity(0.25)
+                        : Colors.black.withOpacity(0.15),
+                    blurRadius: 50,
+                    offset: const Offset(0, 20),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Rarity Badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: widget.rarityColor.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(100),
+                      border: Border.all(
+                        color: widget.rarityColor.withOpacity(0.3),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.stars_rounded,
+                          color: widget.rarityColor,
+                          size: 12,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          widget.rarityLabel,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                            color: widget.rarityColor,
+                            letterSpacing: 1.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Badge Icon
+                  Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Container(
+                        width: 110,
+                        height: 110,
+                        decoration: BoxDecoration(
+                          color: widget.isUnlocked
+                              ? widget.color.withOpacity(0.1)
+                              : ThemeColors.getLightBackground(context),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      Icon(
+                        widget.isUnlocked ? widget.iconData : Icons.lock_rounded,
+                        color: widget.isUnlocked
+                            ? widget.color
+                            : ThemeColors.getDisabledColor(context),
+                        size: 56,
+                      ),
+                      if (widget.isUnlocked)
+                        TweenAnimationBuilder<double>(
+                          tween: Tween(begin: 0.0, end: 1.0),
+                          duration: const Duration(milliseconds: 800),
+                          builder: (context, val, child) {
+                            return Transform.rotate(
+                              angle: val * 2 * pi,
+                              child: Icon(
+                                Icons.auto_awesome_rounded,
+                                color: widget.color.withOpacity(0.35),
+                                size: 130,
+                              ),
+                            );
+                          },
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Title
+                  Text(
+                    widget.achievement['title'] as String,
+                    style: TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.8,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Desc pill
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: widget.isUnlocked
+                          ? widget.color.withOpacity(0.1)
+                          : ThemeColors.getLightBackground(context),
+                      borderRadius: BorderRadius.circular(100),
+                    ),
+                    child: Text(
+                      widget.achievement['desc'] as String,
+                      style: TextStyle(
+                        color: widget.isUnlocked
+                            ? widget.color
+                            : ThemeColors.getSecondaryTextColor(context),
+                        fontWeight: FontWeight.w800,
+                        fontSize: 11,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Biblical Quote
+                  if (widget.quote.isNotEmpty) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: widget.isUnlocked
+                            ? widget.color.withOpacity(0.06)
+                            : ThemeColors.getLightBackground(context),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: widget.isUnlocked
+                              ? widget.color.withOpacity(0.18)
+                              : ThemeColors.getDividerColor(context),
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.format_quote_rounded,
+                            color: widget.isUnlocked
+                                ? widget.color.withOpacity(0.5)
+                                : ThemeColors.getDisabledColor(context),
+                            size: 20,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            widget.quote,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontStyle: FontStyle.italic,
+                              color: ThemeColors.getSecondaryTextColor(
+                                context,
+                              ),
+                              height: 1.6,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            widget.ref,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              color: widget.isUnlocked
+                                  ? widget.color
+                                  : ThemeColors.getTertiaryTextColor(
+                                      context,
+                                    ),
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // Progress Section
+                  if (!widget.isUnlocked) ...[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'PROGRESSO ATUAL',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                            color: ThemeColors.getTertiaryTextColor(
+                              context,
+                            ),
+                            letterSpacing: 1,
+                          ),
+                        ),
+                        Text(
+                          widget.progressText,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                            color: widget.color,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(100),
+                      child: LinearProgressIndicator(
+                        value: (widget.currentValue / widget.threshold)
+                            .clamp(0, 1)
+                            .toDouble(),
+                        minHeight: 8,
+                        backgroundColor: Theme.of(context).dividerColor,
+                        valueColor: AlwaysStoppedAnimation<Color>(widget.color),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      'Continue lendo regularmente para desbloquear.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: ThemeColors.getSecondaryTextColor(context),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ] else ...[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.check_circle_rounded,
+                          color: Colors.green,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'DESBLOQUEADO',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.green,
+                            letterSpacing: 2,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Você conquistou este marco.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: ThemeColors.getSecondaryTextColor(context),
+                        height: 1.5,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+
+                  SizedBox(
+                    height: 54,
+                    width: double.infinity,
+                    child: BounceButton(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: widget.isUnlocked
+                              ? widget.color
+                              : Theme.of(
+                                  context,
+                                ).colorScheme.primary,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: (widget.isUnlocked
+                                      ? widget.color
+                                      : Theme.of(
+                                          context,
+                                        ).colorScheme.primary)
+                                  .withOpacity(0.3),
+                              blurRadius: 12,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
+                        ),
+                        child: Center(
+                          child: Text(
+                            widget.isUnlocked ? 'Ótimo!' : 'OK',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (widget.isUnlocked)
+              Align(
+                alignment: Alignment.center,
+                child: ConfettiWidget(
+                  confettiController: _confetti,
+                  blastDirectionality: BlastDirectionality.explosive,
+                  maxBlastForce: 20,
+                  minBlastForce: 8,
+                  emissionFrequency: 0.05,
+                  numberOfParticles: 20,
+                  gravity: 0.1,
+                  colors: const [
+                    Colors.green,
+                    Colors.blue,
+                    Colors.pink,
+                    Colors.orange,
+                    Colors.purple,
+                    Colors.amber,
+                  ],
+                ),
+              ),
+          ],
         ),
       ),
     );

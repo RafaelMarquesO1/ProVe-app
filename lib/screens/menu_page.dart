@@ -542,6 +542,13 @@ class _MenuPageState extends State<MenuPage>
         color: const Color(0xFF247BA0),
         onTap: () => context.push('/library', extra: {'initialIndex': 1}),
       ),
+      _QuickActionItem(
+        icon: Icons.quiz_rounded,
+        title: 'Quiz Bíblico',
+        subtitle: 'Teste seu conhecimento',
+        color: const Color(0xFF9B59B6),
+        onTap: () => context.push('/quiz'),
+      ),
     ];
   }
 
