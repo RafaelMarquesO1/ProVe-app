@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:prove/models/user_model.dart';
+import 'package:prove/services/quiz_service.dart';
 import 'package:prove/services/whats_new_service.dart';
 import 'package:prove/widgets/bounce_button.dart';
 import 'package:share_plus/share_plus.dart';
@@ -29,6 +30,8 @@ class _HomePageState extends State<HomePage>
   bool _isVerseLoadError = false;
   bool _showAnnualView = false;
   int _selectedYear = DateTime.now().year;
+  int _quizHighScore = 0;
+  int _quizTotalAttempts = 0;
   late final AnimationController _shimmerController;
   late final AnimationController _entranceController;
   late final Stream<UserModel?> _userStream;
@@ -49,6 +52,7 @@ class _HomePageState extends State<HomePage>
       duration: const Duration(milliseconds: 900),
     )..forward();
     _loadVerseOfTheDay();
+    _loadQuizStats();
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkWhatsNew());
   }
 
@@ -332,6 +336,18 @@ class _HomePageState extends State<HomePage>
     }
   }
 
+  Future<void> _loadQuizStats() async {
+    final quizService = QuizService();
+    final stats = await quizService.getStats();
+    final history = await quizService.getHistory();
+    if (mounted) {
+      setState(() {
+        _quizHighScore = stats['highScore'] ?? 0;
+        _quizTotalAttempts = history.length;
+      });
+    }
+  }
+
   void _shareVerse() {
     if (_verseOfTheDay.isNotEmpty) {
       final text = _verseOfTheDay['text']!;
@@ -441,11 +457,21 @@ class _HomePageState extends State<HomePage>
             ),
             const SizedBox(height: 24),
 
-            // 4. Calendário
+            // 4. Quiz Bíblico
             FadeTransition(
               opacity: _staggeredFade(3),
               child: SlideTransition(
                 position: _staggeredSlide(3),
+                child: _buildQuizSuggestionCard(context, colorScheme),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // 5. Calendário
+            FadeTransition(
+              opacity: _staggeredFade(4),
+              child: SlideTransition(
+                position: _staggeredSlide(4),
                 child: _buildCalendarCard(
                   context,
                   textTheme,
@@ -697,6 +723,93 @@ class _HomePageState extends State<HomePage>
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuizSuggestionCard(
+    BuildContext context,
+    ColorScheme colorScheme,
+  ) {
+    return Semantics(
+      button: true,
+      label: 'Abrir quiz bíblico',
+      child: BounceButton(
+        onTap: () {
+          HapticFeedback.mediumImpact();
+          context.push('/quiz');
+        },
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                colorScheme.primary.withValues(alpha: 0.1),
+                colorScheme.primary.withValues(alpha: 0.03),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: colorScheme.primary.withValues(alpha: 0.2),
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: colorScheme.primary.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.quiz_rounded,
+                  color: colorScheme.primary,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Quiz Bíblico',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _quizTotalAttempts > 0
+                          ? 'Melhor: $_quizHighScore/10  •  $_quizTotalAttempts tentativa${_quizTotalAttempts > 1 ? 's' : ''}'
+                          : 'Teste seus conhecimentos em Provérbios',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: colorScheme.onSurface.withValues(alpha: 0.55),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: colorScheme.primary.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.arrow_forward_rounded,
+                  color: colorScheme.primary,
+                  size: 20,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

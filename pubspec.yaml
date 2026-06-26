@@ -2,8 +2,8 @@ name: prove
 description: "ProVe - Provérbios Bíblicos"
 publish_to: 'none'
 
-version: 1.3.0+9
-# Versão 9 - Adicionado Quiz, Modo Foco e Compartilhar como Imagem
+version: 1.4.0+10
+# Versão 10 - Quiz aprimorado, card do quiz na Home, compartilhamento de imagens renovado
 
 environment:
   sdk: ^3.9.0

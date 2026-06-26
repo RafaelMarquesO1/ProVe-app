@@ -178,6 +178,48 @@ class WhatsNewService {
         ),
       ],
     ),
+    '10': VersionChangelog(
+      version: '1.4.0',
+      title: 'Quiz turbinado e mais 🚀',
+      items: [
+        WhatsNewItem(
+          icon: Icons.timer_rounded,
+          title: 'Timer no Quiz',
+          description:
+              'Agora cada pergunta tem 30 segundos para ser respondida! Você pode ativar ou desativar o timer quando quiser. O tempo restante aparece em verde, laranja ou vermelho.',
+        ),
+        WhatsNewItem(
+          icon: Icons.design_services_rounded,
+          title: 'Quiz com visual renovado',
+          description:
+              'O quiz ficou mais bonito e fluido! Novos gradientes, animações nas opções e feedback visual mais rico ao acertar ou errar.',
+        ),
+        WhatsNewItem(
+          icon: Icons.history_rounded,
+          title: 'Histórico de tentativas',
+          description:
+              'Acompanhe seu desempenho ao longo do tempo! Na tela de resultados, expanda o histórico para ver todas as suas tentativas anteriores com data e pontuação.',
+        ),
+        WhatsNewItem(
+          icon: Icons.celebration_rounded,
+          title: 'Confete nos resultados',
+          description:
+              'Ao atingir 70% ou mais de acertos, uma chuva de confete comemora seu resultado!',
+        ),
+        WhatsNewItem(
+          icon: Icons.home_rounded,
+          title: 'Quiz na tela inicial',
+          description:
+              'O quiz agora tem um card especial na página inicial, mostrando sua melhor pontuação e número de tentativas. Toque e comece a jogar!',
+        ),
+        WhatsNewItem(
+          icon: Icons.palette_rounded,
+          title: 'Compartilhamento renovado',
+          description:
+              'Os cards de compartilhamento estão mais bonitos com novas fontes (Oswald e Lato), gradientes mais ricos e layout ajustado para versículos, ofensiva e quiz.',
+        ),
+      ],
+    ),
     '9': VersionChangelog(
       version: '1.3.0',
       title: 'Novidades incríveis ✨',

@@ -6,10 +6,39 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:prove/models/quiz_question.dart';
 
+class QuizAttempt {
+  final DateTime date;
+  final int correct;
+  final int total;
+  final List<String> missedReferences;
+
+  const QuizAttempt({
+    required this.date,
+    required this.correct,
+    required this.total,
+    required this.missedReferences,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'date': date.toIso8601String(),
+        'correct': correct,
+        'total': total,
+        'missedReferences': missedReferences,
+      };
+
+  factory QuizAttempt.fromJson(Map<String, dynamic> json) => QuizAttempt(
+        date: DateTime.parse(json['date'] as String),
+        correct: json['correct'] as int,
+        total: json['total'] as int,
+        missedReferences: List<String>.from(json['missedReferences'] as List),
+      );
+}
+
 class QuizService {
   static const String _highScoreKey = 'quiz_high_score';
   static const String _totalCorrectKey = 'quiz_total_correct';
   static const String _totalQuestionsKey = 'quiz_total_questions';
+  static const String _historyKey = 'quiz_history';
 
   List<Map<String, dynamic>>? _bibleData;
   final _random = Random();
@@ -152,5 +181,40 @@ class QuizService {
       'totalCorrect': prefs.getInt(_totalCorrectKey) ?? 0,
       'totalQuestions': prefs.getInt(_totalQuestionsKey) ?? 0,
     };
+  }
+
+  Future<void> saveQuizAttempt({
+    required int correct,
+    required int total,
+    required List<String> missedReferences,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final history = <QuizAttempt>[
+      QuizAttempt(
+        date: DateTime.now(),
+        correct: correct,
+        total: total,
+        missedReferences: missedReferences,
+      ),
+      ...await getHistory(),
+    ];
+    if (history.length > 50) {
+      history.removeRange(50, history.length);
+    }
+    final json = history.map((a) => a.toJson()).toList();
+    await prefs.setString(_historyKey, jsonEncode(json));
+  }
+
+  Future<List<QuizAttempt>> getHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_historyKey);
+    if (raw == null) return [];
+    final list = jsonDecode(raw) as List;
+    return list.map((e) => QuizAttempt.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<void> clearHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_historyKey);
   }
 }
